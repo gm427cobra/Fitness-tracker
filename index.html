@@ -140,10 +140,15 @@
   .meal{border-top:1px solid var(--line);padding:9px 0;}
   .meal:first-child{border-top:none;}
   .meal-h{display:flex;justify-content:space-between;font-weight:600;font-size:13px;}
-  .meal-h .m{font-family:var(--f-mono);color:var(--blue);font-size:12px;}
+  .meal-h .m{font-family:var(--f-mono);color:var(--blue);font-size:12px;white-space:nowrap;padding-left:8px;}
   .meal-food{font-size:12px;color:var(--ink-dim);margin-top:3px;}
   .meal.pk{background:rgba(79,182,201,.06);margin:9px -14px;padding:9px 14px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
   .pk-tag{display:inline-block;font-size:9px;background:var(--blue);color:#0a0d10;padding:1px 6px;border-radius:3px;font-weight:700;letter-spacing:.05em;margin-left:6px;vertical-align:middle;}
+  .pace{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--line);border-radius:6px;padding:9px 11px;background:rgba(0,0,0,.15);}
+  .pace-l{font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;}
+  .pace-v{font-family:var(--f-mono);font-size:15px;font-weight:700;white-space:nowrap;}
+  .meal-time{font-family:var(--f-mono);color:var(--ink-dim);font-size:11px;font-weight:400;margin-right:7px;}
+  .meal-sug{font-family:var(--f-mono);font-size:11px;color:var(--ink-dim);margin-top:3px;}
 
   .week-label{font-size:10px;letter-spacing:.1em;color:var(--ink-dim);text-transform:uppercase;margin:14px 0 6px;font-weight:600;}
   .day-card{border:1px solid var(--line);border-radius:8px;margin-bottom:6px;overflow:hidden;background:var(--panel);}
@@ -782,8 +787,23 @@ function showView(name){
   for(var j=0;j<tabs.length;j++) tabs[j].classList.remove('active');
   document.getElementById('view-'+name).classList.add('active');
   document.querySelector('.tab[data-view="'+name+'"]').classList.add('active');
+  if(name==='today'){ renderToday(); }
   if(name==='progress'){ renderProgress(); }
   if(name==='drinks'){ renderAlcoholChart(); }
+}
+/* Pace is time-of-day sensitive, so tick the Today tab over while it's open.
+   Only re-renders when that view is actually visible. */
+var todayTimer = null, lastRenderedDay = null;
+function startTodayAutoRefresh(){
+  if(todayTimer) return;
+  lastRenderedDay = todayStr();
+  todayTimer = setInterval(function(){
+    var v = document.getElementById('view-today');
+    if(!v || !v.classList.contains('active')) return;
+    var d = todayStr();
+    if(d !== lastRenderedDay){ lastRenderedDay = d; renderHeader(); renderPlan(); }
+    renderToday();
+  }, 5*60*1000);
 }
 function renderProgress(){
   renderWeekStats();
@@ -886,6 +906,119 @@ function renderExerciseBlock(tpl, containerEl){
     containerEl.appendChild(div);
   });
 }
+/* ================= MEAL PACING =================
+   Meals carry no clock time in the plan data, so fall back to a sensible
+   schedule matched off the meal name. A meal may override it with a "time"
+   field ("HH:MM") via the plan editor. */
+var DEFAULT_MEAL_TIMES = [
+  {re:/breakfast/i, t:'08:00'},
+  {re:/lunch/i, t:'13:00'},
+  {re:/snack|shake/i, t:'16:00'},
+  {re:/dinner/i, t:'19:00'},
+  {re:/evening|supper/i, t:'21:30'}
+];
+function hm2min(str){ var p=String(str).split(':'); return parseInt(p[0],10)*60+parseInt(p[1],10); }
+function min2hm(m){ var h=Math.floor(m/60), mm=m%60; return (h<10?'0':'')+h+':'+(mm<10?'0':'')+mm; }
+function mealTimes(meals){
+  var n=meals.length;
+  var times = meals.map(function(m){
+    if(m.time && /^\d{1,2}:\d{2}$/.test(m.time)) return hm2min(m.time);
+    for(var k=0;k<DEFAULT_MEAL_TIMES.length;k++){
+      if(DEFAULT_MEAL_TIMES[k].re.test(m.name||'')) return hm2min(DEFAULT_MEAL_TIMES[k].t);
+    }
+    return null;
+  });
+  /* Any gap or out-of-order match and the whole schedule is unreliable —
+     spread the meals evenly across the day instead of half-guessing. */
+  var ok=true;
+  for(var i=0;i<n;i++){
+    if(times[i]==null || (i && times[i]<=times[i-1])){ ok=false; break; }
+  }
+  if(!ok){
+    var a=hm2min('08:00'), b=hm2min('21:30');
+    times = meals.map(function(m,idx){ return n<=1? a : Math.round(a+(b-a)*idx/(n-1)); });
+  }
+  return times;
+}
+function mealPacing(phase, totals){
+  var meals = (phase && phase.meals) || [];
+  if(!meals.length) return null;
+  var times = mealTimes(meals);
+  var now = new Date();
+  var nowMin = now.getHours()*60+now.getMinutes();
+
+  /* The per-meal figures don't always add up to the phase target — scale them
+     so "expected by now" is measured against the target you're actually held to. */
+  var sumK=0, sumP=0;
+  meals.forEach(function(m){ sumK+=(m.kcal||0); sumP+=(m.protein||0); });
+  var scaleK = sumK? phase.kcal/sumK : 0;
+  var scaleP = sumP? phase.protein/sumP : 0;
+
+  var expK=0, expP=0, upcoming=[], upK=0, upP=0;
+  meals.forEach(function(m,i){
+    if(times[i]<=nowMin){ expK+=(m.kcal||0)*scaleK; expP+=(m.protein||0)*scaleP; }
+    else { upcoming.push({meal:m, time:times[i]}); upK+=(m.kcal||0); upP+=(m.protein||0); }
+  });
+
+  var rem = {
+    kcal: Math.max(0, phase.kcal-totals.kcal),
+    protein: Math.max(0, phase.protein-totals.protein),
+    carbs: Math.max(0, phase.carbs-totals.carbs),
+    fat: Math.max(0, phase.fat-totals.fat)
+  };
+  /* Split what's left over the meals still ahead, weighted by how big each one
+     normally is — by kcal share, and by protein share for protein. */
+  var suggestions = upcoming.map(function(u){
+    var wK = upK? (u.meal.kcal||0)/upK : 1/upcoming.length;
+    var wP = upP? (u.meal.protein||0)/upP : 1/upcoming.length;
+    return {
+      name:u.meal.name, food:u.meal.food, pk:u.meal.pk, pkTag:u.meal.pkTag, time:min2hm(u.time),
+      kcal:Math.round(rem.kcal*wK), protein:Math.round(rem.protein*wP),
+      carbs:Math.round(rem.carbs*wK), fat:Math.round(rem.fat*wK)
+    };
+  });
+
+  var diff = totals.kcal-expK;
+  var status = Math.abs(diff)<=150 ? 'on' : (diff>0? 'ahead':'behind');
+  return {nowMin:nowMin, expected:{kcal:expK, protein:expP}, diff:diff, status:status,
+          suggestions:suggestions, rem:rem};
+}
+function renderPacing(phase, totals){
+  var mp = mealPacing(phase, totals);
+  if(!mp) return '';
+  var col = {on:'var(--green)', ahead:'var(--amber)', behind:'var(--red)'}[mp.status];
+  var word = {on:'On pace', ahead:'Ahead of pace', behind:'Behind pace'}[mp.status];
+  var html =
+    '<h3 class="section">Pace</h3>'+
+    '<div class="pace">'+
+      '<div>'+
+        '<div class="pace-l" style="color:'+col+'">'+word+' · '+min2hm(mp.nowMin)+'</div>'+
+        '<div class="meal-food">Logged '+Math.round(totals.kcal)+' · usually '+Math.round(mp.expected.kcal)+' kcal by now</div>'+
+      '</div>'+
+      '<div class="pace-v" style="color:'+col+'">'+(mp.diff>=0?'+':'−')+Math.abs(Math.round(mp.diff))+'</div>'+
+    '</div>'+
+    '<h3 class="section">Suggested for rest of today</h3>';
+  if(mp.suggestions.length){
+    html += mp.suggestions.map(function(s){
+      return '<div class="'+(s.pk?'meal pk':'meal')+'">'+
+        '<div class="meal-h">'+
+          '<span><span class="meal-time">'+s.time+'</span>'+s.name+
+            (s.pk? '<span class="pk-tag">'+(s.pkTag||'PREP KITCHEN')+'</span>':'')+'</span>'+
+          '<span class="m">'+s.kcal+' kcal · '+s.protein+'P</span>'+
+        '</div>'+
+        '<div class="meal-sug">'+s.carbs+'g carbs · '+s.fat+'g fat</div>'+
+        '<div class="meal-food">'+(s.food||'')+'</div>'+
+      '</div>';
+    }).join('');
+  } else if(mp.rem.kcal>0){
+    html += '<div class="note-strip">No meals left on the schedule — still '+Math.round(mp.rem.kcal)+
+            ' kcal and '+Math.round(mp.rem.protein)+'g protein short of target.</div>';
+  } else {
+    html += '<div class="note-strip blue">All meals done and you\'re at target for the day.</div>';
+  }
+  return html;
+}
+
 function computeFoodTotals(dateStr){
   var entries = foodLog.filter(function(e){return e.date===dateStr;});
   return entries.reduce(function(a,e){a.kcal+=e.kcal;a.protein+=e.protein;a.carbs+=e.carbs;a.fat+=e.fat;return a;},{kcal:0,protein:0,carbs:0,fat:0});
@@ -944,6 +1077,7 @@ function renderToday(){
       '<div class="macro-grid">'+
         remCell(rem.kcal,'kcal')+remCell(rem.protein,'Protein')+remCell(rem.carbs,'Carbs')+remCell(rem.fat,'Fat')+
       '</div>'+
+      renderPacing(macros, totals)+
       '<p class="lead">Dinner: Prep Kitchen — Muscle Gain, '+(diet2==='rest'?'Regular / lower-carb':'Large')+'. Full breakdown on the Diet tab.</p>';
   }
 }
@@ -1762,6 +1896,7 @@ async function startApp(){
   renderAlcTable();
   renderFoodTable();
   checkQuickAdd();
+  startTodayAutoRefresh();
 }
 /* App starts via startApp(), triggered by onAuthStateChanged once logged in. */
 </script>

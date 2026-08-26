@@ -180,8 +180,10 @@
   .login-card .plate-name{margin-bottom:16px;}
   .signout{position:absolute;top:16px;right:16px;background:none;border:1px solid var(--line);color:var(--ink-dim);border-radius:20px;padding:4px 11px;font-size:10px;letter-spacing:.05em;cursor:pointer;font-family:var(--f-body);}
   .qa-card{border-color:var(--blue) !important;}  .adh-row{display:flex;gap:4px;margin-bottom:4px;}
-  .adh-cell{flex:1;height:22px;border-radius:3px;cursor:pointer;min-width:0;}
+  .adh-cell{flex:1;height:16px;border-radius:3px;cursor:pointer;min-width:0;}
   .adh-cell.adh-today{outline:2px solid var(--blue);outline-offset:1px;}
+  .adh-label{font-size:10px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.06em;margin:10px 0 4px;}
+  .adh-label:first-child{margin-top:0;}
 </style>
 </head>
 <body>
@@ -370,7 +372,14 @@
 
   <div class="card">
     <div class="card-h"><h2>Diet adherence</h2></div>
-    <div id="dietAdherence"></div>
+    <div class="adh-label">Kcal</div>
+    <div id="dietAdh_kcal"></div>
+    <div class="adh-label">Protein</div>
+    <div id="dietAdh_protein"></div>
+    <div class="adh-label">Carbs</div>
+    <div id="dietAdh_carbs"></div>
+    <div class="adh-label">Fat</div>
+    <div id="dietAdh_fat"></div>
     <div class="legend" style="margin-top:8px">
       <span><i style="background:var(--green)"></i>On target</span>
       <span><i style="background:var(--amber)"></i>Off</span>
@@ -443,6 +452,7 @@ var DAY_MS = 86400000;
 
 var DEFAULT_PLAN = {
   programStart: '2026-08-24',
+  trackingStart: '2026-08-25',
   programEnd: '2027-07-15',
   targetKg: 87.0,
   startKg: 96.0,
@@ -778,6 +788,11 @@ function dayIndexFromDate(dateStr){
   var d=new Date(dateStr+'T00:00:00');
   return Math.round((d-start)/DAY_MS);
 }
+function trackDayIndex(dateStr){
+  var start=new Date(PLAN.trackingStart+'T00:00:00');
+  var d=new Date(dateStr+'T00:00:00');
+  return Math.round((d-start)/DAY_MS);
+}
 function dietPhaseForIndex(i){
   for(var k=0;k<PLAN.dietPhaseBreaks.length;k++){
     if(i<PLAN.dietPhaseBreaks[k].upto) return PLAN.dietPhaseBreaks[k].phase;
@@ -802,12 +817,13 @@ function fmtDateLong(dateStr){
 /* ================= HEADER RING ================= */
 function renderHeader(){
   var idx = dayIndexFromDate(todayStr());
-  var clampedIdx = Math.max(0, idx);
-  var totalDays = Math.round((new Date(PLAN.programEnd)-new Date(PLAN.programStart))/DAY_MS);
-  var pct = Math.min(1, Math.max(0, clampedIdx/totalDays));
+  var trackIdx = trackDayIndex(todayStr());
+  var clampedTrackIdx = Math.max(0, trackIdx);
+  var totalDays = Math.round((new Date(PLAN.programEnd)-new Date(PLAN.trackingStart))/DAY_MS);
+  var pct = Math.min(1, Math.max(0, clampedTrackIdx/totalDays));
   var circumference = 188.5;
   document.getElementById('ringProgress').setAttribute('stroke-dashoffset', (circumference*(1-pct)).toFixed(1));
-  document.getElementById('ringDay').textContent = idx>=0 ? ('D'+ (idx+1)) : '—';
+  document.getElementById('ringDay').textContent = trackIdx>=0 ? ('D'+ (trackIdx+1)) : '—';
   document.getElementById('ringTotal').textContent = 'OF '+totalDays;
   document.getElementById('lblStart').textContent = PLAN.startKg.toFixed(1)+'kg';
   document.getElementById('lblTarget').textContent = PLAN.targetKg.toFixed(1)+'kg';
@@ -1275,7 +1291,15 @@ function namesLooselyMatch(planned, logged){
   var p = planned.toLowerCase(), l = logged.toLowerCase();
   return p===l || l.indexOf(p)!==-1 || p.indexOf(l)!==-1;
 }
+function macroStatus(logged, target){
+  if(!target) return 'future';
+  var pct = logged/target;
+  if(pct>=0.85 && pct<=1.15) return 'hit';
+  if(pct>=0.65 && pct<=1.35) return 'partial';
+  return 'missed';
+}
 function getTrainingStatus(dateStr){
+  if(dateStr < PLAN.trackingStart) return {status:'future'};
   var idx = dayIndexFromDate(dateStr);
   var todayIdx = dayIndexFromDate(todayStr());
   var tkey = templateForIndex(idx);
@@ -1295,6 +1319,7 @@ function getTrainingStatus(dateStr){
   return {status:status, planned:planned, logged:loggedEntries, matched:matched.length, total:planned.length};
 }
 function getDietStatus(dateStr){
+  if(dateStr < PLAN.trackingStart) return {status:'future'};
   var idx = dayIndexFromDate(dateStr);
   var todayIdx = dayIndexFromDate(todayStr());
   if(idx<0 || idx>=PLAN.totalProgramDays) return {status:'future'};
@@ -1302,45 +1327,58 @@ function getDietStatus(dateStr){
   var diet = dietPhaseForIndex(idx);
   var target = PLAN.dietPhases[diet];
   var totals = computeFoodTotals(dateStr);
+  var macros = {
+    kcal: macroStatus(totals.kcal, target.kcal),
+    protein: macroStatus(totals.protein, target.protein),
+    carbs: macroStatus(totals.carbs, target.carbs),
+    fat: macroStatus(totals.fat, target.fat)
+  };
   if(totals.kcal===0){
-    if(idx===todayIdx) return {status:'pending', target:target, totals:totals};
-    return {status:'missed', target:target, totals:totals};
+    if(idx===todayIdx) return {status:'pending', target:target, totals:totals, macros:macros};
+    return {status:'missed', target:target, totals:totals, macros:macros};
   }
   var pct = totals.kcal/target.kcal;
   var status = (pct>=0.85 && pct<=1.15) ? 'hit' : ((pct>=0.65 && pct<=1.35) ? 'partial' : 'off');
-  return {status:status, target:target, totals:totals, pct:pct};
+  return {status:status, target:target, totals:totals, pct:pct, macros:macros};
 }
 function renderAdherenceCalendars(){
   var trainWrap = document.getElementById('trainAdherence');
-  var dietWrap = document.getElementById('dietAdherence');
-  trainWrap.innerHTML=''; dietWrap.innerHTML='';
+  var macroKeys = ['kcal','protein','carbs','fat'];
+  var macroWraps = {};
+  macroKeys.forEach(function(k){ macroWraps[k] = document.getElementById('dietAdh_'+k); macroWraps[k].innerHTML=''; });
+  trainWrap.innerHTML='';
   var todayIdx = dayIndexFromDate(todayStr());
+  var trackStartIdx = dayIndexFromDate(PLAN.trackingStart);
   var lastIdx = Math.min(todayIdx, PLAN.totalProgramDays-1);
-  if(lastIdx<0) return;
-  var weeks = Math.ceil((lastIdx+1)/7);
-  for(var w=0; w<weeks; w++){
+  if(lastIdx<trackStartIdx) return;
+  var firstWeek = Math.floor(trackStartIdx/7);
+  var lastWeek = Math.floor(lastIdx/7);
+  for(var w=firstWeek; w<=lastWeek; w++){
     var rowT = document.createElement('div'); rowT.className='adh-row';
-    var rowD = document.createElement('div'); rowD.className='adh-row';
+    var rowM = {}; macroKeys.forEach(function(k){ rowM[k]=document.createElement('div'); rowM[k].className='adh-row'; });
     for(var d=0; d<7; d++){
       var idx = w*7+d;
-      if(idx>lastIdx) break;
+      if(idx<trackStartIdx || idx>lastIdx) continue;
       var date = addDays(PLAN.programStart, idx);
-      (function(dt){
+      (function(dt, isToday){
         var ts=getTrainingStatus(dt), ds=getDietStatus(dt);
         var cellT=document.createElement('div');
-        cellT.className='adh-cell'+(idx===todayIdx?' adh-today':'');
+        cellT.className='adh-cell'+(isToday?' adh-today':'');
         cellT.style.background=STATUS_COLOR[ts.status]||STATUS_COLOR.future;
         cellT.onclick=function(){ showDayDetail(dt); };
         rowT.appendChild(cellT);
-        var cellD=document.createElement('div');
-        cellD.className='adh-cell'+(idx===todayIdx?' adh-today':'');
-        cellD.style.background=STATUS_COLOR[ds.status]||STATUS_COLOR.future;
-        cellD.onclick=function(){ showDayDetail(dt); };
-        rowD.appendChild(cellD);
-      })(date);
+        macroKeys.forEach(function(k){
+          var st = (ds.macros && ds.macros[k]) ? ds.macros[k] : ds.status;
+          var cell=document.createElement('div');
+          cell.className='adh-cell'+(isToday?' adh-today':'');
+          cell.style.background=STATUS_COLOR[st]||STATUS_COLOR.future;
+          cell.onclick=function(){ showDayDetail(dt); };
+          rowM[k].appendChild(cell);
+        });
+      })(date, idx===todayIdx);
     }
     trainWrap.appendChild(rowT);
-    dietWrap.appendChild(rowD);
+    macroKeys.forEach(function(k){ macroWraps[k].appendChild(rowM[k]); });
   }
 }
 function showDayDetail(dateStr){
@@ -1348,41 +1386,58 @@ function showDayDetail(dateStr){
   document.getElementById('dayDetailDate').textContent = fmtDate(dateStr);
   var trainTxt;
   if(ts.status==='rest') trainTxt='Rest / recovery day — nothing planned.';
-  else if(ts.status==='future') trainTxt='Not reached yet.';
+  else if(ts.status==='future') trainTxt='Not tracked.';
   else if(ts.status==='pending') trainTxt='Today — planned: '+(ts.planned||[]).join(', ')+'. Nothing logged yet.';
   else trainTxt=(ts.matched)+' of '+ts.total+' planned exercises logged ('+(ts.planned||[]).join(', ')+').';
   var dietTxt;
-  if(ds.status==='future') dietTxt='Not reached yet.';
-  else if(ds.status==='pending') dietTxt='Today — target '+ds.target.kcal+' kcal / '+ds.target.protein+'P. Nothing logged yet.';
-  else dietTxt=Math.round(ds.totals.kcal)+' / '+ds.target.kcal+' kcal logged ('+Math.round((ds.pct||0)*100)+'% of target), '+Math.round(ds.totals.protein)+'g / '+ds.target.protein+'g protein.';
+  if(ds.status==='future') dietTxt='Not tracked.';
+  else if(ds.status==='pending') dietTxt='Today — target '+ds.target.kcal+' kcal / '+ds.target.protein+'P / '+ds.target.carbs+'C / '+ds.target.fat+'F. Nothing logged yet.';
+  else {
+    var t=ds.totals, g=ds.target;
+    dietTxt =
+      'Kcal: '+Math.round(t.kcal)+'/'+g.kcal+' ('+Math.round(t.kcal/g.kcal*100)+'%)<br>'+
+      'Protein: '+Math.round(t.protein)+'g/'+g.protein+'g ('+Math.round(t.protein/g.protein*100)+'%)<br>'+
+      'Carbs: '+Math.round(t.carbs)+'g/'+g.carbs+'g ('+Math.round(t.carbs/g.carbs*100)+'%)<br>'+
+      'Fat: '+Math.round(t.fat)+'g/'+g.fat+'g ('+Math.round(t.fat/g.fat*100)+'%)';
+  }
   document.getElementById('dayDetailBody').innerHTML =
     '<div class="exrow"><div class="exname">Training</div><div class="exnote">'+trainTxt+'</div></div>'+
     '<div class="exrow"><div class="exname">Diet</div><div class="exnote">'+dietTxt+'</div></div>';
   document.getElementById('dayDetailCard').style.display='block';
 }
-function renderWeekStats(){
+function computeWeekStats(){
   var t = todayStr();
   var now = new Date(t+'T00:00:00');
   var dow = (now.getDay()+6)%7;
   var monday = new Date(now.getTime()-dow*DAY_MS);
   var mondayStr = monday.toISOString().slice(0,10);
-  var trainHit=0, trainTotalDays=0, dietHit=0, dietTotalDays=0;
+  var trainHit=0, trainTotalDays=0, dietHit=0, dietTotalDays=0, missedTrainDays=[], offDietDays=[];
   for(var i=0;i<7;i++){
     var d = addDays(mondayStr, i);
     if(d>t) continue;
     var ts=getTrainingStatus(d);
-    if(ts.status!=='rest' && ts.status!=='future' && ts.status!=='pending'){ trainTotalDays++; if(ts.status==='hit') trainHit++; }
+    if(ts.status!=='rest' && ts.status!=='future' && ts.status!=='pending'){
+      trainTotalDays++;
+      if(ts.status==='hit') trainHit++; else missedTrainDays.push(d);
+    }
     var ds=getDietStatus(d);
-    if(ds.status!=='future' && ds.status!=='pending'){ dietTotalDays++; if(ds.status==='hit') dietHit++; }
+    if(ds.status!=='future' && ds.status!=='pending'){
+      dietTotalDays++;
+      if(ds.status==='hit') dietHit++; else offDietDays.push(d);
+    }
   }
   var weekBw = bwLog.filter(function(e){return e.date>=mondayStr && e.date<=t;}).sort(function(a,b){return a.date.localeCompare(b.date);});
   var wChange = weekBw.length>=2 ? (weekBw[weekBw.length-1].kg-weekBw[0].kg) : null;
   var weekAlc = alcLog.filter(function(e){return e.date>=mondayStr && e.date<=t;}).reduce(function(s,e){return s+e.units;},0);
-
-  document.getElementById('wkTrain').textContent = trainTotalDays? (trainHit+'/'+trainTotalDays) : '—';
-  document.getElementById('wkDiet').textContent = dietTotalDays? (dietHit+'/'+dietTotalDays) : '—';
-  document.getElementById('wkWeight').textContent = wChange!=null? ((wChange>=0?'+':'')+wChange.toFixed(1)+'kg') : '—';
-  document.getElementById('wkAlc').textContent = weekAlc+'u';
+  return {trainHit:trainHit, trainTotalDays:trainTotalDays, dietHit:dietHit, dietTotalDays:dietTotalDays,
+    wChange:wChange, weekAlc:weekAlc, missedTrainDays:missedTrainDays, offDietDays:offDietDays, mondayStr:mondayStr};
+}
+function renderWeekStats(){
+  var s = computeWeekStats();
+  document.getElementById('wkTrain').textContent = s.trainTotalDays? (s.trainHit+'/'+s.trainTotalDays) : '—';
+  document.getElementById('wkDiet').textContent = s.dietTotalDays? (s.dietHit+'/'+s.dietTotalDays) : '—';
+  document.getElementById('wkWeight').textContent = s.wChange!=null? ((s.wChange>=0?'+':'')+s.wChange.toFixed(1)+'kg') : '—';
+  document.getElementById('wkAlc').textContent = s.weekAlc+'u';
 }
 
 /* ================= CANVAS CHARTS (no external libs) ================= */
@@ -1559,14 +1614,22 @@ function generateSummary(){
   var idxNow = dayIndexFromDate(todayStr());
   var dietNow = (idxNow>=0 && idxNow<PLAN.totalProgramDays) ? PLAN.dietPhases[dietPhaseForIndex(idxNow)] : null;
 
+  var wk = computeWeekStats();
+  var missedTrainTxt = wk.missedTrainDays.length? wk.missedTrainDays.map(fmtDate).join(', ') : 'none';
+  var offDietTxt = wk.offDietDays.length? wk.offDietDays.map(fmtDate).join(', ') : 'none';
+
   var recentNotes = noteLog.slice().sort(function(a,b){return a.date.localeCompare(b.date);}).slice(-3)
     .map(function(n){ return '  '+n.date+' — shoulder '+(n.pain==null?'n/a':n.pain)+'/10 — '+(n.text||''); }).join('\n');
 
-  var totalDays = Math.round((new Date(PLAN.programEnd)-new Date(PLAN.programStart))/DAY_MS);
+  var trackIdxNow = trackDayIndex(todayStr());
+  var totalDays = Math.round((new Date(PLAN.programEnd)-new Date(PLAN.trackingStart))/DAY_MS);
   var weightChange = (first && latest) ? ((latest.kg-first.kg>=0?'+':'')+(latest.kg-first.kg).toFixed(1)+'kg') : 'n/a';
 
   var out = 'BUILD LOG CHECK-IN — '+todayStr()+'\n'+
-'Program day: '+(idxNow+1)+' of '+totalDays+' (target '+PLAN.targetKg.toFixed(1)+'kg by '+fmtDateLong(PLAN.programEnd)+')\n\n'+
+'Program day: '+(trackIdxNow+1)+' of '+totalDays+' (target '+PLAN.targetKg.toFixed(1)+'kg by '+fmtDateLong(PLAN.programEnd)+')\n\n'+
+'ADHERENCE (this week)\n'+
+'  Training: '+wk.trainHit+'/'+wk.trainTotalDays+' days hit — missed/partial: '+missedTrainTxt+'\n'+
+'  Diet: '+wk.dietHit+'/'+wk.dietTotalDays+' days on-target — off-target: '+offDietTxt+'\n\n'+
 'WEIGHT\n'+
 '  Latest: '+(latest? latest.kg.toFixed(1)+'kg on '+latest.date : 'no entries')+'\n'+
 '  7-day avg: '+avg7+'kg\n'+
@@ -1576,8 +1639,7 @@ function generateSummary(){
 'FOOD TODAY'+(dietNow? ' (target '+dietNow.kcal+'kcal/'+dietNow.protein+'P)':'')+'\n'+
 '  Logged: '+Math.round(todayTotals.kcal)+'kcal / '+Math.round(todayTotals.protein)+'P / '+Math.round(todayTotals.carbs)+'C / '+Math.round(todayTotals.fat)+'F\n\n'+
 'ALCOHOL\n'+
-'  This week: '+weekUnits+' units\n'+
-'  Last 4 weeks: '+last4wUnits+' units\n\n'+
+'  This week: '+wk.weekAlc+' units\n\n'+
 'NOTES\n'+
 (recentNotes || '  none logged')+'\n';
 

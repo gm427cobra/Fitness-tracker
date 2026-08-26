@@ -179,14 +179,16 @@
   .login-card .plate-title{margin-bottom:2px;}
   .login-card .plate-name{margin-bottom:16px;}
   .signout{position:absolute;top:16px;right:16px;background:none;border:1px solid var(--line);color:var(--ink-dim);border-radius:20px;padding:4px 11px;font-size:10px;letter-spacing:.05em;cursor:pointer;font-family:var(--f-body);}
-  .qa-card{border-color:var(--blue) !important;}  .adh-row{display:flex;gap:5px;margin-bottom:5px;}
-  .adh-cell{flex:1;height:34px;border-radius:5px;cursor:pointer;min-width:0;
-    display:flex;align-items:center;justify-content:center;
-    font-family:var(--f-mono);font-size:11px;font-weight:700;color:#0a0d10;
-    border:1px solid rgba(0,0,0,.3);}
-  .adh-cell.adh-today{outline:2px solid var(--blue);outline-offset:2px;}
-  .adh-label{font-size:10px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.06em;margin:10px 0 4px;}
-  .adh-label:first-child{margin-top:0;}
+  .qa-card{border-color:var(--blue) !important;}  .wk-scroll-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -14px;padding:0 14px 4px;}
+  .wk-table{border-collapse:collapse;}
+  .wk-table th,.wk-table td{padding:0;text-align:center;}
+  .wk-th-label{width:62px;min-width:62px;text-align:left !important;font-size:10px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.03em;padding-right:6px !important;position:sticky;left:0;background:var(--panel);z-index:2;white-space:nowrap;}
+  .wk-day-head{width:54px;min-width:54px;font-family:var(--f-mono);font-size:10px;color:var(--ink-dim);padding-bottom:6px !important;white-space:nowrap;}
+  .wk-day-head.today{color:var(--blue);font-weight:700;}
+  .wk-cell{width:54px;min-width:54px;height:32px;}
+  .wk-cell-inner{margin:2px;height:28px;border-radius:5px;display:flex;align-items:center;justify-content:center;
+    font-family:var(--f-mono);font-size:10.5px;font-weight:700;color:#0a0d10;cursor:pointer;border:1px solid rgba(0,0,0,.3);}
+  .wk-cell-inner.today{outline:2px solid var(--blue);outline-offset:1px;}
 </style>
 </head>
 <body>
@@ -363,31 +365,16 @@
   </div>
 
   <div class="card">
-    <div class="card-h"><h2>Training adherence</h2></div>
-    <div id="trainAdherence"></div>
+    <div class="card-h"><h2>Days vs plan</h2></div>
+    <div class="wk-scroll-wrap">
+      <table class="wk-table" id="dayTable"></table>
+    </div>
     <div class="legend" style="margin-top:8px">
       <span><i style="background:var(--green)"></i>Hit</span>
       <span><i style="background:var(--amber)"></i>Partial</span>
-      <span><i style="background:var(--red)"></i>Missed</span>
-      <span><i style="background:rgba(255,255,255,.1)"></i>Rest</span>
+      <span><i style="background:var(--red)"></i>Off / missed</span>
     </div>
-  </div>
-
-  <div class="card">
-    <div class="card-h"><h2>Diet adherence</h2></div>
-    <div class="adh-label">Kcal</div>
-    <div id="dietAdh_kcal"></div>
-    <div class="adh-label">Protein</div>
-    <div id="dietAdh_protein"></div>
-    <div class="adh-label">Carbs</div>
-    <div id="dietAdh_carbs"></div>
-    <div class="adh-label">Fat</div>
-    <div id="dietAdh_fat"></div>
-    <div class="legend" style="margin-top:8px">
-      <span><i style="background:var(--green)"></i>On target</span>
-      <span><i style="background:var(--amber)"></i>Off</span>
-      <span><i style="background:var(--red)"></i>Way off / missed</span>
-    </div>
+    <p class="lead" style="margin:8px 0 0">Scroll left for earlier days. Tap any cell for the full breakdown.</p>
   </div>
 
   <div class="card" id="dayDetailCard" style="display:none">
@@ -1360,50 +1347,78 @@ function getDietStatus(dateStr){
   var status = (pct>=0.85 && pct<=1.15) ? 'hit' : ((pct>=0.65 && pct<=1.35) ? 'partial' : 'off');
   return {status:status, target:target, totals:totals, pct:pct, macros:macros};
 }
+function macroCellInfo(ds, key){
+  if(ds.status==='future') return {status:'future', val:''};
+  if(ds.status==='pending') return {status:'pending', val:'—'};
+  var st = ds.macros ? ds.macros[key] : ds.status;
+  var pct = (ds.target && ds.target[key]) ? Math.round(ds.totals[key]/ds.target[key]*100) : 0;
+  return {status:st, val:pct+'%'};
+}
+function trainCellInfo(ts){
+  if(ts.status==='future') return {status:'future', val:''};
+  if(ts.status==='rest') return {status:'rest', val:'–'};
+  if(ts.status==='pending') return {status:'pending', val:'–'};
+  return {status:ts.status, val:ts.matched+'/'+ts.total};
+}
 function renderAdherenceCalendars(){
-  var trainWrap = document.getElementById('trainAdherence');
-  var macroKeys = ['kcal','protein','carbs','fat'];
-  var macroWraps = {};
-  macroKeys.forEach(function(k){ macroWraps[k] = document.getElementById('dietAdh_'+k); macroWraps[k].innerHTML=''; });
-  trainWrap.innerHTML='';
+  var table = document.getElementById('dayTable');
+  table.innerHTML='';
   var todayIdx = dayIndexFromDate(todayStr());
   var trackStartIdx = dayIndexFromDate(PLAN.trackingStart);
   var lastIdx = Math.min(todayIdx, PLAN.totalProgramDays-1);
   if(lastIdx<trackStartIdx) return;
-  var firstWeek = Math.floor(trackStartIdx/7);
-  var lastWeek = Math.floor(lastIdx/7);
-  for(var w=firstWeek; w<=lastWeek; w++){
-    var rowT = document.createElement('div'); rowT.className='adh-row';
-    var rowM = {}; macroKeys.forEach(function(k){ rowM[k]=document.createElement('div'); rowM[k].className='adh-row'; });
-    for(var d=0; d<7; d++){
-      var idx = w*7+d;
-      if(idx<trackStartIdx || idx>lastIdx) continue;
-      var date = addDays(PLAN.programStart, idx);
-      (function(dt, isToday){
-        var dayNum = new Date(dt+'T00:00:00').getDate();
-        var ts=getTrainingStatus(dt), ds=getDietStatus(dt);
-        var cellT=document.createElement('div');
-        cellT.className='adh-cell'+(isToday?' adh-today':'');
-        cellT.style.background=STATUS_COLOR[ts.status]||STATUS_COLOR.future;
-        if(ts.status==='rest'||ts.status==='future') cellT.style.color='var(--ink-dim)';
-        cellT.textContent=dayNum;
-        cellT.onclick=function(){ showDayDetail(dt); };
-        rowT.appendChild(cellT);
-        macroKeys.forEach(function(k){
-          var st = (ds.macros && ds.macros[k]) ? ds.macros[k] : ds.status;
-          var cell=document.createElement('div');
-          cell.className='adh-cell'+(isToday?' adh-today':'');
-          cell.style.background=STATUS_COLOR[st]||STATUS_COLOR.future;
-          if(st==='rest'||st==='future') cell.style.color='var(--ink-dim)';
-          cell.textContent=dayNum;
-          cell.onclick=function(){ showDayDetail(dt); };
-          rowM[k].appendChild(cell);
-        });
-      })(date, idx===todayIdx);
-    }
-    trainWrap.appendChild(rowT);
-    macroKeys.forEach(function(k){ macroWraps[k].appendChild(rowM[k]); });
-  }
+
+  var dates=[];
+  for(var idx=trackStartIdx; idx<=lastIdx; idx++){ dates.push(addDays(PLAN.programStart, idx)); }
+  var t = todayStr();
+
+  var rowDefs = [
+    {label:'Training', get:function(dt){ return trainCellInfo(getTrainingStatus(dt)); }},
+    {label:'Kcal', get:function(dt){ return macroCellInfo(getDietStatus(dt),'kcal'); }},
+    {label:'Protein', get:function(dt){ return macroCellInfo(getDietStatus(dt),'protein'); }},
+    {label:'Carbs', get:function(dt){ return macroCellInfo(getDietStatus(dt),'carbs'); }},
+    {label:'Fat', get:function(dt){ return macroCellInfo(getDietStatus(dt),'fat'); }}
+  ];
+
+  var thead=document.createElement('tr');
+  var thLabel=document.createElement('th');
+  thLabel.className='wk-th-label';
+  thead.appendChild(thLabel);
+  dates.forEach(function(dt){
+    var isToday = dt===t;
+    var d=new Date(dt+'T00:00:00');
+    var th=document.createElement('th');
+    th.className='wk-day-head'+(isToday?' today':'');
+    th.textContent=d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+    thead.appendChild(th);
+  });
+  table.appendChild(thead);
+
+  rowDefs.forEach(function(r){
+    var tr=document.createElement('tr');
+    var labelTd=document.createElement('td');
+    labelTd.className='wk-th-label';
+    labelTd.textContent=r.label;
+    tr.appendChild(labelTd);
+    dates.forEach(function(dt){
+      var isToday = dt===t;
+      var res=r.get(dt);
+      var td=document.createElement('td');
+      td.className='wk-cell';
+      var inner=document.createElement('div');
+      inner.className='wk-cell-inner'+(isToday?' today':'');
+      inner.style.background=STATUS_COLOR[res.status]||STATUS_COLOR.future;
+      if(res.status==='rest'||res.status==='future'||res.status==='pending') inner.style.color='var(--ink-dim)';
+      inner.textContent=res.val;
+      inner.onclick=function(){ showDayDetail(dt); };
+      td.appendChild(inner);
+      tr.appendChild(td);
+    });
+    table.appendChild(tr);
+  });
+
+  var wrap = document.querySelector('.wk-scroll-wrap');
+  if(wrap) requestAnimationFrame(function(){ wrap.scrollLeft = wrap.scrollWidth; });
 }
 function showDayDetail(dateStr){
   var ts=getTrainingStatus(dateStr), ds=getDietStatus(dateStr);

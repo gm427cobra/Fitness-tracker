@@ -782,13 +782,34 @@ function showView(name){
   for(var j=0;j<tabs.length;j++) tabs[j].classList.remove('active');
   document.getElementById('view-'+name).classList.add('active');
   document.querySelector('.tab[data-view="'+name+'"]').classList.add('active');
-  if(name==='progress'){ renderWeekStats(); renderAdherenceCalendars(); renderWeightChart(); populateLiftChartSelect(); renderLiftChart(); }
+  if(name==='progress'){ renderProgress(); }
   if(name==='drinks'){ renderAlcoholChart(); }
+}
+function renderProgress(){
+  renderWeekStats();
+  renderAdherenceCalendars();
+  renderWeightChart();
+  populateLiftChartSelect();
+  renderLiftChart();
+  if(dayDetailDate) showDayDetail(dayDetailDate);
+}
+/* Called after every log edit so the Progress tab reflects the change straight
+   away — its grid and charts are derived views over the same logs. */
+function refreshProgress(){
+  var v = document.getElementById('view-progress');
+  if(v && v.classList.contains('active')) renderProgress();
 }
 
 /* ================= DATE / PLAN HELPERS ================= */
-function addDays(dateStr,n){var d=new Date(dateStr+'T00:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);}
-function todayStr(){return new Date().toISOString().slice(0,10);}
+/* Date strings are plain calendar days (YYYY-MM-DD) in the user's own timezone.
+   toISOString() would convert local midnight to UTC, which rolls the day back by
+   one anywhere east of Greenwich (BST included) — so format the local parts. */
+function ymd(d){
+  var m=d.getMonth()+1, day=d.getDate();
+  return d.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(day<10?'0':'')+day;
+}
+function addDays(dateStr,n){var d=new Date(dateStr+'T00:00:00');d.setDate(d.getDate()+n);return ymd(d);}
+function todayStr(){return ymd(new Date());}
 function dayIndexFromDate(dateStr){
   var start=new Date(PLAN.programStart+'T00:00:00');
   var d=new Date(dateStr+'T00:00:00');
@@ -882,7 +903,7 @@ function renderToday(){
   if(tkey===null){
     h.innerHTML = '<h2>Today — '+fmtDate(t)+'</h2><span class="badge">Outside plan</span>';
     card.appendChild(h);
-    card.innerHTML += '<div class="empty">'+(idx<0? 'Program starts '+fmtDate(PLAN.programStart):'This block ends here — next phase lands at your next check-in or plan update.')+'</div>';
+    card.innerHTML += '<div class="empty">'+(idx<0? 'Program starts '+fmtDate(PLAN.trackingStart):'This block ends here — next phase lands at your next check-in or plan update.')+'</div>';
   } else {
     var tpl = PLAN.templates[tkey];
     var diet = dietPhaseForIndex(idx);
@@ -934,10 +955,12 @@ function renderPlan(){
   list.innerHTML='';
   var t = todayStr();
   var todayIdx = dayIndexFromDate(t);
+  var trackStartIdx = dayIndexFromDate(PLAN.trackingStart);
 
   for(var w=0; w<PLAN.weekPlan.length; w++){
     var groupStart = w*7;
     if(groupStart>=PLAN.totalProgramDays) break;
+    if(groupStart+6 < trackStartIdx) continue;
     var lbl=document.createElement('div');
     lbl.className='week-label';
     lbl.textContent=PLAN.weekNames[w] || ('Week '+(w+1));
@@ -946,6 +969,7 @@ function renderPlan(){
     for(var d=0; d<7; d++){
       var idx = groupStart+d;
       if(idx>=PLAN.totalProgramDays) break;
+      if(idx<trackStartIdx) continue;
       var date = addDays(PLAN.programStart, idx);
       var tkey = templateForIndex(idx);
       var tpl = PLAN.templates[tkey];
@@ -1002,7 +1026,7 @@ async function savePlanFromEditor(){
   }
   PLAN = parsed;
   await savePlan(PLAN);
-  renderHeader(); renderToday(); renderPlan(); renderDiet();
+  renderHeader(); renderToday(); renderPlan(); renderDiet(); refreshProgress();
   msg.className='note-strip blue'; msg.textContent='Saved — plan updated everywhere in the app.'; msg.style.display='block';
 }
 
@@ -1056,12 +1080,12 @@ async function addBodyweight(){
   bwLog.sort(function(a,b){return a.date.localeCompare(b.date);});
   await saveArr('bw-log', bwLog);
   document.getElementById('bwVal').value='';
-  renderBwTable(); renderHeader();
+  renderBwTable(); renderHeader(); refreshProgress();
 }
 async function deleteBw(date){
   bwLog = bwLog.filter(function(e){return e.date!==date;});
   await saveArr('bw-log', bwLog);
-  renderBwTable(); renderHeader();
+  renderBwTable(); renderHeader(); refreshProgress();
 }
 function renderBwTable(){
   var tbody=document.querySelector('#bwTable tbody');
@@ -1091,12 +1115,12 @@ async function addFood(){
   document.getElementById('foodProtein').value='';
   document.getElementById('foodCarbs').value='';
   document.getElementById('foodFat').value='';
-  renderFoodTable(); renderToday();
+  renderFoodTable(); renderToday(); refreshProgress();
 }
 async function deleteFood(i){
   foodLog.splice(i,1);
   await saveArr('food-log', foodLog);
-  renderFoodTable(); renderToday();
+  renderFoodTable(); renderToday(); refreshProgress();
 }
 function renderFoodTable(){
   var tbody=document.querySelector('#foodTable tbody');
@@ -1125,12 +1149,12 @@ async function addLift(){
   document.getElementById('liftWeight').value='';
   document.getElementById('liftReps').value='';
   document.getElementById('liftSets').value='';
-  renderLiftTable(); populateLiftChartSelect();
+  renderLiftTable(); populateLiftChartSelect(); refreshProgress();
 }
 async function deleteLift(i){
   liftLog.splice(i,1);
   await saveArr('lift-log', liftLog);
-  renderLiftTable();
+  renderLiftTable(); populateLiftChartSelect(); refreshProgress();
 }
 function renderLiftTable(){
   var tbody=document.querySelector('#liftTable tbody');
@@ -1155,6 +1179,7 @@ async function addNote(){
   await saveArr('note-log', noteLog);
   document.getElementById('notePain').value='';
   document.getElementById('noteText').value='';
+  refreshProgress();
 }
 
 async function addAlcohol(){
@@ -1166,12 +1191,12 @@ async function addAlcohol(){
   alcLog.sort(function(a,b){return a.date.localeCompare(b.date);});
   await saveArr('alc-log', alcLog);
   document.getElementById('alcVal').value='';
-  renderAlcTable(); renderAlcoholChart();
+  renderAlcTable(); renderAlcoholChart(); refreshProgress();
 }
 async function deleteAlc(date){
   alcLog = alcLog.filter(function(e){return e.date!==date;});
   await saveArr('alc-log', alcLog);
-  renderAlcTable(); renderAlcoholChart();
+  renderAlcTable(); renderAlcoholChart(); refreshProgress();
 }
 function renderAlcTable(){
   var tbody=document.querySelector('#alcTable tbody');
@@ -1228,7 +1253,7 @@ function checkQuickAdd(){
       });
       if(liftChanged){ liftLog.sort(function(a,b){return a.date.localeCompare(b.date);}); await saveArr('lift-log', liftLog); renderLiftTable(); populateLiftChartSelect(); }
       if(foodChanged){ foodLog.sort(function(a,b){return a.date.localeCompare(b.date);}); await saveArr('food-log', foodLog); renderFoodTable(); }
-      renderToday();
+      renderToday(); refreshProgress();
       banner.style.display='none'; clearQAFromUrl(); showView(foodChanged?'today':'log');
     };
     dismissBtn.onclick=function(){ banner.style.display='none'; clearQAFromUrl(); };
@@ -1246,7 +1271,7 @@ function checkQuickAdd(){
       foodLog.push({date:date,name:name,kcal:kcal,protein:protein,carbs:carbs,fat:fat});
       foodLog.sort(function(a,b){return a.date.localeCompare(b.date);});
       await saveArr('food-log', foodLog);
-      renderFoodTable(); renderToday();
+      renderFoodTable(); renderToday(); refreshProgress();
       banner.style.display='none'; clearQAFromUrl(); showView('today');
     };
   } else if(qa==='lift'){
@@ -1258,7 +1283,7 @@ function checkQuickAdd(){
       liftLog.push({date:date2,exercise:exercise,weight:weight,reps:reps,sets:sets});
       liftLog.sort(function(a,b){return a.date.localeCompare(b.date);});
       await saveArr('lift-log', liftLog);
-      renderLiftTable(); populateLiftChartSelect();
+      renderLiftTable(); populateLiftChartSelect(); refreshProgress();
       banner.style.display='none'; clearQAFromUrl(); showView('log');
     };
   } else if(qa==='weight'){
@@ -1270,7 +1295,7 @@ function checkQuickAdd(){
       bwLog.push({date:date3,kg:kg});
       bwLog.sort(function(a,b){return a.date.localeCompare(b.date);});
       await saveArr('bw-log', bwLog);
-      renderBwTable(); renderHeader();
+      renderBwTable(); renderHeader(); refreshProgress();
       banner.style.display='none'; clearQAFromUrl(); showView('today');
     };
   } else {
@@ -1420,7 +1445,9 @@ function renderAdherenceCalendars(){
   var wrap = document.querySelector('.wk-scroll-wrap');
   if(wrap) requestAnimationFrame(function(){ wrap.scrollLeft = wrap.scrollWidth; });
 }
+var dayDetailDate = null;
 function showDayDetail(dateStr){
+  dayDetailDate = dateStr;
   var ts=getTrainingStatus(dateStr), ds=getDietStatus(dateStr);
   document.getElementById('dayDetailDate').textContent = fmtDate(dateStr);
   var trainTxt;
@@ -1448,8 +1475,7 @@ function computeWeekStats(){
   var t = todayStr();
   var now = new Date(t+'T00:00:00');
   var dow = (now.getDay()+6)%7;
-  var monday = new Date(now.getTime()-dow*DAY_MS);
-  var mondayStr = monday.toISOString().slice(0,10);
+  var mondayStr = addDays(t, -dow);
   var trainHit=0, trainTotalDays=0, dietHit=0, dietTotalDays=0, missedTrainDays=[], offDietDays=[];
   for(var i=0;i<7;i++){
     var d = addDays(mondayStr, i);
@@ -1617,8 +1643,7 @@ function renderAlcoholChart(){
   alcLog.forEach(function(e){
     var d=new Date(e.date+'T00:00:00');
     var day=(d.getDay()+6)%7;
-    var monday=new Date(d.getTime()-day*DAY_MS);
-    var key=monday.toISOString().slice(0,10);
+    var key=addDays(e.date, -day);
     weekMap[key]=(weekMap[key]||0)+e.units;
   });
   var keys=Object.keys(weekMap).sort();

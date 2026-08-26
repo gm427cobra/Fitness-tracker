@@ -179,7 +179,9 @@
   .login-card .plate-title{margin-bottom:2px;}
   .login-card .plate-name{margin-bottom:16px;}
   .signout{position:absolute;top:16px;right:16px;background:none;border:1px solid var(--line);color:var(--ink-dim);border-radius:20px;padding:4px 11px;font-size:10px;letter-spacing:.05em;cursor:pointer;font-family:var(--f-body);}
-  .qa-card{border-color:var(--blue) !important;}
+  .qa-card{border-color:var(--blue) !important;}  .adh-row{display:flex;gap:4px;margin-bottom:4px;}
+  .adh-cell{flex:1;height:22px;border-radius:3px;cursor:pointer;min-width:0;}
+  .adh-cell.adh-today{outline:2px solid var(--blue);outline-offset:1px;}
 </style>
 </head>
 <body>
@@ -345,6 +347,42 @@
 </div>
 
 <div class="view" id="view-progress">
+  <div class="card">
+    <div class="card-h"><h2>This week vs plan</h2></div>
+    <div class="macro-grid">
+      <div class="macro"><div class="n" id="wkTrain">—</div><div class="l">Training</div></div>
+      <div class="macro"><div class="n" id="wkDiet">—</div><div class="l">Diet on-target</div></div>
+      <div class="macro"><div class="n" id="wkWeight">—</div><div class="l">Weight Δ</div></div>
+      <div class="macro"><div class="n" id="wkAlc">—</div><div class="l">Alcohol</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h2>Training adherence</h2></div>
+    <div id="trainAdherence"></div>
+    <div class="legend" style="margin-top:8px">
+      <span><i style="background:var(--green)"></i>Hit</span>
+      <span><i style="background:var(--amber)"></i>Partial</span>
+      <span><i style="background:var(--red)"></i>Missed</span>
+      <span><i style="background:rgba(255,255,255,.1)"></i>Rest</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h2>Diet adherence</h2></div>
+    <div id="dietAdherence"></div>
+    <div class="legend" style="margin-top:8px">
+      <span><i style="background:var(--green)"></i>On target</span>
+      <span><i style="background:var(--amber)"></i>Off</span>
+      <span><i style="background:var(--red)"></i>Way off / missed</span>
+    </div>
+  </div>
+
+  <div class="card" id="dayDetailCard" style="display:none">
+    <div class="card-h"><h2>Day detail — <span id="dayDetailDate"></span></h2></div>
+    <div id="dayDetailBody"></div>
+  </div>
+
   <div class="card">
     <div class="card-h"><h2>Weight trend</h2></div>
     <div class="chart-box"><canvas id="weightChart"></canvas></div>
@@ -728,7 +766,7 @@ function showView(name){
   for(var j=0;j<tabs.length;j++) tabs[j].classList.remove('active');
   document.getElementById('view-'+name).classList.add('active');
   document.querySelector('.tab[data-view="'+name+'"]').classList.add('active');
-  if(name==='progress'){ renderWeightChart(); populateLiftChartSelect(); renderLiftChart(); }
+  if(name==='progress'){ renderWeekStats(); renderAdherenceCalendars(); renderWeightChart(); populateLiftChartSelect(); renderLiftChart(); }
   if(name==='drinks'){ renderAlcoholChart(); }
 }
 
@@ -1223,6 +1261,128 @@ function clearQAFromUrl(){
   if(window.history && window.history.replaceState){
     window.history.replaceState({}, document.title, window.location.pathname);
   }
+}
+
+/* ================= ADHERENCE (vs plan) ================= */
+var STATUS_COLOR = {hit:'var(--green)', partial:'var(--amber)', off:'var(--amber)', missed:'var(--red)', rest:'rgba(255,255,255,.08)', future:'rgba(255,255,255,.03)', pending:'var(--blue)'};
+
+function plannedExerciseNames(tpl){
+  if(!tpl || tpl.rest || tpl.op || tpl.postop) return [];
+  if(tpl.cardio) return [tpl.cardio.name];
+  return tpl.ex.map(function(e){return e.name;});
+}
+function namesLooselyMatch(planned, logged){
+  var p = planned.toLowerCase(), l = logged.toLowerCase();
+  return p===l || l.indexOf(p)!==-1 || p.indexOf(l)!==-1;
+}
+function getTrainingStatus(dateStr){
+  var idx = dayIndexFromDate(dateStr);
+  var todayIdx = dayIndexFromDate(todayStr());
+  var tkey = templateForIndex(idx);
+  if(tkey===null) return {status:'future'};
+  var tpl = PLAN.templates[tkey];
+  if(tpl.rest || tpl.op || tpl.postop) return {status:'rest'};
+  if(idx > todayIdx) return {status:'future'};
+  var planned = plannedExerciseNames(tpl);
+  var loggedEntries = liftLog.filter(function(e){return e.date===dateStr;});
+  var loggedNames = loggedEntries.map(function(e){return e.exercise;});
+  var matched = planned.filter(function(p){
+    return loggedNames.some(function(l){ return namesLooselyMatch(p,l); });
+  });
+  if(idx===todayIdx && loggedEntries.length===0) return {status:'pending', planned:planned, logged:loggedEntries};
+  var ratio = planned.length? matched.length/planned.length : (loggedEntries.length?1:0);
+  var status = ratio>=0.8 ? 'hit' : (ratio>0 ? 'partial' : 'missed');
+  return {status:status, planned:planned, logged:loggedEntries, matched:matched.length, total:planned.length};
+}
+function getDietStatus(dateStr){
+  var idx = dayIndexFromDate(dateStr);
+  var todayIdx = dayIndexFromDate(todayStr());
+  if(idx<0 || idx>=PLAN.totalProgramDays) return {status:'future'};
+  if(idx > todayIdx) return {status:'future'};
+  var diet = dietPhaseForIndex(idx);
+  var target = PLAN.dietPhases[diet];
+  var totals = computeFoodTotals(dateStr);
+  if(totals.kcal===0){
+    if(idx===todayIdx) return {status:'pending', target:target, totals:totals};
+    return {status:'missed', target:target, totals:totals};
+  }
+  var pct = totals.kcal/target.kcal;
+  var status = (pct>=0.85 && pct<=1.15) ? 'hit' : ((pct>=0.65 && pct<=1.35) ? 'partial' : 'off');
+  return {status:status, target:target, totals:totals, pct:pct};
+}
+function renderAdherenceCalendars(){
+  var trainWrap = document.getElementById('trainAdherence');
+  var dietWrap = document.getElementById('dietAdherence');
+  trainWrap.innerHTML=''; dietWrap.innerHTML='';
+  var todayIdx = dayIndexFromDate(todayStr());
+  var lastIdx = Math.min(todayIdx, PLAN.totalProgramDays-1);
+  if(lastIdx<0) return;
+  var weeks = Math.ceil((lastIdx+1)/7);
+  for(var w=0; w<weeks; w++){
+    var rowT = document.createElement('div'); rowT.className='adh-row';
+    var rowD = document.createElement('div'); rowD.className='adh-row';
+    for(var d=0; d<7; d++){
+      var idx = w*7+d;
+      if(idx>lastIdx) break;
+      var date = addDays(PLAN.programStart, idx);
+      (function(dt){
+        var ts=getTrainingStatus(dt), ds=getDietStatus(dt);
+        var cellT=document.createElement('div');
+        cellT.className='adh-cell'+(idx===todayIdx?' adh-today':'');
+        cellT.style.background=STATUS_COLOR[ts.status]||STATUS_COLOR.future;
+        cellT.onclick=function(){ showDayDetail(dt); };
+        rowT.appendChild(cellT);
+        var cellD=document.createElement('div');
+        cellD.className='adh-cell'+(idx===todayIdx?' adh-today':'');
+        cellD.style.background=STATUS_COLOR[ds.status]||STATUS_COLOR.future;
+        cellD.onclick=function(){ showDayDetail(dt); };
+        rowD.appendChild(cellD);
+      })(date);
+    }
+    trainWrap.appendChild(rowT);
+    dietWrap.appendChild(rowD);
+  }
+}
+function showDayDetail(dateStr){
+  var ts=getTrainingStatus(dateStr), ds=getDietStatus(dateStr);
+  document.getElementById('dayDetailDate').textContent = fmtDate(dateStr);
+  var trainTxt;
+  if(ts.status==='rest') trainTxt='Rest / recovery day — nothing planned.';
+  else if(ts.status==='future') trainTxt='Not reached yet.';
+  else if(ts.status==='pending') trainTxt='Today — planned: '+(ts.planned||[]).join(', ')+'. Nothing logged yet.';
+  else trainTxt=(ts.matched)+' of '+ts.total+' planned exercises logged ('+(ts.planned||[]).join(', ')+').';
+  var dietTxt;
+  if(ds.status==='future') dietTxt='Not reached yet.';
+  else if(ds.status==='pending') dietTxt='Today — target '+ds.target.kcal+' kcal / '+ds.target.protein+'P. Nothing logged yet.';
+  else dietTxt=Math.round(ds.totals.kcal)+' / '+ds.target.kcal+' kcal logged ('+Math.round((ds.pct||0)*100)+'% of target), '+Math.round(ds.totals.protein)+'g / '+ds.target.protein+'g protein.';
+  document.getElementById('dayDetailBody').innerHTML =
+    '<div class="exrow"><div class="exname">Training</div><div class="exnote">'+trainTxt+'</div></div>'+
+    '<div class="exrow"><div class="exname">Diet</div><div class="exnote">'+dietTxt+'</div></div>';
+  document.getElementById('dayDetailCard').style.display='block';
+}
+function renderWeekStats(){
+  var t = todayStr();
+  var now = new Date(t+'T00:00:00');
+  var dow = (now.getDay()+6)%7;
+  var monday = new Date(now.getTime()-dow*DAY_MS);
+  var mondayStr = monday.toISOString().slice(0,10);
+  var trainHit=0, trainTotalDays=0, dietHit=0, dietTotalDays=0;
+  for(var i=0;i<7;i++){
+    var d = addDays(mondayStr, i);
+    if(d>t) continue;
+    var ts=getTrainingStatus(d);
+    if(ts.status!=='rest' && ts.status!=='future' && ts.status!=='pending'){ trainTotalDays++; if(ts.status==='hit') trainHit++; }
+    var ds=getDietStatus(d);
+    if(ds.status!=='future' && ds.status!=='pending'){ dietTotalDays++; if(ds.status==='hit') dietHit++; }
+  }
+  var weekBw = bwLog.filter(function(e){return e.date>=mondayStr && e.date<=t;}).sort(function(a,b){return a.date.localeCompare(b.date);});
+  var wChange = weekBw.length>=2 ? (weekBw[weekBw.length-1].kg-weekBw[0].kg) : null;
+  var weekAlc = alcLog.filter(function(e){return e.date>=mondayStr && e.date<=t;}).reduce(function(s,e){return s+e.units;},0);
+
+  document.getElementById('wkTrain').textContent = trainTotalDays? (trainHit+'/'+trainTotalDays) : '—';
+  document.getElementById('wkDiet').textContent = dietTotalDays? (dietHit+'/'+dietTotalDays) : '—';
+  document.getElementById('wkWeight').textContent = wChange!=null? ((wChange>=0?'+':'')+wChange.toFixed(1)+'kg') : '—';
+  document.getElementById('wkAlc').textContent = weekAlc+'u';
 }
 
 /* ================= CANVAS CHARTS (no external libs) ================= */

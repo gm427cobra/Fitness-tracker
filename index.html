@@ -728,11 +728,27 @@ async function saveArr(key,arr){
   }catch(e){}
   STORAGE_MODE='none';
 }
+function mergeWithDefaults(stored){
+  var merged = {};
+  var missing = false;
+  for(var k in DEFAULT_PLAN){
+    if(stored[k]===undefined){ merged[k]=DEFAULT_PLAN[k]; missing=true; }
+    else merged[k]=stored[k];
+  }
+  for(var k2 in stored){ if(merged[k2]===undefined) merged[k2]=stored[k2]; }
+  return {plan:merged, patched:missing};
+}
 async function loadPlan(){
   try{
     if(currentUser && db){
       var doc = await db.collection('users').doc(currentUser.uid).collection('plan').doc('current').get();
-      if(doc.exists && doc.data().plan) return doc.data().plan;
+      if(doc.exists && doc.data().plan){
+        var m = mergeWithDefaults(doc.data().plan);
+        if(m.patched){
+          await db.collection('users').doc(currentUser.uid).collection('plan').doc('current').set({plan: m.plan});
+        }
+        return m.plan;
+      }
       await db.collection('users').doc(currentUser.uid).collection('plan').doc('current').set({plan: DEFAULT_PLAN});
       return DEFAULT_PLAN;
     }
@@ -740,7 +756,7 @@ async function loadPlan(){
   try{
     if(hasClaudeStorage()){
       var r = await window.storage.get('plan-data', false);
-      if(r) return JSON.parse(r.value);
+      if(r){ var m2=mergeWithDefaults(JSON.parse(r.value)); if(m2.patched) await window.storage.set('plan-data', JSON.stringify(m2.plan), false); return m2.plan; }
       await window.storage.set('plan-data', JSON.stringify(DEFAULT_PLAN), false);
       return DEFAULT_PLAN;
     }
@@ -748,7 +764,7 @@ async function loadPlan(){
   try{
     if(hasLocalStorage()){
       var v = localStorage.getItem('buildlog_plan-data');
-      if(v) return JSON.parse(v);
+      if(v){ var m3=mergeWithDefaults(JSON.parse(v)); if(m3.patched) localStorage.setItem('buildlog_plan-data', JSON.stringify(m3.plan)); return m3.plan; }
       localStorage.setItem('buildlog_plan-data', JSON.stringify(DEFAULT_PLAN));
       return DEFAULT_PLAN;
     }

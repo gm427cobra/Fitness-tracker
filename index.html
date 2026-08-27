@@ -308,14 +308,8 @@
     <div class="card-h"><h2>Log a lift</h2></div>
     <div class="field"><label>Date</label><input type="date" id="liftDate"></div>
     <div class="field"><label>Exercise</label>
-      <select id="liftExercise">
-        <optgroup label="Push"><option>Floor Press</option><option>DB Neutral-Grip Press</option><option>Low-Incline Cable Fly</option></optgroup>
-        <optgroup label="Pull"><option>Chest-Supported Row</option><option>Lat Pulldown</option><option>Rear Delt Fly</option><option>Face Pull</option></optgroup>
-        <optgroup label="Legs"><option>Leg Press</option><option>Leg Extension</option><option>Prone Leg Curl</option><option>Kneeling Leg Curl</option><option>Hip Thrust</option><option>DB Split Squat</option><option>Calf Raise</option></optgroup>
-        <optgroup label="Arms/Core"><option>Machine Arm Curl</option><option>Barbell Curl</option><option>Pallof Press</option><option>Suitcase Carry</option><option>Side Plank</option></optgroup>
-        <optgroup label="Cardio"><option>3km Jog</option><option>5km Run</option></optgroup>
-        <option>Other</option>
-      </select>
+      <!-- Options are built from the plan at runtime — see populateLiftExerciseSelect(). -->
+      <select id="liftExercise"></select>
     </div>
     <div id="liftExerciseOther" class="field" style="display:none"><label>Exercise name</label><input type="text" id="liftExerciseOtherVal"></div>
     <div class="row3">
@@ -1161,6 +1155,7 @@ async function savePlanFromEditor(){
   PLAN = parsed;
   await savePlan(PLAN);
   renderHeader(); renderToday(); renderPlan(); renderDiet(); refreshProgress();
+  populateLiftExerciseSelect();
   msg.className='note-strip blue'; msg.textContent='Saved — plan updated everywhere in the app.'; msg.style.display='block';
 }
 
@@ -1201,6 +1196,50 @@ function renderDiet(){
 }
 
 /* ================= LOG ACTIONS ================= */
+/* The exercise picker is generated from PLAN.templates rather than hard-coded,
+   so it always covers every movement in the program — including any added by a
+   plan edit — and can't drift out of sync with it again. */
+var LIFT_GROUPS = [
+  {re:/^upperPush/, label:'Push day'},
+  {re:/^upperPull/, label:'Pull day'},
+  {re:/^legs/,      label:'Leg day'},
+  {re:/^hipCore/,   label:'Hip / core day'},
+  {re:/^cardio/,    label:'Cardio'}
+];
+function liftGroupFor(tplKey){
+  for(var i=0;i<LIFT_GROUPS.length;i++){ if(LIFT_GROUPS[i].re.test(tplKey)) return LIFT_GROUPS[i].label; }
+  return 'Other movements';
+}
+function populateLiftExerciseSelect(){
+  var sel = document.getElementById('liftExercise');
+  var prev = sel.value;
+  var groups = {}, order = [], seen = {};
+  function add(group, name){
+    if(!name || seen[name]) return;
+    seen[name] = true;
+    if(!groups[group]){ groups[group] = []; order.push(group); }
+    groups[group].push(name);
+  }
+  LIFT_GROUPS.forEach(function(g){ groups[g.label]=[]; order.push(g.label); });
+
+  for(var key in PLAN.templates){
+    var tpl = PLAN.templates[key], group = liftGroupFor(key);
+    if(tpl.cardio) add(group, tpl.cardio.name);
+    (tpl.ex||[]).forEach(function(e){ add(group, e.name); });
+  }
+  /* Anything logged before that the plan no longer lists stays selectable. */
+  liftLog.forEach(function(e){ add('Previously logged', e.exercise); });
+
+  sel.innerHTML = order.filter(function(g){ return groups[g].length; }).map(function(g){
+    return '<optgroup label="'+g+'">'+groups[g].map(function(n){
+      return '<option>'+n+'</option>';
+    }).join('')+'</optgroup>';
+  }).join('') + '<option>Other</option>';
+
+  if(prev && seen[prev]) sel.value = prev;
+  else if(prev==='Other') sel.value = 'Other';
+}
+
 document.getElementById('liftExercise').addEventListener('change', function(){
   document.getElementById('liftExerciseOther').style.display = this.value==='Other'?'block':'none';
 });
@@ -1895,6 +1934,7 @@ async function startApp(){
   renderLiftTable();
   renderAlcTable();
   renderFoodTable();
+  populateLiftExerciseSelect();
   checkQuickAdd();
   startTodayAutoRefresh();
 }

@@ -437,6 +437,7 @@
     <p class="lead" id="diagLine" style="margin:0 0 8px;font-family:var(--f-mono);font-size:11px"></p>
     <button class="btn ghost full" style="margin-bottom:8px" onclick="runPlanDiagnostics()">Check plan in cloud</button>
     <button class="btn full" style="margin-bottom:8px" onclick="pushPlanToCloud()">Push this device's plan to my account</button>
+    <button class="btn ghost full" style="margin-bottom:8px" onclick="restoreLocalPlan()">Restore the plan saved on this device</button>
     <pre id="planDiagOut" style="display:none;white-space:pre-wrap;word-break:break-word;font-family:var(--f-mono);font-size:11px;color:var(--ink-dim);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:6px;padding:9px;margin:0 0 8px"></pre>
     <button class="btn ghost full" onclick="applyUpdate()">Force reload latest version</button>
   </div>
@@ -486,7 +487,7 @@
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-08-28-5';
+var BUILD = '2026-08-28-6';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -823,6 +824,15 @@ async function saveArr(key,arr){
    string sidesteps that, and keeps working whatever shape the plan editor is
    given. The old "plan" field is still read so an existing document isn't lost. */
 function planToDoc(plan){ return {planJson: JSON.stringify(plan), updated: Date.now()}; }
+/* The copy this browser saved back when cloud writes were failing. It is the
+   user's real plan; DEFAULT_PLAN is only ever a last resort. */
+function localPlan(){
+  try{
+    if(!hasLocalStorage()) return null;
+    var v = localStorage.getItem('buildlog_plan-data');
+    return v ? JSON.parse(v) : null;
+  }catch(e){ return null; }
+}
 function planFromDoc(data){
   if(!data) return null;
   if(typeof data.planJson === 'string'){
@@ -856,12 +866,15 @@ async function loadPlan(){
         PLAN_SOURCE = 'firestore';
         return m.plan;
       }
-      /* Only seed defaults when the server itself says there is no plan — and
-         only call it seeded once the write has actually gone through, so a
-         rejected write is never reported as a successful seed. */
-      await ref.set(planToDoc(DEFAULT_PLAN));
-      PLAN_SOURCE = 'seeded';
-      return DEFAULT_PLAN;
+      /* Nothing in the cloud yet. Seed from this device's own saved plan when it
+         has one — anything else would quietly replace a real program with the
+         built-in defaults. Only call it seeded once the write has gone through,
+         so a rejected write is never reported as a successful seed. */
+      var mine = localPlan();
+      var seed = mine || DEFAULT_PLAN;
+      await ref.set(planToDoc(seed));
+      PLAN_SOURCE = mine ? 'seeded-from-this-device' : 'seeded';
+      return mergeWithDefaults(seed).plan;
     }
   }catch(e){
     PLAN_ERROR = (e && (e.code || e.message)) || 'unknown';
@@ -2230,6 +2243,9 @@ async function runPlanDiagnostics(){
   out.push('load said : plan ' + PLAN_SOURCE + (PLAN_ERROR ? ' / error ' + PLAN_ERROR : ''));
   out.push('this device shows:');
   out.push('  ' + planSignature(PLAN));
+  var mine = localPlan();
+  out.push('saved on this device:');
+  out.push('  ' + (mine ? planSignature(mine) : '(nothing saved locally)'));
   if(!currentUser || !db){ planDiagOut(out.join('\n')); return; }
   var path = 'users/' + currentUser.uid + '/plan/current';
   out.push('cloud doc : ' + path);
@@ -2247,6 +2263,18 @@ async function runPlanDiagnostics(){
     out.push('  READ FAILED: ' + (e.code || e.message));
   }
   planDiagOut(out.join('\n'));
+}
+/* Recovery for a cloud document that got seeded with the defaults while this
+   browser still holds the real plan. */
+async function restoreLocalPlan(){
+  var mine = localPlan();
+  if(!mine){ planDiagOut('No plan is saved in this browser, so there is nothing to restore here.'); return; }
+  var merged = mergeWithDefaults(mine).plan;
+  PLAN = merged;
+  renderHeader(); renderToday(); renderPlan(); renderDiet(); refreshProgress();
+  populateLiftExerciseSelect();
+  planDiagOut('Restored from this browser:\n  ' + planSignature(PLAN) + '\n\nNow pushing it to your account…');
+  await pushPlanToCloud();
 }
 async function pushPlanToCloud(){
   if(!currentUser || !db){ planDiagOut('Not signed in — cannot write to your account.'); return; }

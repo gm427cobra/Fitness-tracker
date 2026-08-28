@@ -434,6 +434,7 @@
 
   <div class="card">
     <p class="lead" style="margin:0 0 8px">Build <span id="buildStamp"></span></p>
+    <p class="lead" id="diagLine" style="margin:0 0 8px;font-family:var(--f-mono);font-size:11px"></p>
     <button class="btn ghost full" onclick="applyUpdate()">Force reload latest version</button>
   </div>
 </div>
@@ -482,7 +483,7 @@
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-08-28-1';
+var BUILD = '2026-08-28-2';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -744,6 +745,17 @@ if(auth){
 
 /* ================= STORAGE ================= */
 var STORAGE_MODE = 'none';
+/* Firestore's .get() answers from its local cache when the network is away, and
+   a cache miss looks exactly like "this document does not exist". Reading with
+   source:'server' keeps those apart, so an offline read can never be mistaken
+   for an empty account and seeded over. CLOUD_READY records whether the server
+   actually answered; until it has, nothing is written back to Firestore. */
+var CLOUD_READY = false;
+var PLAN_SOURCE = 'defaults';
+async function getFromServer(ref){
+  try{ return await ref.get({source:'server'}); }
+  catch(e){ CLOUD_READY = false; throw e; }
+}
 function hasClaudeStorage(){ return (typeof window.storage !== 'undefined') && window.storage; }
 function hasLocalStorage(){
   try{ var k='__t'; localStorage.setItem(k,'1'); localStorage.removeItem(k); return true; }
@@ -752,8 +764,9 @@ function hasLocalStorage(){
 async function loadArr(key){
   try{
     if(currentUser && db){
-      var doc = await db.collection('users').doc(currentUser.uid).collection('data').doc(key).get();
+      var doc = await getFromServer(db.collection('users').doc(currentUser.uid).collection('data').doc(key));
       STORAGE_MODE='firebase';
+      CLOUD_READY = true;
       return (doc.exists && doc.data().entries) ? doc.data().entries : [];
     }
   }catch(e){ console.error('firestore read error', e); }
@@ -776,7 +789,9 @@ async function loadArr(key){
 }
 async function saveArr(key,arr){
   try{
-    if(currentUser && db){
+    /* Never push a list built on a read the server never answered — that would
+       replace the stored history with whatever this device happens to hold. */
+    if(currentUser && db && CLOUD_READY){
       await db.collection('users').doc(currentUser.uid).collection('data').doc(key).set({entries: arr});
       STORAGE_MODE='firebase';
       return;
@@ -811,15 +826,18 @@ function mergeWithDefaults(stored){
 async function loadPlan(){
   try{
     if(currentUser && db){
-      var doc = await db.collection('users').doc(currentUser.uid).collection('plan').doc('current').get();
+      var ref = db.collection('users').doc(currentUser.uid).collection('plan').doc('current');
+      var doc = await getFromServer(ref);
+      CLOUD_READY = true;
       if(doc.exists && doc.data().plan){
+        PLAN_SOURCE = 'firestore';
         var m = mergeWithDefaults(doc.data().plan);
-        if(m.patched){
-          await db.collection('users').doc(currentUser.uid).collection('plan').doc('current').set({plan: m.plan});
-        }
+        if(m.patched) await ref.set({plan: m.plan});
         return m.plan;
       }
-      await db.collection('users').doc(currentUser.uid).collection('plan').doc('current').set({plan: DEFAULT_PLAN});
+      /* Only seed defaults when the server itself says there is no plan. */
+      PLAN_SOURCE = 'seeded';
+      await ref.set({plan: DEFAULT_PLAN});
       return DEFAULT_PLAN;
     }
   }catch(e){ console.error('plan load error', e); }
@@ -843,7 +861,7 @@ async function loadPlan(){
 }
 async function savePlan(plan){
   try{
-    if(currentUser && db){
+    if(currentUser && db && CLOUD_READY){
       await db.collection('users').doc(currentUser.uid).collection('plan').doc('current').set({plan: plan});
       return;
     }
@@ -2270,6 +2288,16 @@ async function startApp(){
   renderFoodTable();
   populateLiftExerciseSelect();
   document.getElementById('buildStamp').textContent = BUILD;
+  /* When two devices disagree, this says which one is reading what. */
+  document.getElementById('diagLine').textContent =
+    'account ' + (currentUser && currentUser.email ? currentUser.email : 'none') +
+    ' · data ' + STORAGE_MODE + ' · plan ' + PLAN_SOURCE;
+  if(currentUser && PLAN_SOURCE !== 'firestore' && PLAN_SOURCE !== 'seeded'){
+    warn.className = 'note-strip red';
+    warn.style.display = 'block';
+    warn.textContent = 'Your saved plan could not be reached, so this device is showing the built-in default program. '+
+                       'Entries are being kept on this device only until it reconnects — reload once you have signal.';
+  }
   checkQuickAdd();
   startTodayAutoRefresh();
 }

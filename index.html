@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>BUILD LOG — G.</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -236,6 +239,9 @@
 
 <div id="storageWarning" class="note-strip red" style="display:none;margin:12px 16px 0;">Saved entries aren't persisting, so anything you log will be lost on reload.</div>
 
+<div id="updateBanner" class="note-strip blue" style="display:none;margin:12px 16px 0;cursor:pointer"
+     onclick="applyUpdate()">A newer version of Build Log is ready — tap to load it.</div>
+
 <div id="quickAddBanner" class="card qa-card" style="display:none;margin:12px 16px 0;">
   <div class="card-h"><h2>Quick add</h2></div>
   <div id="quickAddBody"></div>
@@ -425,6 +431,11 @@
     <textarea id="summaryOut" readonly placeholder="Tap generate..."></textarea>
     <button class="btn ghost full" style="margin-top:8px" onclick="copySummary()">Copy to clipboard</button>
   </div>
+
+  <div class="card">
+    <p class="lead" style="margin:0 0 8px">Build <span id="buildStamp"></span></p>
+    <button class="btn ghost full" onclick="applyUpdate()">Force reload latest version</button>
+  </div>
 </div>
 
 <div class="tabbar">
@@ -465,6 +476,47 @@
 <input type="file" id="exPhotoInput" accept="image/*" style="display:none">
 
 <script>
+/* ================= BUILD / CACHE ================= 
+   GitHub Pages sets its own cache headers and iOS — the Home Screen web app
+   especially — holds the old HTML well past them. The <meta> cache hints in the
+   head are widely ignored for the document itself, so instead the running page
+   asks the server what the current build is and reloads past the cache when it
+   has fallen behind. Bump BUILD on every deploy. */
+var BUILD = '2026-08-28-1';
+
+function applyUpdate(){
+  var base = location.origin + location.pathname;
+  location.replace(base + '?v=' + Date.now());
+}
+async function checkForUpdate(auto){
+  try{
+    var res = await fetch(location.pathname + '?cb=' + Date.now(), {cache:'no-store'});
+    if(!res.ok) return;
+    var text = await res.text();
+    var m = text.match(/var BUILD = '([^']+)'/);
+    if(!m || m[1] === BUILD){
+      try{ sessionStorage.removeItem('bl_update_tries'); }catch(e){}
+      return;
+    }
+    /* On first load nothing is half-entered, so just take the new version —
+       but never loop: if reloading doesn't shift the build, show the banner. */
+    var tries = 0;
+    try{ tries = parseInt(sessionStorage.getItem('bl_update_tries')||'0', 10) || 0; }catch(e){}
+    if(auto && tries < 2){
+      try{ sessionStorage.setItem('bl_update_tries', String(tries+1)); }catch(e){}
+      applyUpdate();
+      return;
+    }
+    document.getElementById('updateBanner').style.display = 'block';
+  }catch(e){ /* offline, or the check was blocked — never block the app on it */ }
+}
+checkForUpdate(true);
+/* Coming back to the app after it has sat in the background is the other moment
+   a stale build shows up. */
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'visible') checkForUpdate(false);
+});
+
 /* ================= DEFAULT PLAN (seed data — lives in Firestore after first load) ================= */
 var DAY_MS = 86400000;
 
@@ -2217,6 +2269,7 @@ async function startApp(){
   renderAlcTable();
   renderFoodTable();
   populateLiftExerciseSelect();
+  document.getElementById('buildStamp').textContent = BUILD;
   checkQuickAdd();
   startTodayAutoRefresh();
 }

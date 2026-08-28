@@ -483,7 +483,7 @@
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-08-28-2';
+var BUILD = '2026-08-28-3';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -752,6 +752,7 @@ var STORAGE_MODE = 'none';
    actually answered; until it has, nothing is written back to Firestore. */
 var CLOUD_READY = false;
 var PLAN_SOURCE = 'defaults';
+var PLAN_ERROR = '';
 async function getFromServer(ref){
   try{ return await ref.get({source:'server'}); }
   catch(e){ CLOUD_READY = false; throw e; }
@@ -830,17 +831,25 @@ async function loadPlan(){
       var doc = await getFromServer(ref);
       CLOUD_READY = true;
       if(doc.exists && doc.data().plan){
-        PLAN_SOURCE = 'firestore';
         var m = mergeWithDefaults(doc.data().plan);
-        if(m.patched) await ref.set({plan: m.plan});
+        if(m.patched){
+          try{ await ref.set({plan: m.plan}); }
+          catch(e){ PLAN_ERROR = 'patch write: '+(e.code||e.message); }
+        }
+        PLAN_SOURCE = 'firestore';
         return m.plan;
       }
-      /* Only seed defaults when the server itself says there is no plan. */
-      PLAN_SOURCE = 'seeded';
+      /* Only seed defaults when the server itself says there is no plan — and
+         only call it seeded once the write has actually gone through, so a
+         rejected write is never reported as a successful seed. */
       await ref.set({plan: DEFAULT_PLAN});
+      PLAN_SOURCE = 'seeded';
       return DEFAULT_PLAN;
     }
-  }catch(e){ console.error('plan load error', e); }
+  }catch(e){
+    PLAN_ERROR = (e && (e.code || e.message)) || 'unknown';
+    console.error('plan load error', e);
+  }
   try{
     if(hasClaudeStorage()){
       var r = await window.storage.get('plan-data', false);
@@ -852,8 +861,14 @@ async function loadPlan(){
   try{
     if(hasLocalStorage()){
       var v = localStorage.getItem('buildlog_plan-data');
-      if(v){ var m3=mergeWithDefaults(JSON.parse(v)); if(m3.patched) localStorage.setItem('buildlog_plan-data', JSON.stringify(m3.plan)); return m3.plan; }
+      if(v){
+        var m3=mergeWithDefaults(JSON.parse(v));
+        if(m3.patched) localStorage.setItem('buildlog_plan-data', JSON.stringify(m3.plan));
+        PLAN_SOURCE = 'this-device';
+        return m3.plan;
+      }
       localStorage.setItem('buildlog_plan-data', JSON.stringify(DEFAULT_PLAN));
+      PLAN_SOURCE = 'defaults';
       return DEFAULT_PLAN;
     }
   }catch(e){}
@@ -2291,7 +2306,8 @@ async function startApp(){
   /* When two devices disagree, this says which one is reading what. */
   document.getElementById('diagLine').textContent =
     'account ' + (currentUser && currentUser.email ? currentUser.email : 'none') +
-    ' · data ' + STORAGE_MODE + ' · plan ' + PLAN_SOURCE;
+    ' · data ' + STORAGE_MODE + ' · plan ' + PLAN_SOURCE +
+    (PLAN_ERROR ? ' · error ' + PLAN_ERROR : '');
   if(currentUser && PLAN_SOURCE !== 'firestore' && PLAN_SOURCE !== 'seeded'){
     warn.className = 'note-strip red';
     warn.style.display = 'block';

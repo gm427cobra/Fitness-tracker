@@ -486,7 +486,7 @@
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-08-28-4';
+var BUILD = '2026-08-28-5';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -817,6 +817,19 @@ async function saveArr(key,arr){
   }catch(e){}
   STORAGE_MODE='none';
 }
+/* Firestore rejects nested arrays, and PLAN.weekPlan is an array of arrays —
+   so writing the plan as a plain object always failed with invalid-argument and
+   every device silently fell back to its own local copy. Storing it as a JSON
+   string sidesteps that, and keeps working whatever shape the plan editor is
+   given. The old "plan" field is still read so an existing document isn't lost. */
+function planToDoc(plan){ return {planJson: JSON.stringify(plan), updated: Date.now()}; }
+function planFromDoc(data){
+  if(!data) return null;
+  if(typeof data.planJson === 'string'){
+    try{ return JSON.parse(data.planJson); }catch(e){ return null; }
+  }
+  return data.plan || null;
+}
 function mergeWithDefaults(stored){
   var merged = {};
   var missing = false;
@@ -833,10 +846,11 @@ async function loadPlan(){
       var ref = db.collection('users').doc(currentUser.uid).collection('plan').doc('current');
       var doc = await getFromServer(ref);
       CLOUD_READY = true;
-      if(doc.exists && doc.data().plan){
-        var m = mergeWithDefaults(doc.data().plan);
+      var storedPlan = doc.exists ? planFromDoc(doc.data()) : null;
+      if(storedPlan){
+        var m = mergeWithDefaults(storedPlan);
         if(m.patched){
-          try{ await ref.set({plan: m.plan}); }
+          try{ await ref.set(planToDoc(m.plan)); }
           catch(e){ PLAN_ERROR = 'patch write: '+(e.code||e.message); }
         }
         PLAN_SOURCE = 'firestore';
@@ -845,7 +859,7 @@ async function loadPlan(){
       /* Only seed defaults when the server itself says there is no plan — and
          only call it seeded once the write has actually gone through, so a
          rejected write is never reported as a successful seed. */
-      await ref.set({plan: DEFAULT_PLAN});
+      await ref.set(planToDoc(DEFAULT_PLAN));
       PLAN_SOURCE = 'seeded';
       return DEFAULT_PLAN;
     }
@@ -880,7 +894,7 @@ async function loadPlan(){
 async function savePlan(plan){
   try{
     if(currentUser && db && CLOUD_READY){
-      await db.collection('users').doc(currentUser.uid).collection('plan').doc('current').set({plan: plan});
+      await db.collection('users').doc(currentUser.uid).collection('plan').doc('current').set(planToDoc(plan));
       return;
     }
   }catch(e){ console.error('plan save error', e); }
@@ -2227,7 +2241,7 @@ async function runPlanDiagnostics(){
       var data = d.data() || {};
       out.push('  fields  : ' + Object.keys(data).join(', '));
       out.push('  cloud shows:');
-      out.push('    ' + planSignature(data.plan));
+      out.push('    ' + planSignature(planFromDoc(data)));
     }
   }catch(e){
     out.push('  READ FAILED: ' + (e.code || e.message));
@@ -2239,7 +2253,7 @@ async function pushPlanToCloud(){
   planDiagOut('Writing this device\'s plan to your account…');
   var ref = db.collection('users').doc(currentUser.uid).collection('plan').doc('current');
   try{
-    await ref.set({plan: PLAN});
+    await ref.set(planToDoc(PLAN));
   }catch(e){
     planDiagOut('WRITE REJECTED: ' + (e.code || e.message) +
                 '\n\nNothing was changed. Send me this line.');
@@ -2250,7 +2264,7 @@ async function pushPlanToCloud(){
   PLAN_SOURCE = 'firestore'; PLAN_ERROR = '';
   try{
     var check = await ref.get({source:'server'});
-    var stored = check.exists ? (check.data()||{}).plan : null;
+    var stored = check.exists ? planFromDoc(check.data()) : null;
     if(stored){
       planDiagOut('Written and read back OK.\n\nCloud now holds:\n  ' + planSignature(stored) +
                   '\n\nReload your other device to pick it up.');

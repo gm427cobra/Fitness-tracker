@@ -7,7 +7,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <style>
   :root{
     --bg:#12161B;
@@ -654,12 +653,11 @@ var firebaseConfig = {
   appId: "1:1012154870150:web:809e8f6574ba54ceeea407",
   measurementId: "G-5MC08MLF7S"
 };
-var fbApp=null, auth=null, db=null, fbStorage=null, currentUser=null;
+var fbApp=null, auth=null, db=null, currentUser=null;
 try{
   fbApp = firebase.initializeApp(firebaseConfig);
   auth = firebase.auth();
   db = firebase.firestore();
-  try{ fbStorage = firebase.storage(); }catch(e){ console.warn('Firebase Storage unavailable', e); }
 }catch(e){ console.error('Firebase init failed', e); }
 
 function doLogin(){
@@ -800,6 +798,52 @@ async function savePlan(plan){
   }catch(e){ console.error('plan save error', e); }
   try{ if(hasClaudeStorage()){ await window.storage.set('plan-data', JSON.stringify(plan), false); return; } }catch(e){}
   try{ if(hasLocalStorage()){ localStorage.setItem('buildlog_plan-data', JSON.stringify(plan)); return; } }catch(e){}
+}
+
+/* Exercise photos live one-per-document under the user's exercise-photos
+   collection, as inline JPEG data URLs. One document each (rather than one
+   array) keeps every photo well inside Firestore's ~1MiB per-document limit. */
+async function loadExercisePhotos(){
+  try{
+    if(currentUser && db){
+      var snap = await db.collection('users').doc(currentUser.uid).collection('exercise-photos').get();
+      var out = [];
+      snap.forEach(function(d){
+        var v = d.data();
+        if(v && v.dataUrl) out.push({id:d.id, name:v.name, dataUrl:v.dataUrl});
+      });
+      return out;
+    }
+  }catch(e){ console.error('photo load error', e); }
+  try{
+    if(hasLocalStorage()){
+      var v = localStorage.getItem('buildlog_exercise-photos');
+      return v? JSON.parse(v):[];
+    }
+  }catch(e){}
+  return [];
+}
+async function persistExercisePhoto(entry){
+  if(currentUser && db){
+    await db.collection('users').doc(currentUser.uid).collection('exercise-photos').doc(entry.id)
+      .set({name:entry.name, dataUrl:entry.dataUrl, updated:Date.now()});
+    return;
+  }
+  persistPhotosLocally();
+}
+async function forgetExercisePhoto(id){
+  if(currentUser && db){
+    await db.collection('users').doc(currentUser.uid).collection('exercise-photos').doc(id).delete();
+    return;
+  }
+  persistPhotosLocally();
+}
+function persistPhotosLocally(){
+  try{
+    if(hasLocalStorage()) localStorage.setItem('buildlog_exercise-photos', JSON.stringify(exPhotos));
+  }catch(e){
+    throw new Error('This browser ran out of local storage for photos — sign in so they save to your account.');
+  }
 }
 
 var bwLog=[], liftLog=[], alcLog=[], noteLog=[], foodLog=[], exPhotos=[];
@@ -965,27 +1009,26 @@ document.addEventListener('keydown', function(ev){ if(ev.key==='Escape') closeLi
 
 /* ---- photos uploaded from the phone, held in Firebase Storage ---- */
 function exPhotoUrl(name){
-  for(var i=0;i<exPhotos.length;i++){ if(exPhotos[i].name===name) return exPhotos[i].url; }
+  for(var i=0;i<exPhotos.length;i++){ if(exPhotos[i].name===name) return exPhotos[i].dataUrl; }
   return null;
 }
-/* Downscale in the browser before upload: keeps stored files small, and on iOS
-   it also converts a HEIC straight to JPEG, since Safari can decode HEIC into a
-   canvas even though no browser will render one in an <img>. */
-function downscaleImage(file, maxPx, quality){
+/* Draw the picked file into a canvas and re-encode as a JPEG data URL. Besides
+   shrinking it, this converts HEIC on the way through: Safari can decode HEIC
+   into a canvas even though no browser will render one in an <img>. */
+function downscaleToDataUrl(file, maxPx, quality){
   return new Promise(function(resolve, reject){
     var url = URL.createObjectURL(file);
     var img = new Image();
     img.onload = function(){
       var w = img.naturalWidth, h = img.naturalHeight;
-      if(!w || !h){ URL.revokeObjectURL(url); reject(new Error('That image could not be read.')); return; }
+      URL.revokeObjectURL(url);
+      if(!w || !h){ reject(new Error('That image could not be read.')); return; }
       var scale = Math.min(1, maxPx/Math.max(w,h));
       var c = document.createElement('canvas');
       c.width = Math.round(w*scale); c.height = Math.round(h*scale);
       c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-      URL.revokeObjectURL(url);
-      c.toBlob(function(b){
-        b ? resolve(b) : reject(new Error('That image could not be converted on this device.'));
-      }, 'image/jpeg', quality);
+      try{ resolve(c.toDataURL('image/jpeg', quality)); }
+      catch(e){ reject(new Error('That image could not be converted on this device.')); }
     };
     img.onerror = function(){
       URL.revokeObjectURL(url);
@@ -994,28 +1037,37 @@ function downscaleImage(file, maxPx, quality){
     img.src = url;
   });
 }
+/* A Firestore document caps at ~1MiB, and base64 inflates by a third, so keep
+   the encoded string well under that — stepping quality then size down until it
+   fits rather than failing on a big photo. */
+var PHOTO_MAX_CHARS = 700*1024;
+async function encodePhoto(file){
+  var attempts = [[900,0.82],[900,0.7],[760,0.7],[760,0.58],[600,0.55]];
+  var last = null;
+  for(var i=0;i<attempts.length;i++){
+    last = await downscaleToDataUrl(file, attempts[i][0], attempts[i][1]);
+    if(last.length <= PHOTO_MAX_CHARS) return last;
+  }
+  throw new Error('That photo is still too large after compressing — try a tighter crop.');
+}
 async function uploadExercisePhoto(name, file){
-  if(!fbStorage) throw new Error('Photo storage is not enabled on this project yet.');
-  if(!currentUser) throw new Error('Sign in before adding photos.');
-  var blob = await downscaleImage(file, 900, 0.82);
-  var path = 'users/'+currentUser.uid+'/exercise-photos/'+exerciseSlug(name)+'.jpg';
-  var ref = fbStorage.ref().child(path);
-  await ref.put(blob, {contentType:'image/jpeg'});
-  var url = await ref.getDownloadURL();
+  var dataUrl = await encodePhoto(file);
+  var entry = {id: exerciseSlug(name) || 'ex-'+Date.now(), name: name, dataUrl: dataUrl};
+  var previous = exPhotos.slice();
   exPhotos = exPhotos.filter(function(p){ return p.name!==name; });
-  exPhotos.push({name:name, url:url, path:path});
-  await saveArr('exercise-photos', exPhotos);
-  EX_IMG_CACHE[name] = url;
-  return url;
+  exPhotos.push(entry);
+  try{ await persistExercisePhoto(entry); }
+  catch(e){ exPhotos = previous; throw e; }   /* don't show a photo that didn't save */
+  EX_IMG_CACHE[name] = dataUrl;
+  return dataUrl;
 }
 async function removeExercisePhoto(name){
   var entry = exPhotos.filter(function(p){ return p.name===name; })[0];
-  if(entry && entry.path && fbStorage){
-    try{ await fbStorage.ref().child(entry.path).delete(); }
-    catch(e){ console.warn('storage delete failed', e); }   /* the record still goes */
-  }
+  if(!entry) return;
+  var previous = exPhotos.slice();
   exPhotos = exPhotos.filter(function(p){ return p.name!==name; });
-  await saveArr('exercise-photos', exPhotos);
+  try{ await forgetExercisePhoto(entry.id); }
+  catch(e){ exPhotos = previous; throw e; }
   delete EX_IMG_CACHE[name];
 }
 var pendingPhotoFor = null;
@@ -1076,7 +1128,7 @@ function addExerciseThumb(row, name, explicit, allowUpload){
   var busy = document.createElement('div');
   busy.className = 'ex-thumb-busy';
   busy.style.display = 'none';
-  busy.textContent = 'Uploading…';
+  busy.textContent = 'Saving…';
   busy.setAttribute('data-photo-busy', name);
   wrap.appendChild(busy);
   row.appendChild(wrap);
@@ -2129,7 +2181,7 @@ async function startApp(){
   alcLog = await loadArr('alc-log');
   noteLog = await loadArr('note-log');
   foodLog = await loadArr('food-log');
-  exPhotos = await loadArr('exercise-photos');
+  exPhotos = await loadExercisePhotos();
 
   var warn = document.getElementById('storageWarning');
   if(STORAGE_MODE==='firebase'){

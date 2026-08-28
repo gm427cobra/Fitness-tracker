@@ -7,6 +7,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <style>
   :root{
     --bg:#12161B;
@@ -106,6 +107,17 @@
   .lightbox img{max-width:100%;max-height:82vh;object-fit:contain;border-radius:8px;}
   .lightbox-cap{margin-top:12px;font-size:14px;font-weight:600;color:var(--ink);text-align:center;}
   .lightbox-hint{margin-top:4px;font-size:12px;color:var(--ink-dim);}
+  .lightbox-actions{margin-top:14px;display:flex;gap:8px;}
+  .ex-addphoto{width:62px;height:62px;flex:none;border:1px dashed var(--line);border-radius:6px;
+    background:rgba(255,255,255,.02);color:var(--ink-dim);cursor:pointer;display:flex;
+    flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:9px;
+    letter-spacing:.04em;text-transform:uppercase;padding:0;font-family:inherit;}
+  .ex-addphoto:active{background:rgba(255,255,255,.06);}
+  .ex-addphoto svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;}
+  .ex-thumb-wrap{position:relative;flex:none;}
+  .ex-thumb-busy{position:absolute;inset:0;border-radius:6px;background:rgba(0,0,0,.72);
+    display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--ink);
+    letter-spacing:.05em;text-transform:uppercase;text-align:center;padding:2px;}
 
   p.lead{font-size:13px;color:var(--ink-dim);line-height:1.5;margin:0 0 12px;}
   .note-strip{
@@ -448,8 +460,10 @@
 <div class="lightbox" id="imgLightbox" onclick="closeLightbox()">
   <img id="lightboxImg" alt="">
   <div class="lightbox-cap" id="lightboxCap"></div>
-  <div class="lightbox-hint">Tap anywhere to close</div>
+  <div class="lightbox-hint">Tap the backdrop to close</div>
+  <div class="lightbox-actions" id="lightboxActions"></div>
 </div>
+<input type="file" id="exPhotoInput" accept="image/*" style="display:none">
 
 <script>
 /* ================= DEFAULT PLAN (seed data — lives in Firestore after first load) ================= */
@@ -640,11 +654,12 @@ var firebaseConfig = {
   appId: "1:1012154870150:web:809e8f6574ba54ceeea407",
   measurementId: "G-5MC08MLF7S"
 };
-var fbApp=null, auth=null, db=null, currentUser=null;
+var fbApp=null, auth=null, db=null, fbStorage=null, currentUser=null;
 try{
   fbApp = firebase.initializeApp(firebaseConfig);
   auth = firebase.auth();
   db = firebase.firestore();
+  try{ fbStorage = firebase.storage(); }catch(e){ console.warn('Firebase Storage unavailable', e); }
 }catch(e){ console.error('Firebase init failed', e); }
 
 function doLogin(){
@@ -787,7 +802,7 @@ async function savePlan(plan){
   try{ if(hasLocalStorage()){ localStorage.setItem('buildlog_plan-data', JSON.stringify(plan)); return; } }catch(e){}
 }
 
-var bwLog=[], liftLog=[], alcLog=[], noteLog=[], foodLog=[];
+var bwLog=[], liftLog=[], alcLog=[], noteLog=[], foodLog=[], exPhotos=[];
 
 /* ================= TAB SWITCHING ================= */
 function showView(name){
@@ -918,28 +933,153 @@ function exerciseImgCandidates(name, explicit){
   if(slug) EX_IMG_EXTS.forEach(function(x){ list.push('images/'+slug+'.'+x); });
   return list;
 }
-function openLightbox(src, caption){
+function openLightbox(src, caption, exName){
   document.getElementById('lightboxImg').src = src;
   document.getElementById('lightboxCap').textContent = caption || '';
+  var actions = document.getElementById('lightboxActions');
+  actions.innerHTML = '';
+  /* Replace / remove only for photos this account uploaded — a file committed
+     to /images belongs to the repo, not to the app. */
+  if(exName && exPhotoUrl(exName)){
+    var replace = document.createElement('button');
+    replace.className = 'btn'; replace.textContent = 'Replace photo';
+    replace.onclick = function(ev){ ev.stopPropagation(); closeLightbox(); pickExercisePhoto(exName); };
+    var remove = document.createElement('button');
+    remove.className = 'btn ghost'; remove.textContent = 'Remove';
+    remove.onclick = async function(ev){
+      ev.stopPropagation();
+      remove.disabled = true; remove.textContent = 'Removing…';
+      try{ await removeExercisePhoto(exName); closeLightbox(); rerenderExerciseViews(); }
+      catch(e){ remove.disabled=false; remove.textContent='Remove'; alert(e.message||'Could not remove that photo.'); }
+    };
+    actions.appendChild(replace); actions.appendChild(remove);
+  }
   document.getElementById('imgLightbox').classList.add('open');
 }
 function closeLightbox(){
   document.getElementById('imgLightbox').classList.remove('open');
   document.getElementById('lightboxImg').removeAttribute('src');
+  document.getElementById('lightboxActions').innerHTML = '';
 }
 document.addEventListener('keydown', function(ev){ if(ev.key==='Escape') closeLightbox(); });
 
-function addExerciseThumb(row, name, explicit){
-  var cached = EX_IMG_CACHE[name];
-  if(cached===null) return;                       /* known to have no photo */
+/* ---- photos uploaded from the phone, held in Firebase Storage ---- */
+function exPhotoUrl(name){
+  for(var i=0;i<exPhotos.length;i++){ if(exPhotos[i].name===name) return exPhotos[i].url; }
+  return null;
+}
+/* Downscale in the browser before upload: keeps stored files small, and on iOS
+   it also converts a HEIC straight to JPEG, since Safari can decode HEIC into a
+   canvas even though no browser will render one in an <img>. */
+function downscaleImage(file, maxPx, quality){
+  return new Promise(function(resolve, reject){
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function(){
+      var w = img.naturalWidth, h = img.naturalHeight;
+      if(!w || !h){ URL.revokeObjectURL(url); reject(new Error('That image could not be read.')); return; }
+      var scale = Math.min(1, maxPx/Math.max(w,h));
+      var c = document.createElement('canvas');
+      c.width = Math.round(w*scale); c.height = Math.round(h*scale);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(function(b){
+        b ? resolve(b) : reject(new Error('That image could not be converted on this device.'));
+      }, 'image/jpeg', quality);
+    };
+    img.onerror = function(){
+      URL.revokeObjectURL(url);
+      reject(new Error('This device cannot read that image format — try saving it as a JPEG first.'));
+    };
+    img.src = url;
+  });
+}
+async function uploadExercisePhoto(name, file){
+  if(!fbStorage) throw new Error('Photo storage is not enabled on this project yet.');
+  if(!currentUser) throw new Error('Sign in before adding photos.');
+  var blob = await downscaleImage(file, 900, 0.82);
+  var path = 'users/'+currentUser.uid+'/exercise-photos/'+exerciseSlug(name)+'.jpg';
+  var ref = fbStorage.ref().child(path);
+  await ref.put(blob, {contentType:'image/jpeg'});
+  var url = await ref.getDownloadURL();
+  exPhotos = exPhotos.filter(function(p){ return p.name!==name; });
+  exPhotos.push({name:name, url:url, path:path});
+  await saveArr('exercise-photos', exPhotos);
+  EX_IMG_CACHE[name] = url;
+  return url;
+}
+async function removeExercisePhoto(name){
+  var entry = exPhotos.filter(function(p){ return p.name===name; })[0];
+  if(entry && entry.path && fbStorage){
+    try{ await fbStorage.ref().child(entry.path).delete(); }
+    catch(e){ console.warn('storage delete failed', e); }   /* the record still goes */
+  }
+  exPhotos = exPhotos.filter(function(p){ return p.name!==name; });
+  await saveArr('exercise-photos', exPhotos);
+  delete EX_IMG_CACHE[name];
+}
+var pendingPhotoFor = null;
+function pickExercisePhoto(name){
+  pendingPhotoFor = name;
+  var input = document.getElementById('exPhotoInput');
+  input.value = '';
+  input.click();
+}
+document.getElementById('exPhotoInput').addEventListener('change', async function(){
+  var file = this.files && this.files[0], name = pendingPhotoFor;
+  pendingPhotoFor = null;
+  if(!file || !name) return;
+  var busy = document.querySelector('[data-photo-busy="'+cssEscape(name)+'"]');
+  if(busy) busy.style.display = 'flex';
+  try{
+    await uploadExercisePhoto(name, file);
+    rerenderExerciseViews();
+  }catch(e){
+    if(busy) busy.style.display = 'none';
+    alert(e.message || 'Upload failed.');
+  }
+});
+function cssEscape(v){ return String(v).replace(/["\\]/g, '\\$&'); }
+function rerenderExerciseViews(){
+  renderToday();
+  var plan = document.getElementById('view-plan');
+  if(plan && plan.classList.contains('active')) renderPlan();
+}
+
+function addPhotoButton(row, name){
+  var btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'ex-addphoto';
+  btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M3 8.5A1.5 1.5 0 014.5 7h2L8 5h8l1.5 2h2A1.5 1.5 0 0121 8.5v9A1.5 1.5 0 0119.5 19h-15A1.5 1.5 0 013 17.5z"/>'+
+                  '<circle cx="12" cy="12.5" r="3.2"/></svg><span>Photo</span>';
+  btn.onclick = function(ev){ ev.stopPropagation(); pickExercisePhoto(name); };
+  row.appendChild(btn);
+  return btn;
+}
+function addExerciseThumb(row, name, explicit, allowUpload){
+  var uploaded = exPhotoUrl(name);
+  var cached = uploaded || EX_IMG_CACHE[name];
+  if(!uploaded && cached===null){                 /* known to have no photo */
+    if(allowUpload) addPhotoButton(row, name);
+    return;
+  }
+  var wrap = document.createElement('div');
+  wrap.className = 'ex-thumb-wrap';
   var img = document.createElement('img');
   img.className = 'ex-thumb';
   img.alt = name;
   /* No loading="lazy" here: the thumb starts hidden until it resolves, and a
      display:none image never enters the viewport, so lazy would never fire. */
-  img.onclick = function(ev){ ev.stopPropagation(); openLightbox(img.src, name); };
+  img.onclick = function(ev){ ev.stopPropagation(); openLightbox(img.src, name, name); };
   img.onload = function(){ EX_IMG_CACHE[name] = img.src; img.style.display='block'; };
-  row.appendChild(img);
+  wrap.appendChild(img);
+  var busy = document.createElement('div');
+  busy.className = 'ex-thumb-busy';
+  busy.style.display = 'none';
+  busy.textContent = 'Uploading…';
+  busy.setAttribute('data-photo-busy', name);
+  wrap.appendChild(busy);
+  row.appendChild(wrap);
 
   if(cached){ img.src = cached; return; }
   var candidates = exerciseImgCandidates(name, explicit), i = 0;
@@ -948,13 +1088,19 @@ function addExerciseThumb(row, name, explicit){
     if(i < candidates.length){ img.src = candidates[i]; return; }
     img.onerror = null;
     EX_IMG_CACHE[name] = null;
-    if(img.parentNode) img.parentNode.removeChild(img);
+    if(wrap.parentNode) wrap.parentNode.removeChild(wrap);
+    if(allowUpload) addPhotoButton(row, name);
   };
-  if(!candidates.length){ EX_IMG_CACHE[name] = null; row.removeChild(img); return; }
+  if(!candidates.length){
+    EX_IMG_CACHE[name] = null;
+    row.removeChild(wrap);
+    if(allowUpload) addPhotoButton(row, name);
+    return;
+  }
   img.src = candidates[0];
 }
 
-function renderExerciseBlock(tpl, containerEl){
+function renderExerciseBlock(tpl, containerEl, allowUpload){
   if(tpl.rest){ containerEl.innerHTML += '<div class="empty">Full rest day. No training.</div>'; return; }
   if(tpl.op){ containerEl.innerHTML += '<div class="note-strip red">'+tpl.note+'</div>'; return; }
   if(tpl.postop){ containerEl.innerHTML += '<div class="note-strip" style="border-left-color:var(--amber)">'+tpl.note+'</div>'; return; }
@@ -972,7 +1118,7 @@ function renderExerciseBlock(tpl, containerEl){
     main.appendChild(text);
     div.appendChild(main);
     containerEl.appendChild(div);
-    addExerciseThumb(main, imgName || name, explicitImg);
+    addExerciseThumb(main, imgName || name, explicitImg, allowUpload);
   }
   if(tpl.cardio){
     /* The heading carries the distance; the photo is keyed off the bare name. */
@@ -1120,7 +1266,7 @@ function renderToday(){
     var badgeClass = tkey==='opDay'?'op':(tkey==='postOpWalk'?'rest':diet);
     h.innerHTML = '<h2>Today — '+fmtDate(t)+'</h2><span class="badge '+badgeClass+'">'+tpl.label+'</span>';
     card.appendChild(h);
-    renderExerciseBlock(tpl, card);
+    renderExerciseBlock(tpl, card, true);
   }
 
   var dcard = document.getElementById('todayDietCard');
@@ -1983,6 +2129,7 @@ async function startApp(){
   alcLog = await loadArr('alc-log');
   noteLog = await loadArr('note-log');
   foodLog = await loadArr('food-log');
+  exPhotos = await loadArr('exercise-photos');
 
   var warn = document.getElementById('storageWarning');
   if(STORAGE_MODE==='firebase'){

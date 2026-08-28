@@ -435,6 +435,9 @@
   <div class="card">
     <p class="lead" style="margin:0 0 8px">Build <span id="buildStamp"></span></p>
     <p class="lead" id="diagLine" style="margin:0 0 8px;font-family:var(--f-mono);font-size:11px"></p>
+    <button class="btn ghost full" style="margin-bottom:8px" onclick="runPlanDiagnostics()">Check plan in cloud</button>
+    <button class="btn full" style="margin-bottom:8px" onclick="pushPlanToCloud()">Push this device's plan to my account</button>
+    <pre id="planDiagOut" style="display:none;white-space:pre-wrap;word-break:break-word;font-family:var(--f-mono);font-size:11px;color:var(--ink-dim);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:6px;padding:9px;margin:0 0 8px"></pre>
     <button class="btn ghost full" onclick="applyUpdate()">Force reload latest version</button>
   </div>
 </div>
@@ -483,7 +486,7 @@
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-08-28-3';
+var BUILD = '2026-08-28-4';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -2189,6 +2192,76 @@ function renderAlcoholChart(){
   drawBarChart(canvas, keys.map(fmtDate), keys.map(function(k){return weekMap[k];}), '#E8A33D');
   var lastKey = keys[keys.length-1];
   document.getElementById('weekUnitsBadge').textContent=(lastKey? weekMap[lastKey]:0)+' units';
+}
+
+/* ================= PLAN DIAGNOSTICS =================
+   Two devices showing different programs is otherwise invisible: each falls
+   back to its own local copy and neither says so. These report what the server
+   actually holds, and push this device's plan up when it is the good one. */
+function planSignature(p){
+  try{
+    var t = p && p.templates && (p.templates.hipCore1 || p.templates.upperPush1);
+    return (t && t.ex) ? t.ex.map(function(e){ return e.name; }).join(', ') : '(no templates)';
+  }catch(e){ return '(unreadable)'; }
+}
+function planDiagOut(text){
+  var el = document.getElementById('planDiagOut');
+  el.textContent = text;
+  el.style.display = 'block';
+}
+async function runPlanDiagnostics(){
+  var out = [];
+  out.push('signed in : ' + (currentUser ? currentUser.email : 'no'));
+  out.push('uid       : ' + (currentUser ? currentUser.uid : '-'));
+  out.push('load said : plan ' + PLAN_SOURCE + (PLAN_ERROR ? ' / error ' + PLAN_ERROR : ''));
+  out.push('this device shows:');
+  out.push('  ' + planSignature(PLAN));
+  if(!currentUser || !db){ planDiagOut(out.join('\n')); return; }
+  var path = 'users/' + currentUser.uid + '/plan/current';
+  out.push('cloud doc : ' + path);
+  planDiagOut(out.join('\n') + '\nreading…');
+  try{
+    var d = await db.collection('users').doc(currentUser.uid).collection('plan').doc('current').get({source:'server'});
+    out.push('  exists  : ' + d.exists);
+    if(d.exists){
+      var data = d.data() || {};
+      out.push('  fields  : ' + Object.keys(data).join(', '));
+      out.push('  cloud shows:');
+      out.push('    ' + planSignature(data.plan));
+    }
+  }catch(e){
+    out.push('  READ FAILED: ' + (e.code || e.message));
+  }
+  planDiagOut(out.join('\n'));
+}
+async function pushPlanToCloud(){
+  if(!currentUser || !db){ planDiagOut('Not signed in — cannot write to your account.'); return; }
+  planDiagOut('Writing this device\'s plan to your account…');
+  var ref = db.collection('users').doc(currentUser.uid).collection('plan').doc('current');
+  try{
+    await ref.set({plan: PLAN});
+  }catch(e){
+    planDiagOut('WRITE REJECTED: ' + (e.code || e.message) +
+                '\n\nNothing was changed. Send me this line.');
+    return;
+  }
+  /* The write went through. Verify separately — a failure past this point is a
+     read-back problem, not a failed write, and saying otherwise would mislead. */
+  PLAN_SOURCE = 'firestore'; PLAN_ERROR = '';
+  try{
+    var check = await ref.get({source:'server'});
+    var stored = check.exists ? (check.data()||{}).plan : null;
+    if(stored){
+      planDiagOut('Written and read back OK.\n\nCloud now holds:\n  ' + planSignature(stored) +
+                  '\n\nReload your other device to pick it up.');
+    }else{
+      planDiagOut('Write was accepted, but reading it straight back found no plan.\n' +
+                  'That points at the database rather than this device. Send me this line.');
+    }
+  }catch(e){
+    planDiagOut('Write was accepted. Reading it back failed: ' + (e.code || e.message) +
+                '\nThe plan is most likely saved — reload to confirm.');
+  }
 }
 
 /* ================= SUMMARY EXPORT ================= */

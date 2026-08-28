@@ -93,9 +93,19 @@
 
   .exrow{border-top:1px solid var(--line);padding:10px 0;}
   .exrow:first-child{border-top:none;padding-top:0;}
-  .exname{font-weight:600;font-size:14px;}
-  .exmeta{font-family:var(--f-mono);font-size:12.5px;color:var(--blue);margin-top:2px;}
-  .exnote{font-size:12px;color:var(--ink-dim);margin-top:4px;line-height:1.4;}
+  .exname{font-weight:600;font-size:16px;line-height:1.3;}
+  .exmeta{font-family:var(--f-mono);font-size:13.5px;color:var(--blue);margin-top:3px;}
+  .exnote{font-size:12.5px;color:var(--ink-dim);margin-top:4px;line-height:1.45;}
+  .ex-main{display:flex;gap:10px;align-items:flex-start;}
+  .ex-text{flex:1;min-width:0;}
+  .ex-thumb{width:62px;height:62px;flex:none;object-fit:cover;border-radius:6px;
+    border:1px solid var(--line);background:var(--panel-2);cursor:zoom-in;display:none;}
+  .lightbox{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.92);
+    display:none;flex-direction:column;align-items:center;justify-content:center;padding:16px;}
+  .lightbox.open{display:flex;}
+  .lightbox img{max-width:100%;max-height:82vh;object-fit:contain;border-radius:8px;}
+  .lightbox-cap{margin-top:12px;font-size:14px;font-weight:600;color:var(--ink);text-align:center;}
+  .lightbox-hint{margin-top:4px;font-size:12px;color:var(--ink-dim);}
 
   p.lead{font-size:13px;color:var(--ink-dim);line-height:1.5;margin:0 0 12px;}
   .note-strip{
@@ -434,6 +444,12 @@
 </div>
 
 </div><!-- /appRoot -->
+
+<div class="lightbox" id="imgLightbox" onclick="closeLightbox()">
+  <img id="lightboxImg" alt="">
+  <div class="lightbox-cap" id="lightboxCap"></div>
+  <div class="lightbox-hint">Tap anywhere to close</div>
+</div>
 
 <script>
 /* ================= DEFAULT PLAN (seed data — lives in Firestore after first load) ================= */
@@ -882,22 +898,89 @@ function renderHeader(){
 }
 
 /* ================= TODAY VIEW ================= */
+/* ================= EXERCISE PHOTOS =================
+   Gym-machine photos live in /images, named after the exercise: the name
+   lowercased with runs of non-alphanumerics collapsed to a hyphen, e.g.
+   "Side-Lying External Rotation" -> images/side-lying-external-rotation.jpg.
+   An exercise can name its own file with an "img" field via the plan editor.
+   A missing photo is not an error — the row just renders without one.
+   Resolution is cached per exercise so the 5-minute Today refresh doesn't
+   re-probe for files that aren't there. */
+var EX_IMG_EXTS = ['jpg','jpeg','png','webp'];
+var EX_IMG_CACHE = {};
+function exerciseSlug(name){
+  return String(name).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+}
+function exerciseImgCandidates(name, explicit){
+  var list = [];
+  if(explicit) list.push(/^(https?:)?\/\//.test(explicit) || explicit.indexOf('/')!==-1 ? explicit : 'images/'+explicit);
+  var slug = exerciseSlug(name);
+  if(slug) EX_IMG_EXTS.forEach(function(x){ list.push('images/'+slug+'.'+x); });
+  return list;
+}
+function openLightbox(src, caption){
+  document.getElementById('lightboxImg').src = src;
+  document.getElementById('lightboxCap').textContent = caption || '';
+  document.getElementById('imgLightbox').classList.add('open');
+}
+function closeLightbox(){
+  document.getElementById('imgLightbox').classList.remove('open');
+  document.getElementById('lightboxImg').removeAttribute('src');
+}
+document.addEventListener('keydown', function(ev){ if(ev.key==='Escape') closeLightbox(); });
+
+function addExerciseThumb(row, name, explicit){
+  var cached = EX_IMG_CACHE[name];
+  if(cached===null) return;                       /* known to have no photo */
+  var img = document.createElement('img');
+  img.className = 'ex-thumb';
+  img.alt = name;
+  /* No loading="lazy" here: the thumb starts hidden until it resolves, and a
+     display:none image never enters the viewport, so lazy would never fire. */
+  img.onclick = function(ev){ ev.stopPropagation(); openLightbox(img.src, name); };
+  img.onload = function(){ EX_IMG_CACHE[name] = img.src; img.style.display='block'; };
+  row.appendChild(img);
+
+  if(cached){ img.src = cached; return; }
+  var candidates = exerciseImgCandidates(name, explicit), i = 0;
+  img.onerror = function(){
+    i++;
+    if(i < candidates.length){ img.src = candidates[i]; return; }
+    img.onerror = null;
+    EX_IMG_CACHE[name] = null;
+    if(img.parentNode) img.parentNode.removeChild(img);
+  };
+  if(!candidates.length){ EX_IMG_CACHE[name] = null; row.removeChild(img); return; }
+  img.src = candidates[0];
+}
+
 function renderExerciseBlock(tpl, containerEl){
   if(tpl.rest){ containerEl.innerHTML += '<div class="empty">Full rest day. No training.</div>'; return; }
   if(tpl.op){ containerEl.innerHTML += '<div class="note-strip red">'+tpl.note+'</div>'; return; }
   if(tpl.postop){ containerEl.innerHTML += '<div class="note-strip" style="border-left-color:var(--amber)">'+tpl.note+'</div>'; return; }
+  function exRow(name, metaHtml, noteHtml, explicitImg, imgName){
+    var div=document.createElement('div');
+    div.className='exrow';
+    var main=document.createElement('div');
+    main.className='ex-main';
+    var text=document.createElement('div');
+    text.className='ex-text';
+    text.innerHTML =
+      '<div class="exname">'+name+'</div>'+
+      (metaHtml? '<div class="exmeta">'+metaHtml+'</div>':'')+
+      (noteHtml? '<div class="exnote">'+noteHtml+'</div>':'');
+    main.appendChild(text);
+    div.appendChild(main);
+    containerEl.appendChild(div);
+    addExerciseThumb(main, imgName || name, explicitImg);
+  }
   if(tpl.cardio){
-    containerEl.innerHTML += '<div class="exrow"><div class="exname">'+tpl.cardio.name+' — '+tpl.cardio.dist+'</div><div class="exnote">'+tpl.cardio.note+'</div></div>';
+    /* The heading carries the distance; the photo is keyed off the bare name. */
+    exRow(tpl.cardio.name+' — '+tpl.cardio.dist, '', tpl.cardio.note, tpl.cardio.img, tpl.cardio.name);
     return;
   }
   tpl.ex.forEach(function(e){
-    var div=document.createElement('div');
-    div.className='exrow';
-    div.innerHTML =
-      '<div class="exname">'+e.name+'</div>'+
-      '<div class="exmeta">'+e.sets+' × '+e.reps+(e.weight? ' @ '+e.weight:'')+'</div>'+
-      (e.note? '<div class="exnote">'+e.note+'</div>':'');
-    containerEl.appendChild(div);
+    exRow(e.name, e.sets+' × '+e.reps+(e.weight? ' @ '+e.weight:''), e.note, e.img);
   });
 }
 /* ================= MEAL PACING =================

@@ -303,6 +303,17 @@
 </div>
 
 <div class="view" id="view-log">
+
+  <div class="card">
+    <div class="card-h"><h2>Paste from Claude</h2></div>
+    <p class="lead">Paste a block and check it before it saves. No length limit, unlike a link.</p>
+    <textarea id="pasteBox" rows="6" placeholder="2026-08-29
+food | Oats 40g (dry) | 150 | 5 | 24 | 3
+lift | Leg Press | 160 | 10 | 4
+steps | 8400"></textarea>
+    <button class="btn full" style="margin-top:8px" onclick="previewPaste()">Check what this will add</button>
+    <div id="pasteOut" style="display:none;margin-top:10px"></div>
+  </div>
   <div class="card">
     <div class="card-h"><h2>Log bodyweight</h2></div>
     <div class="row2">
@@ -509,7 +520,7 @@
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-08-29-2';
+var BUILD = '2026-08-29-3';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -1937,6 +1948,143 @@ function renderAlcTable(){
 }
 
 /* ================= QUICK ADD (from links Claude generates after reading a photo) ================= */
+/* Shared by the link importer and the paste box, so the two can't drift.
+   Appending types append; one-per-day types replace that date's entry. */
+async function applyImportItems(items, defaultDate){
+  var touched = {};
+  items.forEach(function(it){
+    var d = it.date || defaultDate;
+    switch(it.type){
+      case 'food':
+        foodLog.push({date:d, name:it.name||'Item', kcal:+it.kcal||0, protein:+it.protein||0,
+                      carbs:+it.carbs||0, fat:+it.fat||0});
+        touched.food=true; break;
+      case 'weight':
+        bwLog = bwLog.filter(function(e){ return e.date!==d; });
+        bwLog.push({date:d, kg:+it.kg});
+        touched.bw=true; break;
+      case 'alcohol': case 'alc':
+        var a = {date:d, units:+it.units||0};
+        if(it.kcal!=null && !isNaN(+it.kcal)) a.kcal = +it.kcal;
+        alcLog = alcLog.filter(function(e){ return e.date!==d; });
+        alcLog.push(a);
+        touched.alc=true; break;
+      case 'steps':
+        stepLog = stepLog.filter(function(e){ return e.date!==d; });
+        stepLog.push({date:d, steps:+it.steps||0});
+        touched.steps=true; break;
+      case 'note':
+        noteLog.push({date:d, pain: (it.pain==null? null : +it.pain), text: it.text||''});
+        touched.note=true; break;
+      default:
+        liftLog.push({date:d, exercise:it.exercise||'Exercise', weight:+it.weight||0,
+                      reps:+it.reps||0, sets:+it.sets||0});
+        touched.lift=true;
+    }
+  });
+  function srt(a,b){ return a.date.localeCompare(b.date); }
+  if(touched.lift){ liftLog.sort(srt); await saveArr('lift-log', liftLog); renderLiftTable(); populateLiftChartSelect(); }
+  if(touched.food){ foodLog.sort(srt); await saveArr('food-log', foodLog); renderFoodTable(); }
+  if(touched.bw){ bwLog.sort(srt); await saveArr('bw-log', bwLog); renderBwTable(); renderHeader(); }
+  if(touched.alc){ alcLog.sort(srt); await saveArr('alc-log', alcLog); renderAlcTable(); renderAlcoholChart(); }
+  if(touched.steps){ stepLog.sort(srt); await saveArr('step-log', stepLog); renderStepTable(); }
+  if(touched.note){ noteLog.sort(srt); await saveArr('note-log', noteLog); }
+  renderToday(); refreshProgress();
+  return touched;
+}
+
+/* ================= PASTE IMPORT =================
+   Accepts either the same JSON array the link carries, or one line per entry
+   with " | " between fields. Pipes rather than commas because food names are
+   full of commas ("Milk, semi-skimmed"). A bare date line sets the date for
+   everything after it. */
+var IMPORT_FIELDS = {
+  food:    ['name','kcal','protein','carbs','fat'],
+  lift:    ['exercise','weight','reps','sets'],
+  weight:  ['kg'],
+  alcohol: ['units','kcal?'],
+  steps:   ['steps'],
+  note:    ['pain','text']
+};
+function parseImportBlock(text, fallbackDate){
+  var items = [], errors = [], date = fallbackDate;
+  var body = String(text||'').replace(/^\s*```[a-z]*\s*/i,'').replace(/```\s*$/,'').trim();
+  if(!body) return {items:items, errors:['Nothing pasted.'], date:date};
+
+  if(body.charAt(0)==='[' || body.charAt(0)==='{'){
+    try{
+      var parsed = JSON.parse(body);
+      if(!Array.isArray(parsed)) parsed = [parsed];
+      return {items:parsed, errors:[], date:date};
+    }catch(e){ return {items:[], errors:['That looks like JSON but did not parse: '+e.message], date:date}; }
+  }
+
+  body.split(/\r?\n/).forEach(function(raw, i){
+    var line = raw.trim();
+    if(!line || line.charAt(0)==='#') return;
+    if(/^\d{4}-\d{2}-\d{2}$/.test(line)){ date = line; return; }
+    var parts = line.split('|').map(function(x){ return x.trim(); });
+    var type = (parts.shift()||'').toLowerCase();
+    if(type==='date'){ if(/^\d{4}-\d{2}-\d{2}$/.test(parts[0])) date = parts[0]; else errors.push('Line '+(i+1)+': not a valid date.'); return; }
+    if(type==='alc') type='alcohol';
+    var spec = IMPORT_FIELDS[type];
+    if(!spec){ errors.push('Line '+(i+1)+': unknown type "'+type+'".'); return; }
+    var required = spec.filter(function(f){ return f.slice(-1)!=='?'; }).length;
+    if(parts.length < required){
+      errors.push('Line '+(i+1)+': "'+type+'" needs '+required+' fields ('+spec.join(', ')+'), got '+parts.length+'.');
+      return;
+    }
+    var it = {type:type, date:date};
+    var bad = null;
+    spec.forEach(function(field, n){
+      var name = field.replace('?','');
+      var v = parts[n];
+      if(v===undefined || v==='') { if(field.slice(-1)==='?') return; }
+      if(name==='name' || name==='exercise' || name==='text'){ it[name] = v; return; }
+      if(name==='pain'){ it.pain = (v===''||v==='-'||v==null)? null : parseFloat(v); return; }
+      var num = parseFloat(v);
+      if(isNaN(num)){ bad = 'Line '+(i+1)+': "'+name+'" should be a number, got "'+v+'".'; return; }
+      it[name] = num;
+    });
+    if(bad){ errors.push(bad); return; }
+    items.push(it);
+  });
+  return {items:items, errors:errors, date:date};
+}
+var pastePreviewItems = null;
+function previewPaste(){
+  var out = document.getElementById('pasteOut');
+  var res = parseImportBlock(document.getElementById('pasteBox').value, todayStr());
+  pastePreviewItems = res.items;
+  var html = '';
+  if(res.errors.length){
+    html += '<div class="note-strip red" style="margin:0 0 8px">'+res.errors.join('<br>')+'</div>';
+  }
+  if(res.items.length){
+    html += '<div class="exnote" style="margin-bottom:2px">'+res.items.length+' entr'+(res.items.length===1?'y':'ies')+' ready</div>';
+    html += res.items.map(function(it){
+      return '<div class="exrow"><div class="exname">'+qaItemTitle(it)+
+             ' <span style="font-weight:400;color:var(--ink-dim);font-size:12px">'+(it.date||todayStr())+'</span></div>'+
+             '<div class="exmeta">'+qaItemDetail(it)+'</div></div>';
+    }).join('');
+    html += '<button class="btn full" style="margin-top:10px" onclick="commitPaste()">Add all '+res.items.length+'</button>';
+  }else if(!res.errors.length){
+    html += '<div class="note-strip">Nothing recognised in that paste.</div>';
+  }
+  out.innerHTML = html;
+  out.style.display = 'block';
+}
+async function commitPaste(){
+  if(!pastePreviewItems || !pastePreviewItems.length) return;
+  var n = pastePreviewItems.length;
+  var touched = await applyImportItems(pastePreviewItems, todayStr());
+  pastePreviewItems = null;
+  document.getElementById('pasteBox').value = '';
+  document.getElementById('pasteOut').innerHTML =
+    '<div class="note-strip blue" style="margin:0">Added '+n+' entr'+(n===1?'y':'ies')+'.</div>';
+  showView(touched.food||touched.bw ? 'today' : 'log');
+}
+
 function qaItemTitle(it){
   switch(it.type){
     case 'food':   return it.name || 'Food item';
@@ -1993,45 +2141,7 @@ function checkQuickAdd(){
     body.innerHTML = '<div class="exnote" style="margin-bottom:2px">'+fmtDate(date4)+' — '+items.length+' entries</div>'+rows;
     confirmBtn.textContent = 'Add all '+items.length;
     confirmBtn.onclick=async function(){
-      var touched = {};
-      items.forEach(function(it){
-        var d = it.date || date4;
-        switch(it.type){
-          case 'food':
-            foodLog.push({date:d, name:it.name||'Item', kcal:+it.kcal||0, protein:+it.protein||0,
-                          carbs:+it.carbs||0, fat:+it.fat||0});
-            touched.food=true; break;
-          case 'weight':
-            bwLog = bwLog.filter(function(e){ return e.date!==d; });
-            bwLog.push({date:d, kg:+it.kg});
-            touched.bw=true; break;
-          case 'alcohol': case 'alc':
-            var a = {date:d, units:+it.units||0};
-            if(it.kcal!=null && !isNaN(+it.kcal)) a.kcal = +it.kcal;
-            alcLog = alcLog.filter(function(e){ return e.date!==d; });
-            alcLog.push(a);
-            touched.alc=true; break;
-          case 'steps':
-            stepLog = stepLog.filter(function(e){ return e.date!==d; });
-            stepLog.push({date:d, steps:+it.steps||0});
-            touched.steps=true; break;
-          case 'note':
-            noteLog.push({date:d, pain: (it.pain==null? null : +it.pain), text: it.text||''});
-            touched.note=true; break;
-          default:
-            liftLog.push({date:d, exercise:it.exercise||'Exercise', weight:+it.weight||0,
-                          reps:+it.reps||0, sets:+it.sets||0});
-            touched.lift=true;
-        }
-      });
-      function srt(a,b){ return a.date.localeCompare(b.date); }
-      if(touched.lift){ liftLog.sort(srt); await saveArr('lift-log', liftLog); renderLiftTable(); populateLiftChartSelect(); }
-      if(touched.food){ foodLog.sort(srt); await saveArr('food-log', foodLog); renderFoodTable(); }
-      if(touched.bw){ bwLog.sort(srt); await saveArr('bw-log', bwLog); renderBwTable(); renderHeader(); }
-      if(touched.alc){ alcLog.sort(srt); await saveArr('alc-log', alcLog); renderAlcTable(); renderAlcoholChart(); }
-      if(touched.steps){ stepLog.sort(srt); await saveArr('step-log', stepLog); renderStepTable(); }
-      if(touched.note){ noteLog.sort(srt); await saveArr('note-log', noteLog); }
-      renderToday(); refreshProgress();
+      var touched = await applyImportItems(items, date4);
       banner.style.display='none'; clearQAFromUrl(); showView(touched.food||touched.bw?'today':'log');
     };
     dismissBtn.onclick=function(){ banner.style.display='none'; clearQAFromUrl(); };
@@ -2572,6 +2682,26 @@ function buildImportSpec(){
 '',
 'EXERCISE NAMES IN THE CURRENT PLAN',
 '  '+exerciseNames.join('\n  '),
+'',
+'PASTE FORMAT  (preferred — no length limit)',
+'',
+'  Instead of a link, give me a plain block to paste into the app\'s',
+'  "Paste from Claude" box on the Log tab. One entry per line, fields',
+'  separated by " | ", in the field order listed above. A bare date line',
+'  sets the date for every line after it:',
+'',
+'    2026-08-29',
+'    food | Oats 40g (dry) | 150 | 5 | 24 | 3',
+'    food | Milk, semi-skimmed, 500ml | 235 | 17 | 24 | 9',
+'    lift | Leg Press | 160 | 10 | 4',
+'    weight | 94.8',
+'    alcohol | 4 | 320',
+'    steps | 8400',
+'    note | 3 | Shoulder fine on floor press.',
+'',
+'  Commas are safe inside names because the separator is a pipe. Lines',
+'  starting with # are ignored. The same JSON array used by the link is also',
+'  accepted in the paste box. Prefer this over a link for a whole day.',
 '',
 'RULES',
 '  - Dates are YYYY-MM-DD in my local timezone.',

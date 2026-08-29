@@ -446,6 +446,15 @@
   </div>
 
   <div class="card">
+    <div class="card-h"><h2>Data &amp; import format</h2></div>
+    <p class="lead">Hand the spec to Claude so it builds links this version can read. Regenerated from the app itself, so it stays correct as the app changes.</p>
+    <button class="btn full" style="margin-bottom:8px" onclick="copyImportSpec()">Copy import spec for Claude</button>
+    <button class="btn ghost full" style="margin-bottom:8px" onclick="downloadImportSpec()">Download spec (.txt)</button>
+    <button class="btn ghost full" style="margin-bottom:8px" onclick="downloadMyData()">Download all my data (.json)</button>
+    <p class="lead" id="exportMsg" style="margin:0"></p>
+  </div>
+
+  <div class="card">
     <p class="lead" style="margin:0 0 8px">Build <span id="buildStamp"></span></p>
     <p class="lead" id="diagLine" style="margin:0 0 8px;font-family:var(--f-mono);font-size:11px"></p>
     <button class="btn ghost full" style="margin-bottom:8px" onclick="runPlanDiagnostics()">Check plan in cloud</button>
@@ -500,7 +509,7 @@
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-08-29-1';
+var BUILD = '2026-08-29-2';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -1928,6 +1937,28 @@ function renderAlcTable(){
 }
 
 /* ================= QUICK ADD (from links Claude generates after reading a photo) ================= */
+function qaItemTitle(it){
+  switch(it.type){
+    case 'food':   return it.name || 'Food item';
+    case 'weight': return 'Bodyweight';
+    case 'alcohol': case 'alc': return 'Alcohol';
+    case 'steps':  return 'Steps';
+    case 'note':   return 'Note';
+    default:       return it.exercise || 'Exercise';
+  }
+}
+function qaItemDetail(it){
+  switch(it.type){
+    case 'food':   return (+it.kcal||0)+' kcal · '+(+it.protein||0)+'P / '+(+it.carbs||0)+'C / '+(+it.fat||0)+'F';
+    case 'weight': return (+it.kg||0).toFixed(1)+'kg';
+    case 'alcohol': case 'alc':
+      return (+it.units||0)+' units · '+Math.round(alcKcalFor({units:+it.units||0, kcal:it.kcal}))+' kcal'+
+             (it.kcal==null?' (est)':'');
+    case 'steps':  return (+it.steps||0).toLocaleString()+' steps';
+    case 'note':   return 'pain '+(it.pain==null?'n/a':it.pain+'/10')+' — '+(it.text||'');
+    default:       return (+it.weight||0)+'kg × '+(+it.reps||0)+' × '+(+it.sets||0)+' set'+((+it.sets)>1?'s':'');
+  }
+}
 function checkQuickAdd(){
   var params = new URLSearchParams(window.location.search);
   var qa = params.get('qa');
@@ -1941,32 +1972,67 @@ function checkQuickAdd(){
   if(qa==='session'){
     var itemsRaw = params.get('items');
     var date4 = params.get('date') || todayStr();
-    var items = [];
-    try{ items = JSON.parse(itemsRaw); }catch(e){ items = []; }
-    if(!items.length) return;
-    var rows = items.map(function(it){
-      if(it.type==='food'){
-        return '<div class="exrow"><div class="exname">'+it.name+'</div><div class="exmeta">'+it.kcal+' kcal · '+it.protein+'P / '+it.carbs+'C / '+it.fat+'F</div></div>';
-      }
-      return '<div class="exrow"><div class="exname">'+it.exercise+'</div><div class="exmeta">'+it.weight+'kg × '+it.reps+' × '+it.sets+' set'+(it.sets>1?'s':'')+'</div></div>';
-    }).join('');
+    var items = null;
+    try{ items = JSON.parse(itemsRaw); }catch(e){ items = null; }
+    /* A truncated or mangled link used to fail completely silently. Long URLs
+       get clipped by messaging apps often enough that the failure needs to be
+       visible, with the length so it is obvious what happened. */
+    if(!Array.isArray(items) || !items.length){
+      body.innerHTML = '<div class="note-strip red" style="margin:0">Could not read the items in that link'+
+        (itemsRaw ? ' — it is '+itemsRaw.length+' characters and did not parse as JSON, which usually means it was cut short in transit.'
+                  : ' — the link had no items at all.')+
+        '<br>Ask for a shorter link, or one item at a time.</div>';
+      confirmBtn.style.display='none';
+      dismissBtn.textContent='Close';
+      dismissBtn.onclick=function(){ banner.style.display='none'; confirmBtn.style.display=''; clearQAFromUrl(); };
+      banner.style.display='block';
+      return;
+    }
+    var rows = items.map(function(it){ return '<div class="exrow"><div class="exname">'+qaItemTitle(it)+
+      '</div><div class="exmeta">'+qaItemDetail(it)+'</div></div>'; }).join('');
     body.innerHTML = '<div class="exnote" style="margin-bottom:2px">'+fmtDate(date4)+' — '+items.length+' entries</div>'+rows;
     confirmBtn.textContent = 'Add all '+items.length;
     confirmBtn.onclick=async function(){
-      var liftChanged=false, foodChanged=false;
+      var touched = {};
       items.forEach(function(it){
-        if(it.type==='food'){
-          foodLog.push({date:date4, name:it.name, kcal:it.kcal, protein:it.protein, carbs:it.carbs, fat:it.fat});
-          foodChanged=true;
-        } else {
-          liftLog.push({date:date4, exercise:it.exercise, weight:it.weight, reps:it.reps, sets:it.sets});
-          liftChanged=true;
+        var d = it.date || date4;
+        switch(it.type){
+          case 'food':
+            foodLog.push({date:d, name:it.name||'Item', kcal:+it.kcal||0, protein:+it.protein||0,
+                          carbs:+it.carbs||0, fat:+it.fat||0});
+            touched.food=true; break;
+          case 'weight':
+            bwLog = bwLog.filter(function(e){ return e.date!==d; });
+            bwLog.push({date:d, kg:+it.kg});
+            touched.bw=true; break;
+          case 'alcohol': case 'alc':
+            var a = {date:d, units:+it.units||0};
+            if(it.kcal!=null && !isNaN(+it.kcal)) a.kcal = +it.kcal;
+            alcLog = alcLog.filter(function(e){ return e.date!==d; });
+            alcLog.push(a);
+            touched.alc=true; break;
+          case 'steps':
+            stepLog = stepLog.filter(function(e){ return e.date!==d; });
+            stepLog.push({date:d, steps:+it.steps||0});
+            touched.steps=true; break;
+          case 'note':
+            noteLog.push({date:d, pain: (it.pain==null? null : +it.pain), text: it.text||''});
+            touched.note=true; break;
+          default:
+            liftLog.push({date:d, exercise:it.exercise||'Exercise', weight:+it.weight||0,
+                          reps:+it.reps||0, sets:+it.sets||0});
+            touched.lift=true;
         }
       });
-      if(liftChanged){ liftLog.sort(function(a,b){return a.date.localeCompare(b.date);}); await saveArr('lift-log', liftLog); renderLiftTable(); populateLiftChartSelect(); }
-      if(foodChanged){ foodLog.sort(function(a,b){return a.date.localeCompare(b.date);}); await saveArr('food-log', foodLog); renderFoodTable(); }
+      function srt(a,b){ return a.date.localeCompare(b.date); }
+      if(touched.lift){ liftLog.sort(srt); await saveArr('lift-log', liftLog); renderLiftTable(); populateLiftChartSelect(); }
+      if(touched.food){ foodLog.sort(srt); await saveArr('food-log', foodLog); renderFoodTable(); }
+      if(touched.bw){ bwLog.sort(srt); await saveArr('bw-log', bwLog); renderBwTable(); renderHeader(); }
+      if(touched.alc){ alcLog.sort(srt); await saveArr('alc-log', alcLog); renderAlcTable(); renderAlcoholChart(); }
+      if(touched.steps){ stepLog.sort(srt); await saveArr('step-log', stepLog); renderStepTable(); }
+      if(touched.note){ noteLog.sort(srt); await saveArr('note-log', noteLog); }
       renderToday(); refreshProgress();
-      banner.style.display='none'; clearQAFromUrl(); showView(foodChanged?'today':'log');
+      banner.style.display='none'; clearQAFromUrl(); showView(touched.food||touched.bw?'today':'log');
     };
     dismissBtn.onclick=function(){ banner.style.display='none'; clearQAFromUrl(); };
     banner.style.display='block';
@@ -2447,6 +2513,125 @@ async function pushPlanToCloud(){
     planDiagOut('Write was accepted. Reading it back failed: ' + (e.code || e.message) +
                 '\nThe plan is most likely saved — reload to confirm.');
   }
+}
+
+/* ================= IMPORT SPEC / DATA EXPORT =================
+   The quick-add link is the main way entries arrive from a chat, so the spec is
+   built from the same constants the importer uses rather than written out by
+   hand — otherwise it drifts the moment a field is added. */
+function buildImportSpec(){
+  var base = location.origin + location.pathname;
+  var example = [
+    {type:'food', name:'Oats 40g (dry)', kcal:150, protein:5, carbs:24, fat:3},
+    {type:'food', name:'Chicken breast 200g', kcal:330, protein:62, carbs:0, fat:7},
+    {type:'lift', exercise:'Leg Press', weight:160, reps:10, sets:4},
+    {type:'weight', kg:94.8},
+    {type:'alcohol', units:4, kcal:320},
+    {type:'steps', steps:8400},
+    {type:'note', pain:3, text:'Shoulder fine on floor press.'}
+  ];
+  var exerciseNames = [];
+  for(var k in PLAN.templates){
+    var tp = PLAN.templates[k];
+    if(tp.cardio && exerciseNames.indexOf(tp.cardio.name)===-1) exerciseNames.push(tp.cardio.name);
+    (tp.ex||[]).forEach(function(e){ if(exerciseNames.indexOf(e.name)===-1) exerciseNames.push(e.name); });
+  }
+  return [
+'BUILD LOG — IMPORT FORMAT   (app build '+BUILD+', generated '+todayStr()+')',
+'',
+'To add entries, give me a link in this shape and I will tap it:',
+'',
+'  '+base+'?qa=session&date=YYYY-MM-DD&items=<URL-ENCODED JSON ARRAY>',
+'',
+'"date" is the default for every item. An item may carry its own "date" to',
+'override it. "items" must be a JSON array, URL-encoded with encodeURIComponent.',
+'',
+'ITEM TYPES',
+'',
+'  {"type":"food",    "name":str, "kcal":num, "protein":num, "carbs":num, "fat":num}',
+'      Appends. Several food items per day are expected.',
+'',
+'  {"type":"lift",    "exercise":str, "weight":num(kg), "reps":num, "sets":num}',
+'      Appends. "type" may be omitted — anything unrecognised is treated as a lift.',
+'      Use the exercise names below exactly, or adherence tracking will not match.',
+'',
+'  {"type":"weight",  "kg":num}',
+'      Replaces any existing entry for that date. One per day.',
+'',
+'  {"type":"alcohol", "units":num, "kcal":num(optional)}',
+'      Replaces any existing entry for that date. One per day — send the daily total.',
+'      Omit "kcal" and it is estimated at '+KCAL_PER_UNIT+' kcal per unit (pure alcohol).',
+'      Include it for beer, cider or mixers, where sugars add a lot on top.',
+'      Alcohol calories DO count toward the daily intake target.',
+'',
+'  {"type":"steps",   "steps":num}',
+'      Replaces any existing entry for that date. One per day.',
+'',
+'  {"type":"note",    "pain":num 0-10 or null, "text":str}',
+'      Appends. Used for shoulder/injury notes.',
+'',
+'EXERCISE NAMES IN THE CURRENT PLAN',
+'  '+exerciseNames.join('\n  '),
+'',
+'RULES',
+'  - Dates are YYYY-MM-DD in my local timezone.',
+'  - All numbers are plain numbers, no units in the value.',
+'  - Keep links short. Long ones get truncated by messaging apps and the import',
+'    will refuse them. Split a big day across two or three links rather than one.',
+'  - I confirm every import on screen before it saves, so send the whole day.',
+'',
+'WORKED EXAMPLE',
+'',
+'  items JSON:',
+'  '+JSON.stringify(example),
+'',
+'  finished link:',
+'  '+base+'?qa=session&date='+todayStr()+'&items='+encodeURIComponent(JSON.stringify(example))
+  ].join('\n');
+}
+function exportMsg(t){ document.getElementById('exportMsg').textContent = t; }
+function copyImportSpec(){
+  var text = buildImportSpec();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(function(){ exportMsg('Spec copied — paste it to Claude.'); },
+                                             function(){ fallbackCopy(text); });
+  } else fallbackCopy(text);
+}
+function fallbackCopy(text){
+  var ta = document.createElement('textarea');
+  ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); exportMsg('Spec copied — paste it to Claude.'); }
+  catch(e){ exportMsg('Could not copy automatically — use the download button instead.'); }
+  document.body.removeChild(ta);
+}
+function downloadBlob(filename, text, mime){
+  try{
+    var blob = new Blob([text], {type: mime || 'text/plain'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+    exportMsg('Saved ' + filename + '.');
+  }catch(e){
+    exportMsg('This browser blocked the download — use the copy button instead.');
+  }
+}
+function downloadImportSpec(){ downloadBlob('build-log-import-format.txt', buildImportSpec()); }
+function downloadMyData(){
+  var data = {
+    exportedAt: new Date().toISOString(),
+    build: BUILD,
+    account: currentUser ? currentUser.email : null,
+    plan: PLAN,
+    logs: {
+      'bw-log': bwLog, 'food-log': foodLog, 'lift-log': liftLog,
+      'alc-log': alcLog, 'step-log': stepLog, 'note-log': noteLog
+    },
+    exercisePhotos: exPhotos.map(function(p){ return {name:p.name, bytes:(p.dataUrl||'').length}; })
+  };
+  downloadBlob('build-log-data-'+todayStr()+'.json', JSON.stringify(data, null, 2), 'application/json');
 }
 
 /* ================= SUMMARY EXPORT ================= */

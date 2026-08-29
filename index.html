@@ -315,6 +315,17 @@
   </div>
 
   <div class="card">
+    <div class="card-h"><h2>Log steps</h2></div>
+    <div class="row2">
+      <div class="field"><label>Date</label><input type="date" id="stepDate"></div>
+      <div class="field"><label>Steps</label><input type="number" step="100" id="stepVal"></div>
+    </div>
+    <button class="btn full" onclick="addSteps()">Save steps</button>
+    <div class="divider"></div>
+    <table id="stepTable"><thead><tr><th>Date</th><th>Steps</th><th>~kcal</th><th></th></tr></thead><tbody></tbody></table>
+  </div>
+
+  <div class="card">
     <div class="card-h"><h2>Log food</h2></div>
     <div class="row2">
       <div class="field"><label>Date</label><input type="date" id="foodDate"></div>
@@ -364,10 +375,12 @@
   <div class="note-strip">Watch point: the run-up to Christmas tends to be where units creep. Jan–Mar is usually dry for you — logging both makes that pattern visible rather than assumed.</div>
   <div class="card">
     <div class="card-h"><h2>Log units</h2></div>
-    <div class="row2">
+    <div class="row3">
       <div class="field"><label>Date</label><input type="date" id="alcDate"></div>
       <div class="field"><label>Units</label><input type="number" step="0.5" id="alcVal"></div>
+      <div class="field"><label>kcal (opt)</label><input type="number" step="10" id="alcKcal" placeholder="auto"></div>
     </div>
+    <p class="lead" style="margin:6px 0 8px">Leave kcal blank and it's estimated at 56 kcal per unit (pure alcohol). Enter it yourself for beer, cider or mixers, where the sugars add a lot on top.</p>
     <button class="btn full amber" onclick="addAlcohol()">Save</button>
   </div>
   <div class="card">
@@ -375,7 +388,7 @@
     <div class="chart-box"><canvas id="alcChart"></canvas></div>
   </div>
   <div class="card">
-    <table id="alcTable"><thead><tr><th>Date</th><th>Units</th><th></th></tr></thead><tbody></tbody></table>
+    <table id="alcTable"><thead><tr><th>Date</th><th>Units</th><th>kcal</th><th></th></tr></thead><tbody></tbody></table>
   </div>
 </div>
 
@@ -487,7 +500,7 @@
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-08-28-6';
+var BUILD = '2026-08-29-1';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -961,7 +974,7 @@ function persistPhotosLocally(){
   }
 }
 
-var bwLog=[], liftLog=[], alcLog=[], noteLog=[], foodLog=[], exPhotos=[];
+var bwLog=[], liftLog=[], alcLog=[], noteLog=[], foodLog=[], stepLog=[], exPhotos=[];
 
 /* ================= TAB SWITCHING ================= */
 function showView(name){
@@ -1373,6 +1386,22 @@ function mealPacing(phase, totals){
   return {nowMin:nowMin, expected:{kcal:expK, protein:expP}, diff:diff, status:status,
           suggestions:suggestions, rem:rem};
 }
+function renderBurn(dateStr, tkey){
+  var tpl = tkey ? PLAN.templates[tkey] : null;
+  var b = estimateDayBurn(dateStr, tpl);
+  if(!b.total && !b.steps) {
+    return '<h3 class="section">Estimated burn</h3>'+
+           '<p class="lead" style="margin:0">Nothing to estimate yet — '+b.trainingBasis+
+           ', and no steps logged. Add steps on the Log tab.</p>';
+  }
+  return '<h3 class="section">Estimated burn — on top of daily living</h3>'+
+    '<div class="macro-grid" style="grid-template-columns:repeat(3,1fr)">'+
+      '<div class="macro"><div class="n">'+Math.round(b.training)+'</div><div class="l">Training</div></div>'+
+      '<div class="macro"><div class="n">'+Math.round(b.stepsKcal)+'</div><div class="l">'+(b.steps? b.steps.toLocaleString()+' steps':'Steps')+'</div></div>'+
+      '<div class="macro"><div class="n" style="color:var(--blue)">'+Math.round(b.total)+'</div><div class="l">Total</div></div>'+
+    '</div>'+
+    '<p class="lead" style="margin:0">'+b.trainingBasis+'. Rough estimates from bodyweight and volume — no heart rate — so treat them as a direction, not a budget to eat back.</p>';
+}
 function renderPacing(phase, totals){
   var mp = mealPacing(phase, totals);
   if(!mp) return '';
@@ -1409,10 +1438,85 @@ function renderPacing(phase, totals){
   return html;
 }
 
+/* One UK unit is 8g of ethanol at ~7 kcal/g, so ~56 kcal of pure alcohol. That
+   ignores the sugars in beer, cider and mixers, which is why an entry can carry
+   its own kcal and only falls back to the estimate when it doesn't. */
+var KCAL_PER_UNIT = 56;
+function alcKcalFor(e){
+  if(e && typeof e.kcal === 'number' && !isNaN(e.kcal)) return e.kcal;
+  return (e && e.units ? e.units : 0) * KCAL_PER_UNIT;
+}
+function computeAlcTotals(dateStr){
+  return alcLog.filter(function(e){ return e.date===dateStr; })
+    .reduce(function(a,e){ a.units += e.units||0; a.kcal += alcKcalFor(e); return a; }, {units:0, kcal:0});
+}
+function stepsFor(dateStr){
+  var e = stepLog.filter(function(x){ return x.date===dateStr; })[0];
+  return e ? e.steps : 0;
+}
+/* Alcohol calories count toward the day's intake — they are a third of a bad
+   week's surplus and invisible otherwise — but they carry no macros, so the
+   protein/carb/fat figures stay food-only and alcKcal is reported separately. */
 function computeFoodTotals(dateStr){
   var entries = foodLog.filter(function(e){return e.date===dateStr;});
-  return entries.reduce(function(a,e){a.kcal+=e.kcal;a.protein+=e.protein;a.carbs+=e.carbs;a.fat+=e.fat;return a;},{kcal:0,protein:0,carbs:0,fat:0});
+  var t = entries.reduce(function(a,e){a.kcal+=e.kcal;a.protein+=e.protein;a.carbs+=e.carbs;a.fat+=e.fat;return a;},
+                         {kcal:0,protein:0,carbs:0,fat:0});
+  var alc = computeAlcTotals(dateStr);
+  t.foodKcal = t.kcal;
+  t.alcKcal = alc.kcal;
+  t.units = alc.units;
+  t.kcal = t.foodKcal + t.alcKcal;
+  return t;
 }
+/* ================= ENERGY OUT (estimates) =================
+   Rough by nature — no heart rate, no session duration — so these are labelled
+   as estimates everywhere they appear and never fed back into the targets. */
+function latestWeightKg(){
+  var sorted = bwLog.slice().sort(function(a,b){ return a.date.localeCompare(b.date); });
+  return sorted.length ? sorted[sorted.length-1].kg : (PLAN.startKg || 90);
+}
+/* Running costs roughly 1 kcal per kg of bodyweight per km, near enough
+   independent of pace. Walking is about half that. */
+function cardioBurn(km, kg, walking){ return km * kg * (walking ? 0.5 : 1.0); }
+/* MET formula: kcal/min = MET * 3.5 * kg / 200. Resistance training sits around
+   5 METs; a set plus its rest runs about 3 minutes, plus a warm-up. */
+function liftBurn(sets, kg){
+  var minutes = sets*3 + 8;
+  return 5.0 * 3.5 * kg / 200 * minutes;
+}
+function stepBurn(steps, kg){ return steps * 0.0005 * kg; }
+function parseKm(dist){
+  var m = String(dist||'').match(/([\d.]+)\s*km/i);
+  return m ? parseFloat(m[1]) : 0;
+}
+/* Prefer what was actually logged; fall back to what the day planned. */
+function estimateTrainingBurn(dateStr, tpl){
+  var kg = latestWeightKg();
+  if(!tpl || tpl.rest || tpl.op) return {kcal:0, basis:'rest day'};
+  if(tpl.postop) return {kcal:0, basis:'recovery — walking only'};
+  if(tpl.cardio){
+    var km = parseKm(tpl.cardio.dist);
+    if(!km) return {kcal:0, basis:'no distance set'};
+    return {kcal: cardioBurn(km, kg, /walk/i.test(tpl.cardio.name)),
+            basis: km+'km at '+kg.toFixed(1)+'kg'};
+  }
+  var logged = liftLog.filter(function(e){ return e.date===dateStr; });
+  var sets = 0;
+  if(logged.length){ logged.forEach(function(e){ sets += e.sets||0; }); }
+  else { (tpl.ex||[]).forEach(function(e){ sets += e.sets||0; }); }
+  if(!sets) return {kcal:0, basis:'no sets recorded'};
+  return {kcal: liftBurn(sets, kg),
+          basis: sets+' sets'+(logged.length?' logged':' planned')+', ~'+(sets*3+8)+' min'};
+}
+function estimateDayBurn(dateStr, tpl){
+  var kg = latestWeightKg();
+  var training = estimateTrainingBurn(dateStr, tpl);
+  var steps = stepsFor(dateStr);
+  var stepsKcal = stepBurn(steps, kg);
+  return {training:training.kcal, trainingBasis:training.basis,
+          steps:steps, stepsKcal:stepsKcal, total:training.kcal + stepsKcal};
+}
+
 function renderToday(){
   var t = todayStr();
   var idx = dayIndexFromDate(t);
@@ -1456,7 +1560,9 @@ function renderToday(){
         '<div class="macro"><div class="n">'+macros.carbs+'g</div><div class="l">Carbs</div></div>'+
         '<div class="macro"><div class="n">'+macros.fat+'g</div><div class="l">Fat</div></div>'+
       '</div>'+
-      '<h3 class="section" style="margin-top:0">Logged today</h3>'+
+      '<h3 class="section" style="margin-top:0">Logged today'+
+        (totals.alcKcal? ' <span style="text-transform:none;letter-spacing:0;color:var(--amber)">· incl. '+Math.round(totals.alcKcal)+' kcal from '+totals.units+'u alcohol</span>':'')+
+      '</h3>'+
       '<div class="macro-grid">'+
         '<div class="macro"><div class="n">'+Math.round(totals.kcal)+'</div><div class="l">kcal</div></div>'+
         '<div class="macro"><div class="n">'+Math.round(totals.protein)+'g</div><div class="l">Protein</div></div>'+
@@ -1468,6 +1574,7 @@ function renderToday(){
         remCell(rem.kcal,'kcal')+remCell(rem.protein,'Protein')+remCell(rem.carbs,'Carbs')+remCell(rem.fat,'Fat')+
       '</div>'+
       renderPacing(macros, totals)+
+      renderBurn(t, tkey)+
       '<p class="lead">Dinner: Prep Kitchen — Muscle Gain, '+(diet2==='rest'?'Regular / lower-carb':'Large')+'. Full breakdown on the Diet tab.</p>';
   }
 }
@@ -1751,15 +1858,49 @@ async function addNote(){
   refreshProgress();
 }
 
+async function addSteps(){
+  var date=document.getElementById('stepDate').value || todayStr();
+  var steps=parseInt(document.getElementById('stepVal').value,10);
+  if(isNaN(steps)) return;
+  stepLog = stepLog.filter(function(e){return e.date!==date;});
+  stepLog.push({date:date, steps:steps});
+  stepLog.sort(function(a,b){return a.date.localeCompare(b.date);});
+  await saveArr('step-log', stepLog);
+  document.getElementById('stepVal').value='';
+  renderStepTable(); renderToday(); refreshProgress();
+}
+async function deleteSteps(date){
+  stepLog = stepLog.filter(function(e){return e.date!==date;});
+  await saveArr('step-log', stepLog);
+  renderStepTable(); renderToday(); refreshProgress();
+}
+function renderStepTable(){
+  var tbody=document.querySelector('#stepTable tbody');
+  tbody.innerHTML='';
+  var kg = latestWeightKg();
+  stepLog.slice().reverse().slice(0,12).forEach(function(e){
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td>'+fmtDate(e.date)+'</td><td>'+e.steps.toLocaleString()+'</td><td>'+
+      Math.round(stepBurn(e.steps,kg))+'</td>'+
+      '<td><button class="icon-del" onclick="deleteSteps(\''+e.date+'\')">✕</button></td>';
+    tbody.appendChild(tr);
+  });
+  if(!stepLog.length) tbody.innerHTML='<tr><td colspan="4" class="empty">No entries yet</td></tr>';
+}
+
 async function addAlcohol(){
   var date=document.getElementById('alcDate').value || todayStr();
   var units=parseFloat(document.getElementById('alcVal').value);
   if(isNaN(units)) return;
+  var kcalRaw = document.getElementById('alcKcal').value;
+  var entry = {date:date, units:units};
+  if(kcalRaw !== '' && !isNaN(parseFloat(kcalRaw))) entry.kcal = parseFloat(kcalRaw);
   alcLog = alcLog.filter(function(e){return e.date!==date;});
-  alcLog.push({date:date,units:units});
+  alcLog.push(entry);
   alcLog.sort(function(a,b){return a.date.localeCompare(b.date);});
   await saveArr('alc-log', alcLog);
   document.getElementById('alcVal').value='';
+  document.getElementById('alcKcal').value='';
   renderAlcTable(); renderAlcoholChart(); refreshProgress();
 }
 async function deleteAlc(date){
@@ -1773,10 +1914,12 @@ function renderAlcTable(){
   var rev = alcLog.slice().reverse().slice(0,14);
   rev.forEach(function(e){
     var tr=document.createElement('tr');
-    tr.innerHTML='<td>'+fmtDate(e.date)+'</td><td>'+e.units+'</td><td><button class="icon-del" onclick="deleteAlc(\''+e.date+'\')">✕</button></td>';
+    tr.innerHTML='<td>'+fmtDate(e.date)+'</td><td>'+e.units+'</td><td>'+Math.round(alcKcalFor(e))+
+      (typeof e.kcal==='number'?'':' <span style="color:var(--ink-dim)">est</span>')+
+      '</td><td><button class="icon-del" onclick="deleteAlc(\''+e.date+'\')">✕</button></td>';
     tbody.appendChild(tr);
   });
-  if(!alcLog.length) tbody.innerHTML='<tr><td colspan="3" class="empty">No entries yet</td></tr>';
+  if(!alcLog.length) tbody.innerHTML='<tr><td colspan="4" class="empty">No entries yet</td></tr>';
 
   var now=new Date();
   var weekAgo=new Date(now.getTime()-7*DAY_MS);
@@ -2308,60 +2451,157 @@ async function pushPlanToCloud(){
 
 /* ================= SUMMARY EXPORT ================= */
 function generateSummary(){
-  var sortedBw=bwLog.slice().sort(function(a,b){return a.date.localeCompare(b.date);});
-  var last7 = sortedBw.slice(-7);
-  var avg7 = last7.length? (last7.reduce(function(s,e){return s+e.kg;},0)/last7.length).toFixed(1) : 'n/a';
-  var latest = sortedBw.length? sortedBw[sortedBw.length-1] : null;
-  var first = sortedBw.length? sortedBw[0] : null;
+  var t = todayStr(), L = [];
+  var kg = latestWeightKg();
+  function pad(n,w){ n=String(n); while(n.length<w) n+=' '; return n; }
+  function num(v,d){ return (v==null||isNaN(v))? 'n/a' : v.toFixed(d==null?0:d); }
+  function daysBack(n, endDate){
+    var out=[], e = endDate||t;
+    for(var i=n-1;i>=0;i--) out.push(addDays(e, -i));
+    return out;
+  }
+  function mean(arr){ return arr.length ? arr.reduce(function(a,b){return a+b;},0)/arr.length : null; }
 
-  var exNames=[];
+  /* ---- weight ---- */
+  var bw = bwLog.slice().sort(function(a,b){return a.date.localeCompare(b.date);});
+  var last7  = bw.filter(function(e){ return e.date >= addDays(t,-6); }).map(function(e){return e.kg;});
+  var prev7  = bw.filter(function(e){ return e.date >= addDays(t,-13) && e.date <= addDays(t,-7); }).map(function(e){return e.kg;});
+  var avg7 = mean(last7), avgPrev7 = mean(prev7);
+  var weeklyRate = (avg7!=null && avgPrev7!=null) ? avg7-avgPrev7 : null;
+  var first = bw[0], latest = bw[bw.length-1];
+  var toGo = latest ? latest.kg - PLAN.targetKg : null;
+  var weeksLeft = Math.max(0, Math.round((new Date(PLAN.programEnd) - new Date(t+'T00:00:00'))/DAY_MS/7));
+  /* Express both as signed change per week so they compare directly: needing to
+     lose 8kg reads as -0.18kg/wk, not +0.18. */
+  var neededRate = (toGo!=null && weeksLeft>0) ? -toGo/weeksLeft : null;
+
+  /* ---- diet windows ---- */
+  function dietWindow(n){
+    var dates = daysBack(n), logged=[], kcal=[], food=[], alc=[], p=[], c=[], f=[], onTarget=0, counted=0;
+    dates.forEach(function(d){
+      var tot = computeFoodTotals(d);
+      if(tot.foodKcal <= 0 && tot.alcKcal <= 0) return;   /* nothing logged that day */
+      logged.push(d); kcal.push(tot.kcal); food.push(tot.foodKcal); alc.push(tot.alcKcal);
+      p.push(tot.protein); c.push(tot.carbs); f.push(tot.fat);
+      var idx = dayIndexFromDate(d);
+      var target = (idx>=0 && idx<PLAN.totalProgramDays) ? PLAN.dietPhases[dietPhaseForIndex(idx)] : null;
+      if(target){ counted++; var r = tot.kcal/target.kcal; if(r>=0.85 && r<=1.15) onTarget++; }
+    });
+    return {days:n, loggedDays:logged.length, kcal:mean(kcal), food:mean(food), alc:mean(alc),
+            protein:mean(p), carbs:mean(c), fat:mean(f), onTarget:onTarget, counted:counted};
+  }
+  var d7 = dietWindow(7), d14 = dietWindow(14);
+  var idxNow = dayIndexFromDate(t);
+  var tgt = (idxNow>=0 && idxNow<PLAN.totalProgramDays) ? PLAN.dietPhases[dietPhaseForIndex(idxNow)] : null;
+
+  /* ---- training ---- */
+  function trainWindow(n){
+    var done=0, planned=0, missed=[];
+    daysBack(n).forEach(function(d){
+      var ts = getTrainingStatus(d);
+      if(ts.status==='rest' || ts.status==='future' || ts.status==='pending') return;
+      planned++;
+      if(ts.status==='hit') done++; else missed.push(fmtDate(d)+' ('+ts.matched+'/'+ts.total+')');
+    });
+    return {done:done, planned:planned, missed:missed};
+  }
+  var tr7 = trainWindow(7), tr14 = trainWindow(14);
+
+  var exNames = [];
   liftLog.forEach(function(e){ if(exNames.indexOf(e.exercise)===-1) exNames.push(e.exercise); });
-  var latestLifts = exNames.map(function(name){
-    var entries=liftLog.filter(function(e){return e.exercise===name;}).sort(function(a,b){return a.date.localeCompare(b.date);});
-    var e=entries[entries.length-1];
-    return '  '+name+': '+e.weight+'kg × '+e.reps+' × '+e.sets+' sets ('+e.date+')';
+  var progression = exNames.map(function(name){
+    var rows = liftLog.filter(function(e){ return e.exercise===name; })
+                      .sort(function(a,b){ return a.date.localeCompare(b.date); });
+    var a = rows[0], b = rows[rows.length-1];
+    var delta = b.weight - a.weight;
+    return '  '+pad(name,26)+' '+num(b.weight,1)+'kg x'+b.reps+' x'+b.sets+
+           '  (from '+num(a.weight,1)+'kg on '+a.date+', '+(delta>=0?'+':'')+num(delta,1)+'kg over '+rows.length+' sessions, last '+b.date+')';
   }).join('\n');
 
-  var now=new Date();
-  var weekAgo=new Date(now.getTime()-7*DAY_MS);
-  var weekUnits = alcLog.filter(function(e){return new Date(e.date+'T00:00:00')>=weekAgo;}).reduce(function(s,e){return s+e.units;},0);
-  var last4wStart = new Date(now.getTime()-28*DAY_MS);
-  var last4wUnits = alcLog.filter(function(e){return new Date(e.date+'T00:00:00')>=last4wStart;}).reduce(function(s,e){return s+e.units;},0);
+  /* ---- alcohol ---- */
+  function alcWindow(n){
+    var u=0, k=0, daysWith=0;
+    daysBack(n).forEach(function(d){
+      var a = computeAlcTotals(d);
+      if(a.units>0){ daysWith++; }
+      u += a.units; k += a.kcal;
+    });
+    return {units:u, kcal:k, daysWith:daysWith};
+  }
+  var a7 = alcWindow(7), a28 = alcWindow(28);
+  var alcShare = (d7.kcal && a7.kcal) ? (a7.kcal/7)/d7.kcal*100 : 0;
 
-  var todayTotals = computeFoodTotals(todayStr());
-  var idxNow = dayIndexFromDate(todayStr());
-  var dietNow = (idxNow>=0 && idxNow<PLAN.totalProgramDays) ? PLAN.dietPhases[dietPhaseForIndex(idxNow)] : null;
+  /* ---- steps & burn ---- */
+  var st7 = daysBack(7).map(stepsFor).filter(function(v){ return v>0; });
+  var burn7 = daysBack(7).map(function(d){
+    var tk = templateForIndex(dayIndexFromDate(d));
+    return estimateDayBurn(d, tk? PLAN.templates[tk] : null).total;
+  });
+  var avgBurn = mean(burn7);
 
-  var wk = computeWeekStats();
-  var missedTrainTxt = wk.missedTrainDays.length? wk.missedTrainDays.map(fmtDate).join(', ') : 'none';
-  var offDietTxt = wk.offDietDays.length? wk.offDietDays.map(fmtDate).join(', ') : 'none';
+  var notes = noteLog.slice().sort(function(a,b){return a.date.localeCompare(b.date);}).slice(-4)
+    .map(function(n){ return '  '+n.date+' — shoulder '+(n.pain==null?'n/a':n.pain+'/10')+' — '+(n.text||''); }).join('\n');
 
-  var recentNotes = noteLog.slice().sort(function(a,b){return a.date.localeCompare(b.date);}).slice(-3)
-    .map(function(n){ return '  '+n.date+' — shoulder '+(n.pain==null?'n/a':n.pain)+'/10 — '+(n.text||''); }).join('\n');
+  /* ---- assemble ---- */
+  L.push('BUILD LOG — CHECK-IN  '+t);
+  L.push('Program day '+(trackDayIndex(t)+1)+' · phase '+(tgt? tgt.label : 'outside plan')+
+         ' · target '+PLAN.targetKg.toFixed(1)+'kg by '+fmtDateLong(PLAN.programEnd));
+  L.push('');
+  L.push('WEIGHT');
+  L.push('  Latest            '+(latest? latest.kg.toFixed(1)+'kg on '+latest.date : 'no entries'));
+  L.push('  7-day average     '+num(avg7,1)+'kg   (previous 7 days '+num(avgPrev7,1)+'kg)');
+  L.push('  Rate this week    '+(weeklyRate!=null? (weeklyRate>=0?'+':'')+weeklyRate.toFixed(2)+'kg/wk' : 'need 2 weeks of data'));
+  L.push('  Since start       '+(first&&latest? ((latest.kg-first.kg>=0?'+':'')+(latest.kg-first.kg).toFixed(1)+'kg from '+first.kg.toFixed(1)+'kg on '+first.date) : 'n/a'));
+  L.push('  To target         '+(toGo!=null? toGo.toFixed(1)+'kg over ~'+weeksLeft+' weeks' : 'n/a'));
+  L.push('  Required rate     '+(neededRate!=null? (neededRate>=0?'+':'')+neededRate.toFixed(2)+'kg/wk' : 'n/a')+
+         (weeklyRate!=null && neededRate!=null ? '   → currently '+(weeklyRate<=neededRate? 'ON or AHEAD of pace':'BEHIND pace') : ''));
+  L.push('  Entries logged    '+bw.length);
+  L.push('');
+  L.push('DIET   (target '+(tgt? tgt.kcal+' kcal / '+tgt.protein+'P / '+tgt.carbs+'C / '+tgt.fat+'F':'n/a')+')');
+  function row(label,a,b){ return '  '+pad(label,20)+pad(a,14)+b; }
+  L.push('  '+pad('',20)+pad('last 7 days',14)+'last 14 days');
+  L.push(row('Days logged',      d7.loggedDays+'/7',        d14.loggedDays+'/14'));
+  L.push(row('Avg kcal',         num(d7.kcal),              num(d14.kcal)));
+  L.push(row('  of which food',  num(d7.food),              num(d14.food)));
+  L.push(row('  of which alcohol', num(d7.alc),             num(d14.alc)));
+  L.push(row('Avg protein',      num(d7.protein)+'g',       num(d14.protein)+'g'));
+  L.push(row('Avg carbs',        num(d7.carbs)+'g',         num(d14.carbs)+'g'));
+  L.push(row('Avg fat',          num(d7.fat)+'g',           num(d14.fat)+'g'));
+  L.push(row('Days within 15%',  d7.onTarget+'/'+d7.counted, d14.onTarget+'/'+d14.counted));
+  if(tgt && d7.kcal!=null){
+    L.push('  Gap to target     '+(d7.kcal-tgt.kcal>=0?'+':'')+num(d7.kcal-tgt.kcal)+' kcal/day, protein '+
+           (d7.protein-tgt.protein>=0?'+':'')+num(d7.protein-tgt.protein)+'g/day');
+  }
+  L.push('');
+  L.push('ALCOHOL');
+  L.push('  Last 7 days       '+num(a7.units,1)+' units on '+a7.daysWith+' days · '+num(a7.kcal)+' kcal');
+  L.push('  Last 28 days      '+num(a28.units,1)+' units · '+num(a28.kcal)+' kcal ('+num(a28.units/4,1)+' units/wk)');
+  L.push('  Share of intake   '+num(alcShare,1)+'% of average daily calories');
+  L.push('');
+  L.push('TRAINING');
+  L.push('  Sessions hit      '+tr7.done+'/'+tr7.planned+' last 7 days · '+tr14.done+'/'+tr14.planned+' last 14 days');
+  L.push('  Missed/partial    '+(tr7.missed.length? tr7.missed.join(', ') : 'none'));
+  L.push('  Lift progression:');
+  L.push(progression || '    no lifts logged yet');
+  L.push('');
+  L.push('MOVEMENT & ESTIMATED BURN   (rough — bodyweight and volume only, no HR)');
+  L.push('  Avg steps         '+(st7.length? num(mean(st7))+' over '+st7.length+' logged days' : 'not logged'));
+  L.push('  Avg daily burn    '+num(avgBurn)+' kcal on top of daily living');
+  L.push('  Intake vs burn    '+(d7.kcal!=null? num(d7.kcal)+' in vs '+num(avgBurn)+' estimated out' : 'n/a'));
+  L.push('');
+  L.push('NOTES / PAIN');
+  L.push(notes || '  none logged');
+  L.push('');
+  L.push('WHAT I NEED FROM YOU');
+  L.push('  1. Is the weight trend on track for '+PLAN.targetKg.toFixed(1)+'kg by '+fmtDateLong(PLAN.programEnd)+'?');
+  L.push('     If not, adjust calories or activity rather than both at once, and say by how much.');
+  L.push('  2. Are the macro splits right for the current phase, or should protein/carbs shift?');
+  L.push('  3. Any lift stalled long enough to need a load, rep or exercise change?');
+  L.push('  4. Is alcohol intake materially affecting the deficit? Worth a cap?');
+  L.push('  5. Anything in the pain notes that should change the programming?');
+  L.push('  6. Flag anything the data is too thin to answer, and what I should log to fix that.');
 
-  var trackIdxNow = trackDayIndex(todayStr());
-  var totalDays = Math.round((new Date(PLAN.programEnd)-new Date(PLAN.trackingStart))/DAY_MS);
-  var weightChange = (first && latest) ? ((latest.kg-first.kg>=0?'+':'')+(latest.kg-first.kg).toFixed(1)+'kg') : 'n/a';
-
-  var out = 'BUILD LOG CHECK-IN — '+todayStr()+'\n'+
-'Program day: '+(trackIdxNow+1)+' of '+totalDays+' (target '+PLAN.targetKg.toFixed(1)+'kg by '+fmtDateLong(PLAN.programEnd)+')\n\n'+
-'ADHERENCE (this week)\n'+
-'  Training: '+wk.trainHit+'/'+wk.trainTotalDays+' days hit — missed/partial: '+missedTrainTxt+'\n'+
-'  Diet: '+wk.dietHit+'/'+wk.dietTotalDays+' days on-target — off-target: '+offDietTxt+'\n\n'+
-'WEIGHT\n'+
-'  Latest: '+(latest? latest.kg.toFixed(1)+'kg on '+latest.date : 'no entries')+'\n'+
-'  7-day avg: '+avg7+'kg\n'+
-'  Since start ('+(first? first.date:'—')+'): '+weightChange+'\n\n'+
-'KEY LIFTS (most recent)\n'+
-(latestLifts || '  no entries')+'\n\n'+
-'FOOD TODAY'+(dietNow? ' (target '+dietNow.kcal+'kcal/'+dietNow.protein+'P)':'')+'\n'+
-'  Logged: '+Math.round(todayTotals.kcal)+'kcal / '+Math.round(todayTotals.protein)+'P / '+Math.round(todayTotals.carbs)+'C / '+Math.round(todayTotals.fat)+'F\n\n'+
-'ALCOHOL\n'+
-'  This week: '+wk.weekAlc+' units\n\n'+
-'NOTES\n'+
-(recentNotes || '  none logged')+'\n';
-
-  document.getElementById('summaryOut').value = out;
+  document.getElementById('summaryOut').value = L.join('\n');
 }
 function copySummary(){
   var el=document.getElementById('summaryOut');
@@ -2381,6 +2621,7 @@ async function startApp(){
   alcLog = await loadArr('alc-log');
   noteLog = await loadArr('note-log');
   foodLog = await loadArr('food-log');
+  stepLog = await loadArr('step-log');
   exPhotos = await loadExercisePhotos();
 
   var warn = document.getElementById('storageWarning');
@@ -2407,6 +2648,7 @@ async function startApp(){
   document.getElementById('noteDate').value = todayStr();
   document.getElementById('alcDate').value = todayStr();
   document.getElementById('foodDate').value = todayStr();
+  document.getElementById('stepDate').value = todayStr();
 
   renderHeader();
   renderToday();
@@ -2416,6 +2658,7 @@ async function startApp(){
   renderLiftTable();
   renderAlcTable();
   renderFoodTable();
+  renderStepTable();
   populateLiftExerciseSelect();
   document.getElementById('buildStamp').textContent = BUILD;
   /* When two devices disagree, this says which one is reading what. */

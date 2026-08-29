@@ -447,6 +447,51 @@ steps | 8400"></textarea>
     </div>
     <div class="chart-box"><canvas id="liftChart"></canvas></div>
   </div>
+
+  <div class="card">
+    <div class="card-h"><h2>Calories in vs out</h2>
+      <select id="trendRange" style="font-size:12px;padding:5px 8px;width:auto">
+        <option value="14">14 days</option>
+        <option value="30" selected>30 days</option>
+        <option value="60">60 days</option>
+      </select>
+    </div>
+    <div class="chart-box" style="height:200px"><canvas id="calorieChart"></canvas></div>
+    <div class="legend">
+      <span><i style="background:#4FB6C9"></i>Food</span>
+      <span><i style="background:#E8A33D"></i>Alcohol</span>
+      <span><i style="background:#8A94A0"></i>Resting</span>
+      <span><i style="background:#6FCF97"></i>Resting + exercise</span>
+    </div>
+    <p class="lead" id="calorieChartNote" style="margin:8px 0 0"></p>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h2>Alcohol vs guideline</h2></div>
+    <div class="chart-box" style="height:190px"><canvas id="alcTrendChart"></canvas></div>
+    <div class="legend">
+      <span><i style="background:#E8A33D"></i>Units that day</span>
+      <span><i style="background:#4FB6C9"></i>Rolling 7-day total</span>
+      <span><i style="background:#E2574C"></i>UK guideline (14/wk)</span>
+    </div>
+    <p class="lead" id="alcTrendNote" style="margin:8px 0 0"></p>
+  </div>
+</div>
+
+
+<div class="view" id="view-tools">
+  <div class="card">
+    <div class="card-h"><h2>Your details</h2></div>
+    <p class="lead">Used for the resting-calorie estimate on the Progress chart (Mifflin-St Jeor). Nothing else reads them.</p>
+    <div class="row3">
+      <div class="field"><label>Height (cm)</label><input type="number" id="profHeight"></div>
+      <div class="field"><label>Age</label><input type="number" id="profAge"></div>
+      <div class="field"><label>Sex</label><select id="profSex"><option value="male">Male</option><option value="female">Female</option></select></div>
+    </div>
+    <button class="btn full" style="margin-top:8px" onclick="saveProfile()">Save details</button>
+    <p class="lead" id="profileMsg" style="margin:8px 0 0"></p>
+  </div>
+
   <div class="card">
     <div class="card-h"><h2>Check-in summary</h2></div>
     <p class="lead">Generates a text block to copy and paste to Claude for your regular check-in.</p>
@@ -501,6 +546,10 @@ steps | 8400"></textarea>
     <svg viewBox="0 0 24 24"><path d="M4 20V10M11 20V4M18 20v-7"/></svg>
     Progress
   </button>
+  <button class="tab" data-view="tools" onclick="showView('tools')">
+    <svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 01-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 015.4-5.4z"/></svg>
+    Tools
+  </button>
 </div>
 
 </div><!-- /appRoot -->
@@ -520,7 +569,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-08-29-3';
+var BUILD = '2026-08-29-4';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -565,6 +614,7 @@ var DEFAULT_PLAN = {
   targetKg: 87.0,
   startKg: 96.0,
   totalProgramDays: 41,
+  profile: {heightCm: 178, age: 45, sex: 'male'},
   planNote: '6-week block: Reset → Build → Taper → Op (Sat 19 Sep) → Post-op rest (to Sat 3 Oct). Month 2 build resumes Mon 5 Oct.',
   weekNames: ['Reset — Week 1','Reset — Week 2','Build — Week 1','Build — Week 2 (Taper)','Post-Op Rest — Week 1','Post-Op Rest — Week 2'],
   weekPlan: [
@@ -1006,6 +1056,7 @@ function showView(name){
   document.querySelector('.tab[data-view="'+name+'"]').classList.add('active');
   if(name==='today'){ renderToday(); }
   if(name==='progress'){ renderProgress(); }
+  if(name==='tools'){ renderTools(); }
   if(name==='drinks'){ renderAlcoholChart(); }
 }
 /* Pace is time-of-day sensitive, so tick the Today tab over while it's open.
@@ -1028,7 +1079,28 @@ function renderProgress(){
   renderWeightChart();
   populateLiftChartSelect();
   renderLiftChart();
+  renderCalorieChart();
+  renderAlcTrendChart();
   if(dayDetailDate) showDayDetail(dayDetailDate);
+}
+function renderTools(){
+  var pr = PLAN.profile || {};
+  document.getElementById('profHeight').value = pr.heightCm || '';
+  document.getElementById('profAge').value = pr.age || '';
+  document.getElementById('profSex').value = pr.sex || 'male';
+  document.getElementById('buildStamp').textContent = BUILD;
+}
+async function saveProfile(){
+  var h = parseFloat(document.getElementById('profHeight').value);
+  var a = parseFloat(document.getElementById('profAge').value);
+  var sx = document.getElementById('profSex').value;
+  if(isNaN(h) || isNaN(a)){ document.getElementById('profileMsg').textContent = 'Enter both height and age.'; return; }
+  PLAN.profile = {heightCm:h, age:a, sex:sx};
+  await savePlan(PLAN);
+  document.getElementById('profileMsg').textContent =
+    'Saved. Resting burn at ' + latestWeightKg().toFixed(1) + 'kg is about ' +
+    Math.round(restingBurn(latestWeightKg())) + ' kcal/day.';
+  refreshProgress();
 }
 /* Called after every log edit so the Progress tab reflects the change straight
    away — its grid and charts are derived views over the same logs. */
@@ -1505,6 +1577,21 @@ function liftBurn(sets, kg){
   return 5.0 * 3.5 * kg / 200 * minutes;
 }
 function stepBurn(steps, kg){ return steps * 0.0005 * kg; }
+/* Mifflin-St Jeor resting metabolic rate — what the body spends doing nothing.
+   Needs height, age and sex, which live on the plan and are edited on Tools. */
+function restingBurn(kg){
+  var pr = PLAN.profile || {};
+  var cm = pr.heightCm || 178, age = pr.age || 45;
+  var base = 10*kg + 6.25*cm - 5*age;
+  return base + (pr.sex === 'female' ? -161 : 5);
+}
+/* Weight as it stood on a given day, so historic days aren't scaled by today's. */
+function weightOnOrBefore(dateStr){
+  var prior = bwLog.filter(function(e){ return e.date <= dateStr; })
+                   .sort(function(a,b){ return a.date.localeCompare(b.date); });
+  if(prior.length) return prior[prior.length-1].kg;
+  return latestWeightKg();
+}
 function parseKm(dist){
   var m = String(dist||'').match(/([\d.]+)\s*km/i);
   return m ? parseFloat(m[1]) : 0;
@@ -2199,6 +2286,8 @@ function clearQAFromUrl(){
 }
 
 /* ================= ADHERENCE (vs plan) ================= */
+/* UK CMO low-risk drinking guideline: 14 units a week, same for men and women. */
+var UK_WEEKLY_UNIT_GUIDELINE = 14;
 var STATUS_COLOR = {hit:'var(--green)', partial:'var(--amber)', off:'var(--amber)', missed:'var(--red)', rest:'rgba(255,255,255,.08)', future:'rgba(255,255,255,.03)', pending:'var(--blue)'};
 
 function plannedExerciseNames(tpl){
@@ -2456,6 +2545,77 @@ function drawLineChart(canvas, series, labels){
     }
   });
 }
+/* Stacked bars with lines over the top, on one shared scale. Used for calories
+   (intake stacked, burn as lines) and units (daily bars, rolling total line). */
+function drawComboChart(canvas, labels, opts){
+  var p = prepCanvas(canvas), ctx=p.ctx, W=p.W, H=p.H;
+  ctx.clearRect(0,0,W,H);
+  var stacks = opts.stacks||[], lines = opts.lines||[], guide = opts.guide;
+  var n = labels.length;
+  if(!n){
+    ctx.fillStyle='#8A94A0'; ctx.font='12px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(opts.empty||'No data logged yet', W/2, H/2);
+    return;
+  }
+  var padL=34,padR=8,padT=10,padB=18;
+  var totals = [];
+  for(var i=0;i<n;i++){
+    var tsum=0; stacks.forEach(function(sd){ tsum += sd.data[i]||0; });
+    totals.push(tsum);
+  }
+  var max = Math.max.apply(null, totals.concat([1]));
+  lines.forEach(function(ln){ ln.data.forEach(function(v){ if(v!=null && v>max) max=v; }); });
+  if(guide && guide.value>max) max = guide.value;
+  max = max*1.08;
+
+  function X(i){ return padL + (W-padL-padR)*(i+0.5)/n; }
+  function Y(v){ return padT + (H-padT-padB)*(1 - v/max); }
+
+  ctx.strokeStyle='#2B333B'; ctx.fillStyle='#8A94A0'; ctx.font='9px sans-serif'; ctx.textAlign='right';
+  for(var g=0; g<=3; g++){
+    var gy = padT + (H-padT-padB)*g/3;
+    ctx.beginPath(); ctx.moveTo(padL,gy); ctx.lineTo(W-padR,gy); ctx.stroke();
+    ctx.fillText(Math.round(max*(1-g/3)), padL-4, gy+3);
+  }
+
+  var slot = (W-padL-padR)/n, bw = Math.max(1.5, Math.min(16, slot*0.62));
+  for(var i2=0;i2<n;i2++){
+    var base = H-padB;
+    stacks.forEach(function(sd){
+      var v = sd.data[i2]||0;
+      if(v<=0) return;
+      var h = (H-padT-padB)*(v/max);
+      ctx.fillStyle = sd.color;
+      ctx.fillRect(X(i2)-bw/2, base-h, bw, h);
+      base -= h;
+    });
+  }
+
+  if(guide){
+    ctx.save(); ctx.setLineDash([4,4]); ctx.strokeStyle=guide.color; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(padL, Y(guide.value)); ctx.lineTo(W-padR, Y(guide.value)); ctx.stroke();
+    ctx.restore();
+  }
+  lines.forEach(function(ln){
+    ctx.save();
+    if(ln.dashed) ctx.setLineDash([4,3]);
+    ctx.strokeStyle=ln.color; ctx.lineWidth=1.8; ctx.beginPath();
+    var started=false;
+    ln.data.forEach(function(v,i){
+      if(v==null) return;
+      if(!started){ ctx.moveTo(X(i),Y(v)); started=true; } else ctx.lineTo(X(i),Y(v));
+    });
+    ctx.stroke(); ctx.restore();
+  });
+
+  ctx.fillStyle='#8A94A0'; ctx.font='9px sans-serif'; ctx.textAlign='center';
+  var every = Math.ceil(n/6);
+  labels.forEach(function(lb,i){
+    if(i % every !== 0 && i !== n-1) return;
+    ctx.fillText(lb, X(i), H-4);
+  });
+}
+
 function drawBarChart(canvas, labels, values, color){
   var p = prepCanvas(canvas);
   var ctx=p.ctx, W=p.W, H=p.H;
@@ -2524,6 +2684,74 @@ function renderLiftChart(){
   var sel = document.getElementById('liftChartSelect').value;
   var data = liftLog.filter(function(e){return e.exercise===sel && e.date>=PLAN.trackingStart;}).sort(function(a,b){return a.date.localeCompare(b.date);});
   drawLineChart(canvas, [{data:data.map(function(e){return e.weight;}), color:'#4FB6C9', points:true}], data.map(function(e){return e.date;}));
+}
+/* ---- Progress trend charts ---- */
+function trendDates(n){
+  var out=[]; for(var i=n-1;i>=0;i--) out.push(addDays(todayStr(), -i));
+  return out;
+}
+function renderCalorieChart(){
+  var n = parseInt((document.getElementById('trendRange')||{}).value, 10) || 30;
+  var dates = trendDates(n);
+  var food=[], alc=[], rest=[], out=[], anyIn=false;
+  dates.forEach(function(d){
+    var tot = computeFoodTotals(d);
+    var kg = weightOnOrBefore(d);
+    var tk = templateForIndex(dayIndexFromDate(d));
+    var burn = estimateDayBurn(d, tk ? PLAN.templates[tk] : null);
+    var r = restingBurn(kg);
+    if(tot.foodKcal>0 || tot.alcKcal>0) anyIn = true;
+    food.push(tot.foodKcal); alc.push(tot.alcKcal);
+    rest.push(r); out.push(r + burn.total);
+  });
+  drawComboChart(document.getElementById('calorieChart'),
+    dates.map(function(d){ return fmtDate(d).replace(/^[A-Za-z]+,\s*/,''); }), {
+      stacks: [ {data:food, color:'#4FB6C9'}, {data:alc, color:'#E8A33D'} ],
+      lines:  [ {data:rest, color:'#8A94A0', dashed:true}, {data:out, color:'#6FCF97'} ],
+      empty: 'Log some food to see this'
+    });
+  var logged = food.filter(function(v,i){ return v>0 || alc[i]>0; }).length;
+  var avgIn = logged ? (food.reduce(function(a,b){return a+b;},0)+alc.reduce(function(a,b){return a+b;},0))/logged : 0;
+  var avgOut = out.reduce(function(a,b){return a+b;},0)/out.length;
+  var note = document.getElementById('calorieChartNote');
+  if(note){
+    note.textContent = anyIn
+      ? 'Bars are what went in, lines what went out. Average ' + Math.round(avgIn) + ' in over ' + logged +
+        ' logged days vs ' + Math.round(avgOut) + ' estimated out — a ' +
+        (avgIn>=avgOut ? 'surplus' : 'deficit') + ' of about ' + Math.abs(Math.round(avgIn-avgOut)) +
+        ' kcal/day. Resting is Mifflin-St Jeor from your details on the Tools tab; exercise is estimated from volume.'
+      : 'Nothing logged in this window yet.';
+  }
+}
+function renderAlcTrendChart(){
+  var dates = trendDates(30);
+  var daily = dates.map(function(d){ return computeAlcTotals(d).units; });
+  /* Rolling total over the trailing 7 days — the same window the guideline is
+     written against, so the two are directly comparable. */
+  var rolling = dates.map(function(d, i){
+    var sum = 0;
+    for(var k=Math.max(0, i-6); k<=i; k++) sum += daily[k];
+    return i >= 6 ? sum : null;
+  });
+  drawComboChart(document.getElementById('alcTrendChart'),
+    dates.map(function(d){ return fmtDate(d).replace(/^[A-Za-z]+,\s*/,''); }), {
+      stacks: [ {data:daily, color:'#E8A33D'} ],
+      lines:  [ {data:rolling, color:'#4FB6C9'} ],
+      guide:  {value: UK_WEEKLY_UNIT_GUIDELINE, color:'#E2574C'},
+      empty:  'No units logged yet'
+    });
+  var latest = rolling[rolling.length-1];
+  var note = document.getElementById('alcTrendNote');
+  if(note){
+    note.textContent = (latest==null)
+      ? 'Needs 7 days of history before the rolling total means anything.'
+      : 'Last 7 days: ' + latest.toFixed(1) + ' units against the UK low-risk guideline of ' +
+        UK_WEEKLY_UNIT_GUIDELINE + ' a week — ' +
+        (latest > UK_WEEKLY_UNIT_GUIDELINE
+          ? Math.round((latest/UK_WEEKLY_UNIT_GUIDELINE-1)*100) + '% over.'
+          : Math.round((1-latest/UK_WEEKLY_UNIT_GUIDELINE)*100) + '% under.') +
+        ' The guideline is a weekly ceiling for both men and women, best spread over 3 or more days.';
+  }
 }
 function renderAlcoholChart(){
   var canvas=document.getElementById('alcChart');
@@ -2975,6 +3203,7 @@ async function startApp(){
   renderFoodTable();
   renderStepTable();
   populateLiftExerciseSelect();
+  document.getElementById('trendRange').onchange = renderCalorieChart;
   document.getElementById('buildStamp').textContent = BUILD;
   /* When two devices disagree, this says which one is reading what. */
   document.getElementById('diagLine').textContent =

@@ -186,8 +186,9 @@
   .chev{color:var(--ink-dim);transition:transform .15s;}
   .chev.open{transform:rotate(180deg);}
 
-  canvas{max-width:100%;display:block;width:100%;height:100%;}
-  .chart-box{position:relative;height:200px;margin-bottom:8px;}
+  canvas{display:block;width:100%;height:100%;}
+  .chart-box{position:relative;height:200px;margin-bottom:8px;
+    overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;}
   .legend{display:flex;gap:14px;font-size:11px;color:var(--ink-dim);margin-top:2px;flex-wrap:wrap;}
   .legend span{display:inline-flex;align-items:center;gap:4px;}
   .legend i{width:10px;height:2px;display:inline-block;}
@@ -454,6 +455,7 @@ steps | 8400"></textarea>
         <option value="14">14 days</option>
         <option value="30" selected>30 days</option>
         <option value="60">60 days</option>
+        <option value="all">All</option>
       </select>
     </div>
     <div class="chart-box" style="height:200px"><canvas id="calorieChart"></canvas></div>
@@ -569,7 +571,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-08-29-4';
+var BUILD = '2026-08-29-5';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -2483,6 +2485,19 @@ function renderWeekStats(){
 }
 
 /* ================= CANVAS CHARTS (no external libs) ================= */
+/* Give every point a minimum slice of width so a long history stays readable,
+   and let the box scroll once that exceeds the screen rather than cramming
+   months into 300px. */
+function sizeChart(canvas, n, minSlot){
+  var box = canvas.parentNode;
+  var avail = box.clientWidth || 320;
+  var want = Math.max(avail, n * (minSlot||14) + 46);
+  canvas.style.width = want + 'px';
+}
+function scrollChartToEnd(canvas){
+  var box = canvas.parentNode;
+  requestAnimationFrame(function(){ box.scrollLeft = box.scrollWidth; });
+}
 function prepCanvas(canvas){
   var dpr = window.devicePixelRatio || 1;
   var w = canvas.clientWidth, h = canvas.clientHeight;
@@ -2664,11 +2679,13 @@ function renderWeightChart(){
   var kgs = sorted.map(function(e){return e.kg;});
   var avg7 = rollingAvg7(sorted);
   var target = labels.map(function(){return PLAN.targetKg;});
+  sizeChart(canvas, labels.length, 12);
   drawLineChart(canvas, [
     {data:kgs, color:'#4FB6C9', points:true},
     {data:avg7, color:'#6FCF97', dashed:true},
     {data:target, color:'#E8A33D', dashed:true}
   ], labels);
+  scrollChartToEnd(canvas);
 }
 function populateLiftChartSelect(){
   var sel = document.getElementById('liftChartSelect');
@@ -2683,15 +2700,26 @@ function renderLiftChart(){
   var canvas=document.getElementById('liftChart');
   var sel = document.getElementById('liftChartSelect').value;
   var data = liftLog.filter(function(e){return e.exercise===sel && e.date>=PLAN.trackingStart;}).sort(function(a,b){return a.date.localeCompare(b.date);});
+  sizeChart(canvas, data.length, 18);
   drawLineChart(canvas, [{data:data.map(function(e){return e.weight;}), color:'#4FB6C9', points:true}], data.map(function(e){return e.date;}));
+  scrollChartToEnd(canvas);
 }
 /* ---- Progress trend charts ---- */
+/* Nothing was recorded before trackingStart, so a window that reaches further
+   back would only draw a run of empty days and flatten the useful part. */
 function trendDates(n){
-  var out=[]; for(var i=n-1;i>=0;i--) out.push(addDays(todayStr(), -i));
+  var out=[], t = todayStr();
+  for(var i=n-1;i>=0;i--){
+    var d = addDays(t, -i);
+    if(d >= PLAN.trackingStart) out.push(d);
+  }
   return out;
 }
 function renderCalorieChart(){
-  var n = parseInt((document.getElementById('trendRange')||{}).value, 10) || 30;
+  var raw = (document.getElementById('trendRange')||{}).value;
+  var n = (raw === 'all')
+    ? Math.max(1, dayIndexFromDate(todayStr()) - dayIndexFromDate(PLAN.trackingStart) + 1)
+    : (parseInt(raw, 10) || 30);
   var dates = trendDates(n);
   var food=[], alc=[], rest=[], out=[], anyIn=false;
   dates.forEach(function(d){
@@ -2704,12 +2732,15 @@ function renderCalorieChart(){
     food.push(tot.foodKcal); alc.push(tot.alcKcal);
     rest.push(r); out.push(r + burn.total);
   });
-  drawComboChart(document.getElementById('calorieChart'),
+  var calCanvas = document.getElementById('calorieChart');
+  sizeChart(calCanvas, dates.length, 16);
+  drawComboChart(calCanvas,
     dates.map(function(d){ return fmtDate(d).replace(/^[A-Za-z]+,\s*/,''); }), {
       stacks: [ {data:food, color:'#4FB6C9'}, {data:alc, color:'#E8A33D'} ],
       lines:  [ {data:rest, color:'#8A94A0', dashed:true}, {data:out, color:'#6FCF97'} ],
       empty: 'Log some food to see this'
     });
+  scrollChartToEnd(calCanvas);
   var logged = food.filter(function(v,i){ return v>0 || alc[i]>0; }).length;
   var avgIn = logged ? (food.reduce(function(a,b){return a+b;},0)+alc.reduce(function(a,b){return a+b;},0))/logged : 0;
   var avgOut = out.reduce(function(a,b){return a+b;},0)/out.length;
@@ -2733,13 +2764,16 @@ function renderAlcTrendChart(){
     for(var k=Math.max(0, i-6); k<=i; k++) sum += daily[k];
     return i >= 6 ? sum : null;
   });
-  drawComboChart(document.getElementById('alcTrendChart'),
+  var alcCanvas = document.getElementById('alcTrendChart');
+  sizeChart(alcCanvas, dates.length, 14);
+  drawComboChart(alcCanvas,
     dates.map(function(d){ return fmtDate(d).replace(/^[A-Za-z]+,\s*/,''); }), {
       stacks: [ {data:daily, color:'#E8A33D'} ],
       lines:  [ {data:rolling, color:'#4FB6C9'} ],
       guide:  {value: UK_WEEKLY_UNIT_GUIDELINE, color:'#E2574C'},
       empty:  'No units logged yet'
     });
+  scrollChartToEnd(alcCanvas);
   var latest = rolling[rolling.length-1];
   var note = document.getElementById('alcTrendNote');
   if(note){
@@ -2756,14 +2790,16 @@ function renderAlcTrendChart(){
 function renderAlcoholChart(){
   var canvas=document.getElementById('alcChart');
   var weekMap={};
-  alcLog.forEach(function(e){
+  alcLog.filter(function(e){ return e.date >= PLAN.trackingStart; }).forEach(function(e){
     var d=new Date(e.date+'T00:00:00');
     var day=(d.getDay()+6)%7;
     var key=addDays(e.date, -day);
     weekMap[key]=(weekMap[key]||0)+e.units;
   });
   var keys=Object.keys(weekMap).sort();
+  sizeChart(canvas, keys.length, 38);
   drawBarChart(canvas, keys.map(fmtDate), keys.map(function(k){return weekMap[k];}), '#E8A33D');
+  scrollChartToEnd(canvas);
   var lastKey = keys[keys.length-1];
   document.getElementById('weekUnitsBadge').textContent=(lastKey? weekMap[lastKey]:0)+' units';
 }

@@ -338,11 +338,21 @@ steps | 8400"></textarea>
   </div>
 
   <div class="card">
+    <div class="card-h"><h2>Repeat a meal</h2>
+      <select id="mealLibDate" style="font-size:12px;padding:5px 8px;width:auto"></select>
+    </div>
+    <p class="lead">Anything logged before, ready to add again. Whole meals first, then single items.</p>
+    <input type="text" id="mealLibSearch" placeholder="Search meals and items…" oninput="renderMealLibrary()">
+    <div id="mealLibOut" style="margin-top:10px"></div>
+  </div>
+
+  <div class="card">
     <div class="card-h"><h2>Log food</h2></div>
     <div class="row2">
       <div class="field"><label>Date</label><input type="date" id="foodDate"></div>
-      <div class="field"><label>Item</label><input type="text" id="foodName" placeholder="Chicken breast 200g"></div>
+      <div class="field"><label>Meal</label><select id="foodMeal"></select></div>
     </div>
+    <div class="field"><label>Item</label><input type="text" id="foodName" placeholder="Chicken breast 200g"></div>
     <div class="row4">
       <div class="field"><label>Kcal</label><input type="number" id="foodKcal"></div>
       <div class="field"><label>Protein</label><input type="number" id="foodProtein"></div>
@@ -351,7 +361,7 @@ steps | 8400"></textarea>
     </div>
     <button class="btn full" onclick="addFood()">Save food</button>
     <div class="divider"></div>
-    <table id="foodTable"><thead><tr><th>Date</th><th>Item</th><th>Kcal</th><th>P/C/F</th><th></th></tr></thead><tbody></tbody></table>
+    <table id="foodTable"><thead><tr><th>Date</th><th>Meal</th><th>Item</th><th>Kcal</th><th>P/C/F</th><th></th></tr></thead><tbody></tbody></table>
   </div>
 
   <div class="card">
@@ -572,7 +582,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-08-30-1';
+var BUILD = '2026-08-31-1';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -1481,6 +1491,25 @@ function mealPacing(phase, totals){
   return {nowMin:nowMin, expected:{kcal:expK, protein:expP}, diff:diff, status:status,
           suggestions:suggestions, rem:rem};
 }
+/* What was eaten, split by slot, so "what did I have for breakfast" is
+   answerable at a glance. */
+function renderMealBreakdown(dateStr){
+  var todays = foodLog.filter(function(e){ return e.date===dateStr; });
+  if(!todays.length) return '';
+  var order = MEAL_SLOTS.concat(['Unassigned']);
+  var rows = '';
+  order.forEach(function(slot){
+    var items = todays.filter(function(e){ return mealOf(e)===slot; });
+    if(!items.length) return;
+    var t = sumItems(items);
+    rows += '<div class="meal">'+
+      '<div class="meal-h"><span>'+slot+'</span><span class="m">'+Math.round(t.kcal)+' kcal · '+
+        Math.round(t.protein)+'P</span></div>'+
+      '<div class="meal-food">'+items.map(function(e){ return e.name; }).join(', ')+'</div>'+
+    '</div>';
+  });
+  return '<h3 class="section">By meal</h3>' + rows;
+}
 function renderBurn(dateStr, tkey){
   var tpl = tkey ? PLAN.templates[tkey] : null;
   var b = estimateDayBurn(dateStr, tpl);
@@ -1537,6 +1566,28 @@ function renderPacing(phase, totals){
    ignores the sugars in beer, cider and mixers, which is why an entry can carry
    its own kcal and only falls back to the estimate when it doesn't. */
 var KCAL_PER_UNIT = 56;
+/* Fixed slots rather than the plan's meal names: the plan calls dinner
+   "Dinner — Prep Kitchen", which changes per phase and would fragment the
+   history. These stay stable so a breakfast logged in August still groups with
+   one logged in December. */
+var MEAL_SLOTS = ['Breakfast','Lunch','Snack','Dinner','Evening'];
+var MEAL_SLOT_TIMES = {Breakfast:'08:00', Lunch:'13:00', Snack:'16:00', Dinner:'19:00', Evening:'21:30'};
+function mealOf(e){ return (e && e.meal && MEAL_SLOTS.indexOf(e.meal)!==-1) ? e.meal : 'Unassigned'; }
+/* The most recent slot to have come round, with an hour's grace so food logged
+   just before a meal time still lands on it. An hour rather than more: at 14:30
+   you are far likelier to be recording lunch than a 16:00 snack. */
+function defaultMealForNow(){
+  var now = new Date(), mins = now.getHours()*60 + now.getMinutes(), pick = MEAL_SLOTS[0];
+  MEAL_SLOTS.forEach(function(slot){
+    if(mins >= hm2min(MEAL_SLOT_TIMES[slot]) - 60) pick = slot;
+  });
+  return pick;
+}
+function mealSlotOptions(sel){
+  return MEAL_SLOTS.map(function(m){
+    return '<option'+(m===sel?' selected':'')+'>'+m+'</option>';
+  }).join('');
+}
 function alcKcalFor(e){
   if(e && typeof e.kcal === 'number' && !isNaN(e.kcal)) return e.kcal;
   return (e && e.units ? e.units : 0) * KCAL_PER_UNIT;
@@ -1679,6 +1730,7 @@ function renderToday(){
         '<div class="macro"><div class="n">'+Math.round(totals.carbs)+'g</div><div class="l">Carbs</div></div>'+
         '<div class="macro"><div class="n">'+Math.round(totals.fat)+'g</div><div class="l">Fat</div></div>'+
       '</div>'+
+      renderMealBreakdown(t)+
       '<h3 class="section">Remaining</h3>'+
       '<div class="macro-grid">'+
         remCell(rem.kcal,'kcal')+remCell(rem.protein,'Protein')+remCell(rem.carbs,'Carbs')+remCell(rem.fat,'Fat')+
@@ -1808,6 +1860,141 @@ function renderDiet(){
   }
 }
 
+/* ================= REPEAT LIBRARY =================
+   Built from the food log itself rather than a separate saved-meals store, so
+   anything logged — by hand, by link, or pasted from Claude — is repeatable
+   without a second step. Identical meals collapse to one row with a count. */
+function itemSignature(e){
+  return (e.name||'').trim().toLowerCase()+'|'+Math.round(e.kcal||0)+'|'+Math.round(e.protein||0)+
+         '|'+Math.round(e.carbs||0)+'|'+Math.round(e.fat||0);
+}
+function buildMealLibrary(){
+  var byDayMeal = {};
+  foodLog.forEach(function(e){
+    var slot = mealOf(e);
+    if(slot === 'Unassigned') return;          /* can't repeat what has no slot */
+    var k = e.date+'\u0000'+slot;
+    (byDayMeal[k] = byDayMeal[k] || {date:e.date, meal:slot, items:[]}).items.push(e);
+  });
+  /* Collapse identical meals: same slot, same set of items. */
+  var bySig = {};
+  Object.keys(byDayMeal).forEach(function(k){
+    var m = byDayMeal[k];
+    var sig = m.meal+'::'+m.items.map(itemSignature).sort().join('&&');
+    var rec = bySig[sig];
+    if(!rec){
+      bySig[sig] = {meal:m.meal, items:m.items, lastDate:m.date, count:1};
+    }else{
+      rec.count++;
+      if(m.date > rec.lastDate){ rec.lastDate = m.date; rec.items = m.items; }
+    }
+  });
+  return Object.keys(bySig).map(function(k){ return bySig[k]; })
+    .sort(function(a,b){ return b.lastDate.localeCompare(a.lastDate) || b.count-a.count; });
+}
+function buildItemLibrary(){
+  var bySig = {};
+  foodLog.forEach(function(e){
+    var sig = itemSignature(e);
+    var rec = bySig[sig];
+    if(!rec) bySig[sig] = {item:e, lastDate:e.date, count:1};
+    else { rec.count++; if(e.date > rec.lastDate){ rec.lastDate = e.date; rec.item = e; } }
+  });
+  return Object.keys(bySig).map(function(k){ return bySig[k]; })
+    .sort(function(a,b){ return b.lastDate.localeCompare(a.lastDate) || b.count-a.count; });
+}
+function sumItems(items){
+  return items.reduce(function(a,e){
+    a.kcal+=e.kcal||0; a.protein+=e.protein||0; a.carbs+=e.carbs||0; a.fat+=e.fat||0; return a;
+  }, {kcal:0,protein:0,carbs:0,fat:0});
+}
+function matchesSearch(text, q){
+  if(!q) return true;
+  return String(text).toLowerCase().indexOf(q) !== -1;
+}
+var MEAL_LIB_LIMIT = 8;
+function renderMealLibrary(){
+  var out = document.getElementById('mealLibOut');
+  if(!out) return;
+  var sel = document.getElementById('mealLibDate');
+  if(sel && !sel.options.length){
+    sel.innerHTML = '<option value="">Add to today</option>' +
+      MEAL_SLOTS.map(function(m){ return '<option value="'+m+'">Add as '+m+'</option>'; }).join('');
+  }
+  var q = (document.getElementById('mealLibSearch').value||'').trim().toLowerCase();
+
+  var meals = buildMealLibrary().filter(function(m){
+    return matchesSearch(m.meal + ' ' + m.items.map(function(i){return i.name;}).join(' '), q);
+  });
+  var items = buildItemLibrary().filter(function(r){ return matchesSearch(r.item.name, q); });
+
+  if(!meals.length && !items.length){
+    out.innerHTML = '<div class="empty">'+(q? 'Nothing logged matches that.' :
+      'Nothing to repeat yet — log a meal and it will show up here.')+'</div>';
+    return;
+  }
+  var html = '';
+  if(meals.length){
+    html += '<h3 class="section" style="margin-top:0">Meals</h3>';
+    html += meals.slice(0, MEAL_LIB_LIMIT).map(function(m, i){
+      var t = sumItems(m.items);
+      return '<div class="exrow"><div class="ex-main"><div class="ex-text">'+
+        '<div class="exname">'+m.meal+' · '+Math.round(t.kcal)+' kcal</div>'+
+        '<div class="exmeta">'+Math.round(t.protein)+'P / '+Math.round(t.carbs)+'C / '+Math.round(t.fat)+'F'+
+          ' · '+m.items.length+' item'+(m.items.length>1?'s':'')+
+          ' · last '+fmtDate(m.lastDate)+(m.count>1? ' · '+m.count+'×':'')+'</div>'+
+        '<div class="exnote">'+m.items.map(function(i2){return i2.name;}).join(', ')+'</div>'+
+        '</div>'+
+        '<button class="btn" style="width:auto;padding:8px 12px;flex:none" onclick="repeatMeal('+i+')">Add</button>'+
+        '</div></div>';
+    }).join('');
+    if(meals.length > MEAL_LIB_LIMIT) html += '<p class="lead">'+(meals.length-MEAL_LIB_LIMIT)+' more — search to narrow.</p>';
+  }
+  if(items.length){
+    html += '<h3 class="section">Items</h3>';
+    html += items.slice(0, MEAL_LIB_LIMIT).map(function(r, i){
+      var e = r.item;
+      return '<div class="exrow"><div class="ex-main"><div class="ex-text">'+
+        '<div class="exname">'+e.name+'</div>'+
+        '<div class="exmeta">'+Math.round(e.kcal)+' kcal · '+Math.round(e.protein)+'P / '+
+          Math.round(e.carbs)+'C / '+Math.round(e.fat)+'F'+(r.count>1? ' · '+r.count+'×':'')+'</div>'+
+        '</div>'+
+        '<button class="btn ghost" style="width:auto;padding:8px 12px;flex:none" onclick="repeatItem('+i+')">Add</button>'+
+        '</div></div>';
+    }).join('');
+    if(items.length > MEAL_LIB_LIMIT) html += '<p class="lead">'+(items.length-MEAL_LIB_LIMIT)+' more — search to narrow.</p>';
+  }
+  out.innerHTML = html;
+  /* Stash the filtered lists so the buttons index into what is on screen. */
+  renderMealLibrary._meals = meals;
+  renderMealLibrary._items = items;
+}
+function targetMealSlot(fallback){
+  var sel = document.getElementById('mealLibDate');
+  return (sel && sel.value) ? sel.value : fallback;
+}
+async function repeatMeal(i){
+  var m = (renderMealLibrary._meals||[])[i];
+  if(!m) return;
+  var slot = targetMealSlot(m.meal), d = todayStr();
+  m.items.forEach(function(e){
+    foodLog.push({date:d, meal:slot, name:e.name, kcal:e.kcal, protein:e.protein, carbs:e.carbs, fat:e.fat});
+  });
+  foodLog.sort(function(a,b){return a.date.localeCompare(b.date);});
+  await saveArr('food-log', foodLog);
+  renderFoodTable(); renderToday(); refreshProgress(); renderMealLibrary();
+  showView('today');
+}
+async function repeatItem(i){
+  var r = (renderMealLibrary._items||[])[i];
+  if(!r) return;
+  var e = r.item, slot = targetMealSlot(mealOf(e)==='Unassigned'? defaultMealForNow() : mealOf(e));
+  foodLog.push({date:todayStr(), meal:slot, name:e.name, kcal:e.kcal, protein:e.protein, carbs:e.carbs, fat:e.fat});
+  foodLog.sort(function(a,b){return a.date.localeCompare(b.date);});
+  await saveArr('food-log', foodLog);
+  renderFoodTable(); renderToday(); refreshProgress(); renderMealLibrary();
+}
+
 /* ================= LOG ACTIONS ================= */
 /* The exercise picker is generated from PLAN.templates rather than hard-coded,
    so it always covers every movement in the program — including any added by a
@@ -1893,7 +2080,8 @@ async function addFood(){
   var carbs=parseFloat(document.getElementById('foodCarbs').value)||0;
   var fat=parseFloat(document.getElementById('foodFat').value)||0;
   if(!kcal && !protein) return;
-  foodLog.push({date:date,name:name,kcal:kcal,protein:protein,carbs:carbs,fat:fat});
+  var meal=document.getElementById('foodMeal').value || defaultMealForNow();
+  foodLog.push({date:date,meal:meal,name:name,kcal:kcal,protein:protein,carbs:carbs,fat:fat});
   foodLog.sort(function(a,b){return a.date.localeCompare(b.date);});
   await saveArr('food-log', foodLog);
   document.getElementById('foodName').value='';
@@ -1901,7 +2089,7 @@ async function addFood(){
   document.getElementById('foodProtein').value='';
   document.getElementById('foodCarbs').value='';
   document.getElementById('foodFat').value='';
-  renderFoodTable(); renderToday(); refreshProgress();
+  renderFoodTable(); renderToday(); refreshProgress(); renderMealLibrary();
 }
 async function deleteFood(i){
   foodLog.splice(i,1);
@@ -1915,10 +2103,12 @@ function renderFoodTable(){
   var rev=withIdx.slice().reverse().slice(0,15);
   rev.forEach(function(e){
     var tr=document.createElement('tr');
-    tr.innerHTML='<td>'+fmtDate(e.date)+'</td><td class="name">'+e.name+'</td><td>'+e.kcal+'</td><td>'+e.protein+'/'+e.carbs+'/'+e.fat+'</td><td><button class="icon-del" onclick="deleteFood('+e._i+')">✕</button></td>';
+    tr.innerHTML='<td>'+fmtDate(e.date)+'</td><td style="font-size:11px;color:var(--ink-dim)">'+mealOf(e)+
+      '</td><td class="name">'+e.name+'</td><td>'+e.kcal+'</td><td>'+e.protein+'/'+e.carbs+'/'+e.fat+
+      '</td><td><button class="icon-del" onclick="deleteFood('+e._i+')">✕</button></td>';
     tbody.appendChild(tr);
   });
-  if(!foodLog.length) tbody.innerHTML='<tr><td colspan="5" class="empty">No entries yet</td></tr>';
+  if(!foodLog.length) tbody.innerHTML='<tr><td colspan="6" class="empty">No entries yet</td></tr>';
 }
 
 async function addLift(){
@@ -2050,8 +2240,10 @@ async function applyImportItems(items, defaultDate){
     var d = it.date || defaultDate;
     switch(it.type){
       case 'food':
-        foodLog.push({date:d, name:it.name||'Item', kcal:+it.kcal||0, protein:+it.protein||0,
-                      carbs:+it.carbs||0, fat:+it.fat||0});
+        var fe = {date:d, name:it.name||'Item', kcal:+it.kcal||0, protein:+it.protein||0,
+                  carbs:+it.carbs||0, fat:+it.fat||0};
+        if(it.meal && MEAL_SLOTS.indexOf(it.meal)!==-1) fe.meal = it.meal;
+        foodLog.push(fe);
         touched.food=true; break;
       case 'weight':
         bwLog = bwLog.filter(function(e){ return e.date!==d; });
@@ -2092,7 +2284,7 @@ async function applyImportItems(items, defaultDate){
    full of commas ("Milk, semi-skimmed"). A bare date line sets the date for
    everything after it. */
 var IMPORT_FIELDS = {
-  food:    ['name','kcal','protein','carbs','fat'],
+  food:    ['name','kcal','protein','carbs','fat','meal?'],
   lift:    ['exercise','weight','reps','sets'],
   weight:  ['kg'],
   alcohol: ['name','units','kcal?'],
@@ -2133,6 +2325,14 @@ function parseImportBlock(text, fallbackDate){
       var name = field.replace('?','');
       var v = parts[n];
       if(v===undefined || v==='') { if(field.slice(-1)==='?') return; }
+      if(name==='meal'){
+        /* Reject rather than drop: a slot the app doesn't know would vanish on
+           save and the preview would have promised otherwise. */
+        var canon = MEAL_SLOTS.filter(function(m){ return m.toLowerCase()===v.toLowerCase(); })[0];
+        if(!canon){ bad = 'Line '+(i+1)+': meal must be one of '+MEAL_SLOTS.join(', ')+' — got "'+v+'".'; return; }
+        it.meal = canon;
+        return;
+      }
       if(name==='name' || name==='exercise' || name==='text'){ it[name] = v; return; }
       if(name==='pain'){ it.pain = (v===''||v==='-'||v==null)? null : parseFloat(v); return; }
       var num = parseFloat(v);
@@ -2190,7 +2390,8 @@ function qaItemTitle(it){
 }
 function qaItemDetail(it){
   switch(it.type){
-    case 'food':   return (+it.kcal||0)+' kcal · '+(+it.protein||0)+'P / '+(+it.carbs||0)+'C / '+(+it.fat||0)+'F';
+    case 'food':   return (it.meal? it.meal+' · ':'')+(+it.kcal||0)+' kcal · '+(+it.protein||0)+'P / '+
+                          (+it.carbs||0)+'C / '+(+it.fat||0)+'F';
     case 'weight': return (+it.kg||0).toFixed(1)+'kg';
     case 'alcohol': case 'alc':
       return (+it.units||0)+' units · '+Math.round(alcKcalFor({units:+it.units||0, kcal:it.kcal}))+' kcal'+
@@ -2900,8 +3101,8 @@ async function pushPlanToCloud(){
 function buildImportSpec(){
   var base = location.origin + location.pathname;
   var example = [
-    {type:'food', name:'Oats 40g (dry)', kcal:150, protein:5, carbs:24, fat:3},
-    {type:'food', name:'Chicken breast 200g', kcal:330, protein:62, carbs:0, fat:7},
+    {type:'food', name:'Oats 40g (dry)', kcal:150, protein:5, carbs:24, fat:3, meal:'Breakfast'},
+    {type:'food', name:'Chicken breast 200g', kcal:330, protein:62, carbs:0, fat:7, meal:'Lunch'},
     {type:'lift', exercise:'Leg Press', weight:160, reps:10, sets:4},
     {type:'weight', kg:94.8},
     {type:'alcohol', name:'Guinness pint', units:2.3, kcal:210},
@@ -2926,8 +3127,11 @@ function buildImportSpec(){
 '',
 'ITEM TYPES',
 '',
-'  {"type":"food",    "name":str, "kcal":num, "protein":num, "carbs":num, "fat":num}',
+'  {"type":"food",    "name":str, "kcal":num, "protein":num, "carbs":num, "fat":num,',
+'                     "meal":str (optional)}',
 '      Appends. Several food items per day are expected.',
+'      "meal" is one of: '+MEAL_SLOTS.join(', ')+'. Set it where you can — it',
+'      groups the day and makes the meal repeatable from the app afterwards.',
 '',
 '  {"type":"lift",    "exercise":str, "weight":num(kg), "reps":num, "sets":num}',
 '      Appends. "type" may be omitted — anything unrecognised is treated as a lift.',
@@ -2959,8 +3163,8 @@ function buildImportSpec(){
 '  sets the date for every line after it:',
 '',
 '    2026-08-29',
-'    food | Oats 40g (dry) | 150 | 5 | 24 | 3',
-'    food | Milk, semi-skimmed, 500ml | 235 | 17 | 24 | 9',
+'    food | Oats 40g (dry) | 150 | 5 | 24 | 3 | Breakfast',
+'    food | Milk, semi-skimmed, 500ml | 235 | 17 | 24 | 9 | Breakfast',
 '    lift | Leg Press | 160 | 10 | 4',
 '    weight | 94.8',
 '    alcohol | Guinness pint | 2.3 | 210',
@@ -3232,6 +3436,7 @@ async function startApp(){
   document.getElementById('alcDate').value = todayStr();
   document.getElementById('foodDate').value = todayStr();
   document.getElementById('stepDate').value = todayStr();
+  document.getElementById('foodMeal').innerHTML = mealSlotOptions(defaultMealForNow());
 
   renderHeader();
   renderToday();
@@ -3242,6 +3447,7 @@ async function startApp(){
   renderAlcTable();
   renderFoodTable();
   renderStepTable();
+  renderMealLibrary();
   populateLiftExerciseSelect();
   document.getElementById('trendRange').onchange = renderCalorieChart;
   document.getElementById('buildStamp').textContent = BUILD;

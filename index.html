@@ -295,6 +295,7 @@
     <div class="card-h"><h2>Equipment &amp; exercises</h2><span class="badge" id="equipCount">—</span></div>
     <p class="lead">Every movement in your plan, plus any other machine you've recorded. Add a photo here or on the Today tab — it's the same picture either way. Drives the "if it's busy" swaps, and exports for Claude.</p>
     <button class="btn full" style="margin-bottom:8px" onclick="copyEquipment()">Copy inventory for Claude</button>
+    <button class="btn ghost full" style="margin-bottom:8px" onclick="downloadEquipment()">Download inventory (.txt)</button>
     <input type="text" id="equipSearch" placeholder="Search machines…" oninput="renderEquipment()">
     <div id="equipList" style="margin-top:10px"></div>
     <div class="divider"></div>
@@ -604,7 +605,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-04-4';
+var BUILD = '2026-09-04-5';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -1975,6 +1976,10 @@ function copyEquipment(){
       function(){ document.getElementById('equipMsg').textContent = 'Inventory copied — paste it to Claude.'; },
       function(){ fallbackCopy(text); });
   } else fallbackCopy(text);
+}
+function downloadEquipment(){
+  downloadBlob('my-gym-equipment-'+todayStr()+'.txt', buildEquipmentExport());
+  document.getElementById('equipMsg').textContent = 'Saved — attach it to a chat with Claude.';
 }
 async function addEquipment(){
   var name = document.getElementById('equipName').value.trim();

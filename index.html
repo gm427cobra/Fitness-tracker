@@ -294,6 +294,7 @@
   <div class="card">
     <div class="card-h"><h2>Equipment &amp; exercises</h2><span class="badge" id="equipCount">—</span></div>
     <p class="lead">Every movement in your plan, plus any other machine you've recorded. Add a photo here or on the Today tab — it's the same picture either way. Drives the "if it's busy" swaps, and exports for Claude.</p>
+    <button class="btn full" style="margin-bottom:8px" onclick="copyEquipmentPrompt()">Copy prompt to build the inventory</button>
     <button class="btn full" style="margin-bottom:8px" onclick="copyEquipment()">Copy inventory for Claude</button>
     <button class="btn ghost full" style="margin-bottom:8px" onclick="downloadEquipment()">Download inventory (.txt)</button>
     <input type="text" id="equipSearch" placeholder="Search machines…" oninput="renderEquipment()">
@@ -605,7 +606,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-04-5';
+var BUILD = '2026-09-04-6';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -1974,6 +1975,61 @@ function copyEquipment(){
   if(navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(text).then(
       function(){ document.getElementById('equipMsg').textContent = 'Inventory copied — paste it to Claude.'; },
+      function(){ fallbackCopy(text); });
+  } else fallbackCopy(text);
+}
+/* The briefing to hand Claude alongside gym photos. Generated rather than
+   written down somewhere, so it always carries the current exercise names and
+   the movements still missing a machine. */
+function buildEquipmentPrompt(){
+  var missing = planExerciseList().filter(function(px){ return !equipmentForExercise(px.name); })
+                                  .map(function(m){ return m.name; });
+  var known = equipLog.map(function(e){ return e.name; });
+  var L = [];
+  L.push('I am photographing the machines at my gym to build an inventory for my');
+  L.push('training app. For each machine in the photos I send, give me ONE line in');
+  L.push('exactly this format, and nothing else — no commentary between lines:');
+  L.push('');
+  L.push('  equipment | Name | muscles | used-for exercises | notes');
+  L.push('');
+  L.push('Rules:');
+  L.push('  - Name: the make and model if it is on the machine, otherwise a plain');
+  L.push('    description. This is the key, so keep it stable between batches.');
+  L.push('  - muscles: semicolon-separated, specific. "chest; triceps", not "upper');
+  L.push('    body". These drive automatic swap suggestions when a machine is busy,');
+  L.push('    so vague tags make the feature useless.');
+  L.push('  - used-for: which of MY exercises it is for, semicolon-separated, using');
+  L.push('    my exact names from the list below. Leave empty if none apply.');
+  L.push('  - notes: anything useful — stack maximum, plate-loaded, seat quirks,');
+  L.push('    "two of these". Leave empty if nothing stands out.');
+  L.push('  - Use "|" as the separator; commas are fine inside a field.');
+  L.push('  - If you cannot identify a machine confidently, say so on its own line');
+  L.push('    starting with # rather than guessing — a wrong entry is worse than a');
+  L.push('    gap, because I will train around it.');
+  L.push('');
+  L.push('MY EXERCISE NAMES (use these exactly in used-for):');
+  L.push('  '+planExerciseList().map(function(p){ return p.name; }).join(', '));
+  L.push('');
+  if(missing.length){
+    L.push('STILL MISSING A MACHINE — these are what I most need identified:');
+    L.push('  '+missing.join(', '));
+    L.push('');
+  }
+  if(known.length){
+    L.push('ALREADY RECORDED (re-send one only to correct it — it updates in place):');
+    L.push('  '+known.join(', '));
+    L.push('');
+  }
+  L.push('Example of the output I want:');
+  L.push('  equipment | Cybex Eagle NX Arm Curl | biceps | Machine Arm Curl | Stack maxes at 103kg');
+  L.push('  equipment | Arsenal Strength Plate Leg Press | quads; glutes; hamstrings | Leg Press | Plate loaded, max 160kg');
+  return L.join('\n');
+}
+function copyEquipmentPrompt(){
+  var text = buildEquipmentPrompt();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(
+      function(){ document.getElementById('equipMsg').textContent = 'Prompt copied — send it to Claude with your gym photos.'; },
       function(){ fallbackCopy(text); });
   } else fallbackCopy(text);
 }

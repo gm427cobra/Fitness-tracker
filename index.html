@@ -292,8 +292,8 @@
   <div id="planList"></div>
 
   <div class="card">
-    <div class="card-h"><h2>Gym equipment</h2><span class="badge" id="equipCount">0 machines</span></div>
-    <p class="lead">What your gym actually has. Drives the "if it's busy" swaps on the Today tab, and can be handed to Claude so it only suggests movements you can do.</p>
+    <div class="card-h"><h2>Equipment &amp; exercises</h2><span class="badge" id="equipCount">—</span></div>
+    <p class="lead">Every movement in your plan, plus any other machine you've recorded. Add a photo here or on the Today tab — it's the same picture either way. Drives the "if it's busy" swaps, and exports for Claude.</p>
     <button class="btn full" style="margin-bottom:8px" onclick="copyEquipment()">Copy inventory for Claude</button>
     <input type="text" id="equipSearch" placeholder="Search machines…" oninput="renderEquipment()">
     <div id="equipList" style="margin-top:10px"></div>
@@ -604,7 +604,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-04-3';
+var BUILD = '2026-09-04-4';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -1955,6 +1955,14 @@ function buildEquipmentExport(){
     if(e.exercises) lines.push('    used for: '+e.exercises);
     if(e.notes)     lines.push('    notes: '+e.notes);
   });
+  var missing = planExerciseList().filter(function(px){ return !equipmentForExercise(px.name); });
+  if(missing.length){
+    lines.push('');
+    lines.push('MOVEMENTS IN MY PLAN WITH NO MACHINE RECORDED');
+    lines.push('  '+missing.map(function(m){ return m.name; }).join(', '));
+    lines.push('  (Either the gym has no machine for these, or I have not logged it yet —');
+    lines.push('   ask before assuming one is available.)');
+  }
   lines.push('');
   lines.push('Use this when designing sessions or suggesting a swap: only pick');
   lines.push('movements this equipment can actually do.');
@@ -1992,23 +2000,73 @@ async function deleteEquipment(i){
   await saveArr('equipment-log', equipLog);
   renderEquipment(); renderToday();
 }
-var EQUIP_LIMIT = 12;
+/* Every movement the plan calls for, in plan order, deduplicated. */
+function planExerciseList(){
+  var out = [], seen = {};
+  for(var k in PLAN.templates){
+    var t = PLAN.templates[k], group = liftGroupFor(k);
+    if(t.cardio && !seen[t.cardio.name]){ seen[t.cardio.name]=1; out.push({name:t.cardio.name, group:group}); }
+    (t.ex||[]).forEach(function(e){
+      if(!seen[e.name]){ seen[e.name]=1; out.push({name:e.name, group:group, img:e.img}); }
+    });
+  }
+  return out;
+}
+/* The machine recorded as being used for this movement, if any. */
+function equipmentForExercise(name){
+  var n = String(name||'').toLowerCase();
+  return equipLog.filter(function(e){
+    return (e.exercises||'').split(/[;,]/).some(function(x){
+      var xn = x.trim().toLowerCase();
+      return xn && (n.indexOf(xn)!==-1 || xn.indexOf(n)!==-1);
+    });
+  })[0];
+}
+/* Plan movements first — each is a photo slot shared with the Today tab — then
+   any machine in the inventory that no plan movement claims. */
+function buildEquipRows(){
+  var rows = [], claimed = [];
+  planExerciseList().forEach(function(px){
+    var eq = equipmentForExercise(px.name);
+    if(eq && claimed.indexOf(eq)===-1) claimed.push(eq);
+    rows.push({kind:'exercise', name:px.name, group:px.group, equip:eq, img:px.img,
+               photoKey:px.name, repoFallback:true});
+  });
+  equipLog.forEach(function(e, i){
+    if(claimed.indexOf(e)!==-1) return;
+    rows.push({kind:'equipment', name:e.name, equip:e, index:i,
+               photoKey:equipPhotoKey(e.name), repoFallback:false});
+  });
+  return rows;
+}
+var EQUIP_LIMIT = 40;
 function renderEquipment(){
   var out = document.getElementById('equipList');
   if(!out) return;
   var q = (document.getElementById('equipSearch').value||'').trim().toLowerCase();
-  var rows = equipLog.map(function(e,i){ return {e:e, i:i}; }).filter(function(r){
-    return matchesSearch([r.e.name, r.e.muscles, r.e.exercises, r.e.notes].join(' '), q);
+  var all = buildEquipRows();
+  var rows = all.filter(function(r){
+    var eq = r.equip || {};
+    return matchesSearch([r.name, r.group, eq.name, eq.muscles, eq.exercises, eq.notes].join(' '), q);
   });
-  document.getElementById('equipCount').textContent = equipLog.length + ' machine' + (equipLog.length===1?'':'s');
+  var withPhoto = all.filter(function(r){ return exPhotoUrl(r.photoKey); }).length;
+  document.getElementById('equipCount').textContent = withPhoto + ' of ' + all.length + ' with photos';
   if(!rows.length){
-    out.innerHTML = '<div class="empty">'+(q? 'Nothing matches that.' :
-      'Nothing recorded yet. Photograph the machines, ask Claude to describe them, and paste the block on the Log tab.')+'</div>';
+    out.innerHTML = '<div class="empty">'+(q? 'Nothing matches that.' : 'Nothing to show yet.')+'</div>';
     return;
   }
   out.innerHTML = '';
+  var lastGroup = null;
   rows.slice(0, EQUIP_LIMIT).forEach(function(r){
-    var e = r.e;
+    var eq = r.equip;
+    var heading = r.kind==='exercise' ? (r.group||'Other') : 'Other machines';
+    if(heading !== lastGroup){
+      var h = document.createElement('h3');
+      h.className = 'section';
+      h.textContent = heading;
+      out.appendChild(h);
+      lastGroup = heading;
+    }
     var div = document.createElement('div');
     div.className = 'exrow';
     var main = document.createElement('div');
@@ -2016,21 +2074,26 @@ function renderEquipment(){
     var text = document.createElement('div');
     text.className = 'ex-text';
     text.innerHTML =
-      '<div class="exname">'+e.name+'</div>'+
-      (e.muscles? '<div class="exmeta">'+e.muscles+'</div>':'')+
-      (e.exercises? '<div class="exnote">Used for: '+e.exercises+'</div>':'')+
-      (e.notes? '<div class="exnote">'+e.notes+'</div>':'');
+      '<div class="exname">'+r.name+'</div>'+
+      (eq && eq.muscles? '<div class="exmeta">'+eq.muscles+'</div>':'')+
+      (eq && eq.name!==r.name? '<div class="exnote">Machine: '+eq.name+'</div>':'')+
+      (eq && eq.exercises && r.kind==='equipment'? '<div class="exnote">Used for: '+eq.exercises+'</div>':'')+
+      (eq && eq.notes? '<div class="exnote">'+eq.notes+'</div>':'')+
+      (!eq && r.kind==='exercise'? '<div class="exnote" style="color:var(--ink-dim)">No machine recorded</div>':'');
     main.appendChild(text);
     div.appendChild(main);
     out.appendChild(div);
-    addExerciseThumb(main, equipPhotoKey(e.name), null, true, {caption:e.name, noRepoFallback:true});
-    /* Added after the thumb so the row reads text, photo, delete. */
-    var del = document.createElement('button');
-    del.className = 'icon-del';
-    del.style.cssText = 'flex:none;align-self:flex-start;padding:2px 0 0 8px';
-    del.textContent = '✕';
-    del.onclick = function(){ deleteEquipment(r.i); };
-    main.appendChild(del);
+    addExerciseThumb(main, r.photoKey, r.img, true,
+                     {caption:r.name, noRepoFallback:!r.repoFallback});
+    if(r.kind==='equipment'){
+      /* Only inventory entries can be deleted; plan movements come from the plan. */
+      var del = document.createElement('button');
+      del.className = 'icon-del';
+      del.style.cssText = 'flex:none;align-self:flex-start;padding:2px 0 0 8px';
+      del.textContent = '✕';
+      del.onclick = function(){ deleteEquipment(r.index); };
+      main.appendChild(del);
+    }
   });
   if(rows.length>EQUIP_LIMIT){
     var more = document.createElement('p');

@@ -209,10 +209,16 @@
   .login-card .plate-title{margin-bottom:2px;}
   .login-card .plate-name{margin-bottom:16px;}
   .signout{position:absolute;top:16px;right:16px;background:none;border:1px solid var(--line);color:var(--ink-dim);border-radius:20px;padding:4px 11px;font-size:10px;letter-spacing:.05em;cursor:pointer;font-family:var(--f-body);}
-  .qa-card{border-color:var(--blue) !important;}  .wk-scroll-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -14px;padding:0 14px 4px;}
-  .wk-table{border-collapse:collapse;}
+  .qa-card{border-color:var(--blue) !important;}  /* No horizontal padding: sticky pins to the scrollport's padding edge, so a
+     14px inset left a strip beside the label that cells scrolled through. */
+  .wk-scroll-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;}
+  /* Not border-collapse: WebKit ignores position:sticky on table cells when
+     borders are collapsed, so the row labels stopped pinning and the cells
+     scrolled over them. */
+  .wk-table{border-collapse:separate;border-spacing:0;}
   .wk-table th,.wk-table td{padding:0;text-align:center;}
-  .wk-th-label{width:62px;min-width:62px;text-align:left !important;font-size:10px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.03em;padding-right:6px !important;position:sticky;left:0;background:var(--panel);z-index:2;white-space:nowrap;}
+  .wk-th-label{width:62px;min-width:62px;text-align:left !important;font-size:10px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.03em;padding-right:6px !important;position:sticky;left:0;background:var(--panel);z-index:3;white-space:nowrap;
+    box-shadow:6px 0 6px -4px rgba(0,0,0,.55);}
   .wk-day-head{width:54px;min-width:54px;font-family:var(--f-mono);font-size:10px;color:var(--ink-dim);padding-bottom:6px !important;white-space:nowrap;}
   .wk-day-head.today{color:var(--blue);font-weight:700;}
   .wk-cell{width:54px;min-width:54px;height:32px;}
@@ -582,7 +588,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-08-31-1';
+var BUILD = '2026-09-04-1';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -2638,7 +2644,21 @@ function showDayDetail(dateStr){
   if(ts.status==='rest') trainTxt='Rest / recovery day — nothing planned.';
   else if(ts.status==='future') trainTxt='Not tracked.';
   else if(ts.status==='pending') trainTxt='Today — planned: '+(ts.planned||[]).join(', ')+'. Nothing logged yet.';
-  else trainTxt=(ts.matched)+' of '+ts.total+' planned exercises logged ('+(ts.planned||[]).join(', ')+').';
+  else {
+    /* Show the logged names too. A red cell almost always means either nothing
+       was recorded that date or it went in under a different name, and neither
+       is visible from a count alone. */
+    var loggedNames = (ts.logged||[]).map(function(e){ return e.exercise; });
+    trainTxt = ts.matched+' of '+ts.total+' planned exercises logged.'+
+      '<br><span style="color:var(--ink-dim)">Planned:</span> '+(ts.planned||[]).join(', ')+
+      '<br><span style="color:var(--ink-dim)">You logged:</span> '+
+      (loggedNames.length ? loggedNames.join(', ')
+                          : '<span style="color:var(--red)">nothing on this date</span>');
+    if(loggedNames.length && !ts.matched){
+      trainTxt += '<br><span style="color:var(--amber)">None of those names match the plan for this day — '+
+                  'check the date, or pick the planned name from the Log tab dropdown.</span>';
+    }
+  }
   var dietTxt;
   if(ds.status==='future') dietTxt='Not tracked.';
   else if(ds.status==='pending') dietTxt='Today — target '+ds.target.kcal+' kcal / '+ds.target.protein+'P / '+ds.target.carbs+'C / '+ds.target.fat+'F. Nothing logged yet.';

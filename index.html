@@ -604,7 +604,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-04-2';
+var BUILD = '2026-09-04-3';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -1349,6 +1349,7 @@ document.getElementById('exPhotoInput').addEventListener('change', async functio
 function cssEscape(v){ return String(v).replace(/["\\]/g, '\\$&'); }
 function rerenderExerciseViews(){
   renderToday();
+  renderEquipment();
   var plan = document.getElementById('view-plan');
   if(plan && plan.classList.contains('active')) renderPlan();
 }
@@ -1363,7 +1364,12 @@ function addPhotoButton(row, name){
   row.appendChild(btn);
   return btn;
 }
-function addExerciseThumb(row, name, explicit, allowUpload){
+/* "name" is the storage key. Equipment keys are prefixed so a machine and an
+   exercise sharing a name don't share a photo, and opts.caption keeps the
+   prefix out of the UI. */
+function addExerciseThumb(row, name, explicit, allowUpload, opts){
+  opts = opts || {};
+  var label = opts.caption || name;
   var uploaded = exPhotoUrl(name);
   var cached = uploaded || EX_IMG_CACHE[name];
   if(!uploaded && cached===null){                 /* known to have no photo */
@@ -1374,10 +1380,10 @@ function addExerciseThumb(row, name, explicit, allowUpload){
   wrap.className = 'ex-thumb-wrap';
   var img = document.createElement('img');
   img.className = 'ex-thumb';
-  img.alt = name;
+  img.alt = label;
   /* No loading="lazy" here: the thumb starts hidden until it resolves, and a
      display:none image never enters the viewport, so lazy would never fire. */
-  img.onclick = function(ev){ ev.stopPropagation(); openLightbox(img.src, name, name); };
+  img.onclick = function(ev){ ev.stopPropagation(); openLightbox(img.src, label, name); };
   img.onload = function(){ EX_IMG_CACHE[name] = img.src; img.style.display='block'; };
   wrap.appendChild(img);
   var busy = document.createElement('div');
@@ -1389,7 +1395,9 @@ function addExerciseThumb(row, name, explicit, allowUpload){
   row.appendChild(wrap);
 
   if(cached){ img.src = cached; return; }
-  var candidates = exerciseImgCandidates(name, explicit), i = 0;
+  /* Equipment has no counterpart in /images, so don't spend four 404s per
+     machine looking for one. */
+  var candidates = opts.noRepoFallback ? [] : exerciseImgCandidates(name, explicit), i = 0;
   img.onerror = function(){
     i++;
     if(i < candidates.length){ img.src = candidates[i]; return; }
@@ -1900,6 +1908,7 @@ function renderDiet(){
    and a busy machine swapped for something that trains the same thing. Muscles
    are free tags rather than a fixed taxonomy — the inventory is usually written
    by Claude from photos, and a closed list would just get things rejected. */
+function equipPhotoKey(name){ return 'equip::'+name; }
 function equipMuscles(e){
   return (e.muscles||'').split(/[;,]/).map(function(m){ return m.trim().toLowerCase(); })
          .filter(function(m){ return m; });
@@ -1997,17 +2006,38 @@ function renderEquipment(){
       'Nothing recorded yet. Photograph the machines, ask Claude to describe them, and paste the block on the Log tab.')+'</div>';
     return;
   }
-  out.innerHTML = rows.slice(0, EQUIP_LIMIT).map(function(r){
+  out.innerHTML = '';
+  rows.slice(0, EQUIP_LIMIT).forEach(function(r){
     var e = r.e;
-    return '<div class="exrow"><div class="ex-main"><div class="ex-text">'+
+    var div = document.createElement('div');
+    div.className = 'exrow';
+    var main = document.createElement('div');
+    main.className = 'ex-main';
+    var text = document.createElement('div');
+    text.className = 'ex-text';
+    text.innerHTML =
       '<div class="exname">'+e.name+'</div>'+
       (e.muscles? '<div class="exmeta">'+e.muscles+'</div>':'')+
       (e.exercises? '<div class="exnote">Used for: '+e.exercises+'</div>':'')+
-      (e.notes? '<div class="exnote">'+e.notes+'</div>':'')+
-      '</div>'+
-      '<button class="icon-del" style="flex:none" onclick="deleteEquipment('+r.i+')">✕</button>'+
-      '</div></div>';
-  }).join('') + (rows.length>EQUIP_LIMIT? '<p class="lead">'+(rows.length-EQUIP_LIMIT)+' more — search to narrow.</p>' : '');
+      (e.notes? '<div class="exnote">'+e.notes+'</div>':'');
+    main.appendChild(text);
+    div.appendChild(main);
+    out.appendChild(div);
+    addExerciseThumb(main, equipPhotoKey(e.name), null, true, {caption:e.name, noRepoFallback:true});
+    /* Added after the thumb so the row reads text, photo, delete. */
+    var del = document.createElement('button');
+    del.className = 'icon-del';
+    del.style.cssText = 'flex:none;align-self:flex-start;padding:2px 0 0 8px';
+    del.textContent = '✕';
+    del.onclick = function(){ deleteEquipment(r.i); };
+    main.appendChild(del);
+  });
+  if(rows.length>EQUIP_LIMIT){
+    var more = document.createElement('p');
+    more.className = 'lead';
+    more.textContent = (rows.length-EQUIP_LIMIT)+' more — search to narrow.';
+    out.appendChild(more);
+  }
 }
 
 /* ================= REPEAT LIBRARY =================

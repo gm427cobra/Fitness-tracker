@@ -485,7 +485,8 @@ steps | 8400"></textarea>
       <span><i style="background:var(--amber)"></i>Partial</span>
       <span><i style="background:var(--red)"></i>Off / missed</span>
     </div>
-    <p class="lead" style="margin:8px 0 0">Scroll left for earlier days. Tap any cell for the full breakdown.</p>
+    <p class="lead" style="margin:8px 0 0">Scroll left for earlier days. Tap any cell for the full breakdown.
+      Alcohol is units drunk that day, green up to the guideline&rsquo;s daily share of 2 — a blank day is a dry day, not a missing one.</p>
   </div>
 
   <div class="card" id="dayDetailCard" style="display:none">
@@ -635,7 +636,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-06-2';
+var BUILD = '2026-09-06-3';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -3071,6 +3072,38 @@ function macroCellInfo(ds, key){
   var pct = (ds.target && ds.target[key]) ? Math.round(ds.totals[key]/ds.target[key]*100) : 0;
   return {status:st, val:pct+'%'};
 }
+/* Alcohol has no daily target the way the macros do — the UK guideline is a
+   weekly ceiling, best spread over three days or more — so a day is graded
+   against that guideline's daily share, and the rolling seven-day total it is
+   really written against is carried in the day detail instead.
+
+   A dry day leaves no entry at all, so zero units here means none drunk. That
+   is the opposite of food, where nothing logged means nothing recorded, so
+   there is no 'pending' state on this row: a blank day is a green day, today
+   included. */
+var UK_DAILY_UNIT_SHARE  = UK_WEEKLY_UNIT_GUIDELINE / 7;  /* 2 units a day */
+var UK_SPREAD_DAY_UNITS  = UK_WEEKLY_UNIT_GUIDELINE / 3;  /* ~4.7 on a day you do drink */
+
+function rollingUnits(dateStr, days){
+  var sum = 0;
+  for(var i=0; i<days; i++) sum += computeAlcTotals(addDays(dateStr, -i)).units;
+  return sum;
+}
+function getAlcoholStatus(dateStr){
+  if(dateStr < PLAN.trackingStart) return {status:'future'};
+  var idx = dayIndexFromDate(dateStr);
+  if(idx < 0 || idx >= PLAN.totalProgramDays) return {status:'future'};
+  if(idx > dayIndexFromDate(todayStr())) return {status:'future'};
+  var tot = computeAlcTotals(dateStr);
+  var status = tot.units <= UK_DAILY_UNIT_SHARE ? 'hit'
+             : (tot.units <= UK_SPREAD_DAY_UNITS ? 'partial' : 'missed');
+  return {status:status, units:tot.units, kcal:tot.kcal};
+}
+function alcCellInfo(as){
+  if(as.status==='future') return {status:'future', val:''};
+  /* A decimal only when there is one — "2.5" but "3" — so the column stays narrow. */
+  return {status:as.status, val:(as.units % 1 ? as.units.toFixed(1) : String(as.units))};
+}
 function trainCellInfo(ts){
   if(ts.status==='future') return {status:'future', val:''};
   if(ts.status==='rest') return {status:'rest', val:'–'};
@@ -3094,7 +3127,8 @@ function renderAdherenceCalendars(){
     {label:'Kcal', get:function(dt){ return macroCellInfo(getDietStatus(dt),'kcal'); }},
     {label:'Protein', get:function(dt){ return macroCellInfo(getDietStatus(dt),'protein'); }},
     {label:'Carbs', get:function(dt){ return macroCellInfo(getDietStatus(dt),'carbs'); }},
-    {label:'Fat', get:function(dt){ return macroCellInfo(getDietStatus(dt),'fat'); }}
+    {label:'Fat', get:function(dt){ return macroCellInfo(getDietStatus(dt),'fat'); }},
+    {label:'Alcohol', get:function(dt){ return alcCellInfo(getAlcoholStatus(dt)); }}
   ];
 
   var thead=document.createElement('tr');
@@ -3172,9 +3206,28 @@ function showDayDetail(dateStr){
       'Carbs: '+Math.round(t.carbs)+'g/'+g.carbs+'g ('+Math.round(t.carbs/g.carbs*100)+'%)<br>'+
       'Fat: '+Math.round(t.fat)+'g/'+g.fat+'g ('+Math.round(t.fat/g.fat*100)+'%)';
   }
+  var as = getAlcoholStatus(dateStr);
+  var alcTxt;
+  if(as.status==='future') alcTxt='Not tracked.';
+  else {
+    if(as.units===0) alcTxt='Dry day.';
+    else {
+      var drinks = alcLog.filter(function(e){ return e.date===dateStr; })
+        .map(function(e){ return histEsc(e.name||'Drink')+' ('+e.units+')'; });
+      alcTxt = as.units+' units, '+Math.round(as.kcal)+' kcal — '+drinks.join(', ');
+    }
+    /* The guideline is weekly, so the day on its own never tells the story. */
+    var r7 = rollingUnits(dateStr, 7);
+    alcTxt += '<br><span style="color:var(--ink-dim)">Seven days to here:</span> '+r7.toFixed(1)+
+      ' of '+UK_WEEKLY_UNIT_GUIDELINE+' units'+
+      (r7 > UK_WEEKLY_UNIT_GUIDELINE
+        ? ' <span style="color:var(--amber)">— over the weekly guideline</span>'
+        : ' <span style="color:var(--ink-dim)">— within the weekly guideline</span>');
+  }
   document.getElementById('dayDetailBody').innerHTML =
     '<div class="exrow"><div class="exname">Training</div><div class="exnote">'+trainTxt+'</div></div>'+
-    '<div class="exrow"><div class="exname">Diet</div><div class="exnote">'+dietTxt+'</div></div>';
+    '<div class="exrow"><div class="exname">Diet</div><div class="exnote">'+dietTxt+'</div></div>'+
+    '<div class="exrow"><div class="exname">Alcohol</div><div class="exnote">'+alcTxt+'</div></div>';
   document.getElementById('dayDetailCard').style.display='block';
 }
 function computeWeekStats(){

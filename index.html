@@ -345,6 +345,16 @@
 
 <div class="view" id="view-log">
 
+  <div class="card">
+    <div class="card-h"><h2>Paste from Claude</h2></div>
+    <p class="lead">Paste a block and check it before it saves. No length limit, unlike a link.</p>
+    <textarea id="pasteBox" rows="6" placeholder="2026-08-29
+food | Oats 40g (dry) | 150 | 5 | 24 | 3
+lift | Leg Press | 160 | 10 | 4
+steps | 8400"></textarea>
+    <button class="btn full" style="margin-top:8px" onclick="previewPaste()">Check what this will add</button>
+    <div id="pasteOut" style="display:none;margin-top:10px"></div>
+  </div>
   <div class="card" id="logHistoryCard">
     <div class="card-h"><h2>History</h2>
       <select id="histType" onchange="setHistType(this.value)" style="font-size:12px;padding:5px 8px;width:auto">
@@ -363,15 +373,14 @@
   </div>
 
   <div class="card">
-    <div class="card-h"><h2>Paste from Claude</h2></div>
-    <p class="lead">Paste a block and check it before it saves. No length limit, unlike a link.</p>
-    <textarea id="pasteBox" rows="6" placeholder="2026-08-29
-food | Oats 40g (dry) | 150 | 5 | 24 | 3
-lift | Leg Press | 160 | 10 | 4
-steps | 8400"></textarea>
-    <button class="btn full" style="margin-top:8px" onclick="previewPaste()">Check what this will add</button>
-    <div id="pasteOut" style="display:none;margin-top:10px"></div>
+    <div class="card-h"><h2>Repeat a meal</h2>
+      <select id="mealLibDate" style="font-size:12px;padding:5px 8px;width:auto"></select>
+    </div>
+    <p class="lead">Anything logged before, ready to add again. Whole meals first, then single items.</p>
+    <input type="text" id="mealLibSearch" placeholder="Search meals and items…" oninput="renderMealLibrary()">
+    <div id="mealLibOut" style="margin-top:10px"></div>
   </div>
+
   <div class="card">
     <div class="card-h"><h2>Log bodyweight</h2></div>
     <div class="row2">
@@ -379,8 +388,6 @@ steps | 8400"></textarea>
       <div class="field"><label>Weight (kg)</label><input type="number" step="0.1" id="bwVal" placeholder="93.4"></div>
     </div>
     <button class="btn full" onclick="addBodyweight()">Save weight</button>
-    <div class="divider"></div>
-    <table class="log-tbl" id="bwTable"><thead><tr><th>Date</th><th>Kg</th><th></th></tr></thead><tbody></tbody></table>
   </div>
 
   <div class="card">
@@ -390,17 +397,6 @@ steps | 8400"></textarea>
       <div class="field"><label>Steps</label><input type="number" step="100" id="stepVal"></div>
     </div>
     <button class="btn full" onclick="addSteps()">Save steps</button>
-    <div class="divider"></div>
-    <table class="log-tbl" id="stepTable"><thead><tr><th>Date</th><th>Steps</th><th>~kcal</th><th></th></tr></thead><tbody></tbody></table>
-  </div>
-
-  <div class="card">
-    <div class="card-h"><h2>Repeat a meal</h2>
-      <select id="mealLibDate" style="font-size:12px;padding:5px 8px;width:auto"></select>
-    </div>
-    <p class="lead">Anything logged before, ready to add again. Whole meals first, then single items.</p>
-    <input type="text" id="mealLibSearch" placeholder="Search meals and items…" oninput="renderMealLibrary()">
-    <div id="mealLibOut" style="margin-top:10px"></div>
   </div>
 
   <div class="card">
@@ -417,8 +413,6 @@ steps | 8400"></textarea>
       <div class="field"><label>Fat</label><input type="number" id="foodFat"></div>
     </div>
     <button class="btn full" onclick="addFood()">Save food</button>
-    <div class="divider"></div>
-    <table class="log-tbl" id="foodTable"><thead><tr><th>Date</th><th>Item</th><th>Kcal</th><th>P/C/F</th><th></th></tr></thead><tbody></tbody></table>
   </div>
 
   <div class="card">
@@ -435,8 +429,6 @@ steps | 8400"></textarea>
       <div class="field"><label>Sets</label><input type="number" id="liftSets"></div>
     </div>
     <button class="btn full" onclick="addLift()">Save lift</button>
-    <div class="divider"></div>
-    <table class="log-tbl" id="liftTable"><thead><tr><th>Date</th><th>Exercise</th><th>Kg</th><th>R×S</th><th></th></tr></thead><tbody></tbody></table>
   </div>
 
   <div class="card">
@@ -447,8 +439,6 @@ steps | 8400"></textarea>
     </div>
     <div class="field"><label>Notes</label><textarea id="noteText" rows="2" placeholder="Energy, hunger, training quality..."></textarea></div>
     <button class="btn full ghost" onclick="addNote()">Save note</button>
-    <div class="divider"></div>
-    <table class="log-tbl" id="noteTable"><thead><tr><th>Date</th><th>Pain</th><th>Note</th><th></th></tr></thead><tbody></tbody></table>
   </div>
 </div>
 
@@ -645,7 +635,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-06-1';
+var BUILD = '2026-09-06-2';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -1131,7 +1121,7 @@ function showView(name){
   document.getElementById('view-'+name).classList.add('active');
   document.querySelector('.tab[data-view="'+name+'"]').classList.add('active');
   if(name==='today'){ renderToday(); }
-  if(name==='log'){ renderLogTables(); }
+  if(name==='log'){ renderHistory(); }
   if(name==='progress'){ renderProgress(); }
   if(name==='tools'){ renderTools(); }
   if(name==='drinks'){ renderAlcoholChart(); }
@@ -2326,7 +2316,7 @@ async function repeatMeal(i){
   });
   foodLog.sort(function(a,b){return a.date.localeCompare(b.date);});
   await saveArr('food-log', foodLog);
-  renderLogTables(); renderToday(); refreshProgress(); renderMealLibrary();
+  renderHistory(); renderToday(); refreshProgress(); renderMealLibrary();
   showView('today');
 }
 async function repeatItem(i){
@@ -2336,7 +2326,7 @@ async function repeatItem(i){
   foodLog.push({date:todayStr(), meal:slot, name:e.name, kcal:e.kcal, protein:e.protein, carbs:e.carbs, fat:e.fat});
   foodLog.sort(function(a,b){return a.date.localeCompare(b.date);});
   await saveArr('food-log', foodLog);
-  renderLogTables(); renderToday(); refreshProgress(); renderMealLibrary();
+  renderHistory(); renderToday(); refreshProgress(); renderMealLibrary();
 }
 
 /* ================= LOG ACTIONS ================= */
@@ -2397,12 +2387,12 @@ async function addBodyweight(){
   bwLog.sort(function(a,b){return a.date.localeCompare(b.date);});
   await saveArr('bw-log', bwLog);
   document.getElementById('bwVal').value='';
-  renderLogTables(); renderHeader(); refreshProgress();
+  renderHistory(); renderHeader(); refreshProgress();
 }
 async function deleteBw(date){
   bwLog = bwLog.filter(function(e){return e.date!==date;});
   await saveArr('bw-log', bwLog);
-  renderLogTables(); renderHeader(); refreshProgress();
+  renderHistory(); renderHeader(); refreshProgress();
 }
 
 async function addFood(){
@@ -2422,12 +2412,12 @@ async function addFood(){
   document.getElementById('foodProtein').value='';
   document.getElementById('foodCarbs').value='';
   document.getElementById('foodFat').value='';
-  renderLogTables(); renderToday(); refreshProgress(); renderMealLibrary();
+  renderHistory(); renderToday(); refreshProgress(); renderMealLibrary();
 }
 async function deleteFood(i){
   foodLog.splice(i,1);
   await saveArr('food-log', foodLog);
-  renderLogTables(); renderToday(); refreshProgress();
+  renderHistory(); renderToday(); refreshProgress();
 }
 
 async function addLift(){
@@ -2444,12 +2434,12 @@ async function addLift(){
   document.getElementById('liftWeight').value='';
   document.getElementById('liftReps').value='';
   document.getElementById('liftSets').value='';
-  renderLogTables(); populateLiftChartSelect(); refreshProgress();
+  renderHistory(); populateLiftChartSelect(); refreshProgress();
 }
 async function deleteLift(i){
   liftLog.splice(i,1);
   await saveArr('lift-log', liftLog);
-  renderLogTables(); populateLiftChartSelect(); refreshProgress();
+  renderHistory(); populateLiftChartSelect(); refreshProgress();
 }
 
 async function addNote(){
@@ -2462,13 +2452,13 @@ async function addNote(){
   await saveArr('note-log', noteLog);
   document.getElementById('notePain').value='';
   document.getElementById('noteText').value='';
-  renderLogTables(); refreshProgress();
+  renderHistory(); refreshProgress();
 }
 /* Notes are appended, so several can share a date — delete by index like food. */
 async function deleteNote(i){
   noteLog.splice(i,1);
   await saveArr('note-log', noteLog);
-  renderLogTables(); refreshProgress();
+  renderHistory(); refreshProgress();
 }
 
 async function addSteps(){
@@ -2480,12 +2470,12 @@ async function addSteps(){
   stepLog.sort(function(a,b){return a.date.localeCompare(b.date);});
   await saveArr('step-log', stepLog);
   document.getElementById('stepVal').value='';
-  renderLogTables(); renderToday(); refreshProgress();
+  renderHistory(); renderToday(); refreshProgress();
 }
 async function deleteSteps(date){
   stepLog = stepLog.filter(function(e){return e.date!==date;});
   await saveArr('step-log', stepLog);
-  renderLogTables(); renderToday(); refreshProgress();
+  renderHistory(); renderToday(); refreshProgress();
 }
 
 /* Drinks append like food does — a night out is several entries, not one
@@ -2503,13 +2493,13 @@ async function addAlcohol(){
   document.getElementById('alcName').value='';
   document.getElementById('alcVal').value='';
   document.getElementById('alcKcal').value='';
-  renderAlcTable(); renderLogTables(); renderAlcoholChart(); refreshProgress();
+  renderAlcTable(); renderHistory(); renderAlcoholChart(); refreshProgress();
 }
 /* By index, since a date no longer identifies a single row. */
 async function deleteAlc(i){
   alcLog.splice(i,1);
   await saveArr('alc-log', alcLog);
-  renderAlcTable(); renderLogTables(); renderAlcoholChart(); refreshProgress();
+  renderAlcTable(); renderHistory(); renderAlcoholChart(); refreshProgress();
 }
 function renderAlcTable(){
   var tbody=document.querySelector('#alcTable tbody');
@@ -2733,37 +2723,6 @@ function openLogFor(type, date, opts){
   if(card) card.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
-/* Each form's own table: the newest few entries of that one type, in that
-   type's columns. They read from HIST_DEFS as well, so a card table and the
-   history above it can never disagree about how an entry reads. */
-function renderTypeTable(tableId, type, limit){
-  var table = document.getElementById(tableId);
-  if(!table) return;
-  var def = HIST_DEFS[type], src = histSource(type);
-  var tbody = table.querySelector('tbody');
-  if(!src.length){
-    tbody.innerHTML = '<tr><td colspan="'+def.head.length+'" class="empty">No entries yet</td></tr>';
-    return;
-  }
-  /* map() first, so the reverse is on a copy and not on the log itself. */
-  var rows = src.map(function(e,i){ return {type:type, date:e.date, e:e, i:i}; })
-                .reverse().slice(0, limit);
-  tbody.innerHTML = rows.map(function(r){
-    return '<tr>'+def.cells(r).join('')+
-      '<td><button class="icon-del" onclick="'+def.del(r)+'">✕</button></td></tr>';
-  }).join('');
-}
-/* What every log edit calls: the card tables and the history are both views
-   over the same arrays, so they refresh together. */
-function renderLogTables(){
-  renderTypeTable('bwTable',   'bw',    12);
-  renderTypeTable('stepTable', 'steps', 12);
-  renderTypeTable('foodTable', 'food',  15);
-  renderTypeTable('liftTable', 'lift',  15);
-  renderTypeTable('noteTable', 'note',  10);
-  renderHistory();
-}
-
 /* ================= QUICK ADD (from links Claude generates after reading a photo) ================= */
 /* Shared by the link importer and the paste box, so the two can't drift.
    Appending types append; one-per-day types replace that date's entry. */
@@ -2809,11 +2768,11 @@ async function applyImportItems(items, defaultDate){
     }
   });
   function srt(a,b){ return a.date.localeCompare(b.date); }
-  if(touched.lift){ liftLog.sort(srt); await saveArr('lift-log', liftLog); renderLogTables(); populateLiftChartSelect(); }
-  if(touched.food){ foodLog.sort(srt); await saveArr('food-log', foodLog); renderLogTables(); }
-  if(touched.bw){ bwLog.sort(srt); await saveArr('bw-log', bwLog); renderLogTables(); renderHeader(); }
-  if(touched.alc){ alcLog.sort(srt); await saveArr('alc-log', alcLog); renderAlcTable(); renderLogTables(); renderAlcoholChart(); }
-  if(touched.steps){ stepLog.sort(srt); await saveArr('step-log', stepLog); renderLogTables(); }
+  if(touched.lift){ liftLog.sort(srt); await saveArr('lift-log', liftLog); renderHistory(); populateLiftChartSelect(); }
+  if(touched.food){ foodLog.sort(srt); await saveArr('food-log', foodLog); renderHistory(); }
+  if(touched.bw){ bwLog.sort(srt); await saveArr('bw-log', bwLog); renderHistory(); renderHeader(); }
+  if(touched.alc){ alcLog.sort(srt); await saveArr('alc-log', alcLog); renderAlcTable(); renderHistory(); renderAlcoholChart(); }
+  if(touched.steps){ stepLog.sort(srt); await saveArr('step-log', stepLog); renderHistory(); }
   if(touched.note){ noteLog.sort(srt); await saveArr('note-log', noteLog); }
   if(touched.equip){ await saveArr('equipment-log', equipLog); renderEquipment(); }
   renderToday(); refreshProgress();
@@ -3002,7 +2961,7 @@ function checkQuickAdd(){
       foodLog.push({date:date,name:name,kcal:kcal,protein:protein,carbs:carbs,fat:fat});
       foodLog.sort(function(a,b){return a.date.localeCompare(b.date);});
       await saveArr('food-log', foodLog);
-      renderLogTables(); renderToday(); refreshProgress();
+      renderHistory(); renderToday(); refreshProgress();
       banner.style.display='none'; clearQAFromUrl(); showView('today');
     };
   } else if(qa==='lift'){
@@ -3014,7 +2973,7 @@ function checkQuickAdd(){
       liftLog.push({date:date2,exercise:exercise,weight:weight,reps:reps,sets:sets});
       liftLog.sort(function(a,b){return a.date.localeCompare(b.date);});
       await saveArr('lift-log', liftLog);
-      renderLogTables(); populateLiftChartSelect(); refreshProgress();
+      renderHistory(); populateLiftChartSelect(); refreshProgress();
       banner.style.display='none'; clearQAFromUrl(); showView('log');
     };
   } else if(qa==='weight'){
@@ -3026,7 +2985,7 @@ function checkQuickAdd(){
       bwLog.push({date:date3,kg:kg});
       bwLog.sort(function(a,b){return a.date.localeCompare(b.date);});
       await saveArr('bw-log', bwLog);
-      renderLogTables(); renderHeader(); refreshProgress();
+      renderHistory(); renderHeader(); refreshProgress();
       banner.style.display='none'; clearQAFromUrl(); showView('today');
     };
   } else {
@@ -4073,7 +4032,7 @@ async function startApp(){
   renderPlan();
   renderDiet();
   renderAlcTable();
-  renderLogTables();
+  renderHistory();
   renderMealLibrary();
   populateLiftExerciseSelect();
   document.getElementById('trendRange').onchange = renderCalorieChart;

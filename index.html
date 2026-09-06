@@ -195,6 +195,22 @@
 
   .empty{font-size:12.5px;color:var(--ink-dim);text-align:center;padding:16px 0;}
 
+  /* Active filters on the log history, one chip each so either can be dropped
+     without losing the other — a chart tap sets a date and an exercise. */
+  .filter-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px;}
+  .chip{display:inline-flex;align-items:center;gap:2px;font-size:11px;border:1px solid var(--blue);
+    color:var(--blue);background:rgba(79,182,201,.08);border-radius:20px;padding:3px 4px 3px 10px;}
+  .chip button{background:none;border:none;color:inherit;cursor:pointer;font-size:13px;line-height:1;padding:0 5px;font-family:var(--f-body);}
+  td.hist-type{font-family:var(--f-body);font-size:11px;color:var(--ink-dim);}
+  td .hist-sub{display:block;font-family:var(--f-body);font-size:10.5px;color:var(--ink-dim);margin-top:1px;}
+  .hist-count{font-size:11px;color:var(--ink-dim);}
+  /* Food carries six columns, which is more than a phone fits — let the wide
+     types scroll sideways rather than wrapping every date onto two lines. */
+  .hist-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  #histTable th,#histTable td{white-space:nowrap;}
+  #histTable td.name{white-space:normal;min-width:90px;}
+  .chart-tip{font-size:11px;color:var(--ink-dim);margin:6px 0 0;}
+
   #summaryOut{width:100%;min-height:180px;font-family:var(--f-mono);font-size:11.5px;line-height:1.5;resize:vertical;}
   #planEditorTextarea{font-family:var(--f-mono);font-size:11px;line-height:1.5;resize:vertical;}
 
@@ -329,6 +345,23 @@
 
 <div class="view" id="view-log">
 
+  <div class="card" id="logHistoryCard">
+    <div class="card-h"><h2>History</h2>
+      <select id="histType" onchange="setHistType(this.value)" style="font-size:12px;padding:5px 8px;width:auto">
+        <option value="all">All history</option>
+        <option value="bw">Bodyweight</option>
+        <option value="steps">Steps</option>
+        <option value="food">Food</option>
+        <option value="lift">Lifts</option>
+        <option value="alc">Drinks</option>
+        <option value="note">Notes</option>
+      </select>
+    </div>
+    <div class="filter-bar" id="histFilterBar" style="display:none"></div>
+    <div class="hist-scroll"><table id="histTable"><thead></thead><tbody></tbody></table></div>
+    <div id="histFoot" style="margin-top:10px"></div>
+  </div>
+
   <div class="card">
     <div class="card-h"><h2>Paste from Claude</h2></div>
     <p class="lead">Paste a block and check it before it saves. No length limit, unlike a link.</p>
@@ -346,8 +379,6 @@ steps | 8400"></textarea>
       <div class="field"><label>Weight (kg)</label><input type="number" step="0.1" id="bwVal" placeholder="93.4"></div>
     </div>
     <button class="btn full" onclick="addBodyweight()">Save weight</button>
-    <div class="divider"></div>
-    <table id="bwTable"><thead><tr><th>Date</th><th>Kg</th><th></th></tr></thead><tbody></tbody></table>
   </div>
 
   <div class="card">
@@ -357,8 +388,6 @@ steps | 8400"></textarea>
       <div class="field"><label>Steps</label><input type="number" step="100" id="stepVal"></div>
     </div>
     <button class="btn full" onclick="addSteps()">Save steps</button>
-    <div class="divider"></div>
-    <table id="stepTable"><thead><tr><th>Date</th><th>Steps</th><th>~kcal</th><th></th></tr></thead><tbody></tbody></table>
   </div>
 
   <div class="card">
@@ -384,8 +413,6 @@ steps | 8400"></textarea>
       <div class="field"><label>Fat</label><input type="number" id="foodFat"></div>
     </div>
     <button class="btn full" onclick="addFood()">Save food</button>
-    <div class="divider"></div>
-    <table id="foodTable"><thead><tr><th>Date</th><th>Meal</th><th>Item</th><th>Kcal</th><th>P/C/F</th><th></th></tr></thead><tbody></tbody></table>
   </div>
 
   <div class="card">
@@ -402,8 +429,6 @@ steps | 8400"></textarea>
       <div class="field"><label>Sets</label><input type="number" id="liftSets"></div>
     </div>
     <button class="btn full" onclick="addLift()">Save lift</button>
-    <div class="divider"></div>
-    <table id="liftTable"><thead><tr><th>Date</th><th>Exercise</th><th>Kg</th><th>R×S</th><th></th></tr></thead><tbody></tbody></table>
   </div>
 
   <div class="card">
@@ -476,12 +501,14 @@ steps | 8400"></textarea>
       <span><i style="background:#6FCF97"></i>7-day avg</span>
       <span><i style="background:#E8A33D"></i>Target</span>
     </div>
+    <p class="chart-tip">Tap a point to open that day in the log.</p>
   </div>
   <div class="card">
     <div class="card-h"><h2>Lift trend</h2>
       <select id="liftChartSelect" style="font-size:12px;padding:5px 8px;width:auto"></select>
     </div>
     <div class="chart-box"><canvas id="liftChart"></canvas></div>
+    <p class="chart-tip">Tap a point for that session in the log.</p>
   </div>
 
   <div class="card">
@@ -501,6 +528,7 @@ steps | 8400"></textarea>
       <span><i style="background:#6FCF97"></i>Resting + exercise</span>
     </div>
     <p class="lead" id="calorieChartNote" style="margin:8px 0 0"></p>
+    <p class="chart-tip">Tap the blue or amber part of a bar for that day's food or drinks; tap elsewhere in the column for everything logged that day.</p>
   </div>
 
   <div class="card">
@@ -512,6 +540,7 @@ steps | 8400"></textarea>
       <span><i style="background:#E2574C"></i>UK guideline (14/wk)</span>
     </div>
     <p class="lead" id="alcTrendNote" style="margin:8px 0 0"></p>
+    <p class="chart-tip">Tap a bar to see those drinks in the log.</p>
   </div>
 </div>
 
@@ -1092,6 +1121,7 @@ function showView(name){
   document.getElementById('view-'+name).classList.add('active');
   document.querySelector('.tab[data-view="'+name+'"]').classList.add('active');
   if(name==='today'){ renderToday(); }
+  if(name==='log'){ renderHistory(); }
   if(name==='progress'){ renderProgress(); }
   if(name==='tools'){ renderTools(); }
   if(name==='drinks'){ renderAlcoholChart(); }
@@ -2286,7 +2316,7 @@ async function repeatMeal(i){
   });
   foodLog.sort(function(a,b){return a.date.localeCompare(b.date);});
   await saveArr('food-log', foodLog);
-  renderFoodTable(); renderToday(); refreshProgress(); renderMealLibrary();
+  renderHistory(); renderToday(); refreshProgress(); renderMealLibrary();
   showView('today');
 }
 async function repeatItem(i){
@@ -2296,7 +2326,7 @@ async function repeatItem(i){
   foodLog.push({date:todayStr(), meal:slot, name:e.name, kcal:e.kcal, protein:e.protein, carbs:e.carbs, fat:e.fat});
   foodLog.sort(function(a,b){return a.date.localeCompare(b.date);});
   await saveArr('food-log', foodLog);
-  renderFoodTable(); renderToday(); refreshProgress(); renderMealLibrary();
+  renderHistory(); renderToday(); refreshProgress(); renderMealLibrary();
 }
 
 /* ================= LOG ACTIONS ================= */
@@ -2357,23 +2387,12 @@ async function addBodyweight(){
   bwLog.sort(function(a,b){return a.date.localeCompare(b.date);});
   await saveArr('bw-log', bwLog);
   document.getElementById('bwVal').value='';
-  renderBwTable(); renderHeader(); refreshProgress();
+  renderHistory(); renderHeader(); refreshProgress();
 }
 async function deleteBw(date){
   bwLog = bwLog.filter(function(e){return e.date!==date;});
   await saveArr('bw-log', bwLog);
-  renderBwTable(); renderHeader(); refreshProgress();
-}
-function renderBwTable(){
-  var tbody=document.querySelector('#bwTable tbody');
-  tbody.innerHTML='';
-  var rev = bwLog.slice().reverse().slice(0,12);
-  rev.forEach(function(e){
-    var tr=document.createElement('tr');
-    tr.innerHTML='<td>'+fmtDate(e.date)+'</td><td>'+e.kg.toFixed(1)+'</td><td><button class="icon-del" onclick="deleteBw(\''+e.date+'\')">✕</button></td>';
-    tbody.appendChild(tr);
-  });
-  if(!bwLog.length) tbody.innerHTML='<tr><td colspan="3" class="empty">No entries yet</td></tr>';
+  renderHistory(); renderHeader(); refreshProgress();
 }
 
 async function addFood(){
@@ -2393,26 +2412,12 @@ async function addFood(){
   document.getElementById('foodProtein').value='';
   document.getElementById('foodCarbs').value='';
   document.getElementById('foodFat').value='';
-  renderFoodTable(); renderToday(); refreshProgress(); renderMealLibrary();
+  renderHistory(); renderToday(); refreshProgress(); renderMealLibrary();
 }
 async function deleteFood(i){
   foodLog.splice(i,1);
   await saveArr('food-log', foodLog);
-  renderFoodTable(); renderToday(); refreshProgress();
-}
-function renderFoodTable(){
-  var tbody=document.querySelector('#foodTable tbody');
-  tbody.innerHTML='';
-  var withIdx = foodLog.map(function(e,i){var c={};for(var k in e)c[k]=e[k];c._i=i;return c;});
-  var rev=withIdx.slice().reverse().slice(0,15);
-  rev.forEach(function(e){
-    var tr=document.createElement('tr');
-    tr.innerHTML='<td>'+fmtDate(e.date)+'</td><td style="font-size:11px;color:var(--ink-dim)">'+mealOf(e)+
-      '</td><td class="name">'+e.name+'</td><td>'+e.kcal+'</td><td>'+e.protein+'/'+e.carbs+'/'+e.fat+
-      '</td><td><button class="icon-del" onclick="deleteFood('+e._i+')">✕</button></td>';
-    tbody.appendChild(tr);
-  });
-  if(!foodLog.length) tbody.innerHTML='<tr><td colspan="6" class="empty">No entries yet</td></tr>';
+  renderHistory(); renderToday(); refreshProgress();
 }
 
 async function addLift(){
@@ -2429,24 +2434,12 @@ async function addLift(){
   document.getElementById('liftWeight').value='';
   document.getElementById('liftReps').value='';
   document.getElementById('liftSets').value='';
-  renderLiftTable(); populateLiftChartSelect(); refreshProgress();
+  renderHistory(); populateLiftChartSelect(); refreshProgress();
 }
 async function deleteLift(i){
   liftLog.splice(i,1);
   await saveArr('lift-log', liftLog);
-  renderLiftTable(); populateLiftChartSelect(); refreshProgress();
-}
-function renderLiftTable(){
-  var tbody=document.querySelector('#liftTable tbody');
-  tbody.innerHTML='';
-  var withIdx = liftLog.map(function(e,i){ var c={}; for(var k in e) c[k]=e[k]; c._i=i; return c; });
-  var rev = withIdx.slice().reverse().slice(0,15);
-  rev.forEach(function(e){
-    var tr=document.createElement('tr');
-    tr.innerHTML='<td>'+fmtDate(e.date)+'</td><td class="name">'+e.exercise+'</td><td>'+e.weight+'</td><td>'+e.reps+'×'+e.sets+'</td><td><button class="icon-del" onclick="deleteLift('+e._i+')">✕</button></td>';
-    tbody.appendChild(tr);
-  });
-  if(!liftLog.length) tbody.innerHTML='<tr><td colspan="5" class="empty">No entries yet</td></tr>';
+  renderHistory(); populateLiftChartSelect(); refreshProgress();
 }
 
 async function addNote(){
@@ -2459,7 +2452,13 @@ async function addNote(){
   await saveArr('note-log', noteLog);
   document.getElementById('notePain').value='';
   document.getElementById('noteText').value='';
-  refreshProgress();
+  renderHistory(); refreshProgress();
+}
+/* Notes are appended, so several can share a date — delete by index like food. */
+async function deleteNote(i){
+  noteLog.splice(i,1);
+  await saveArr('note-log', noteLog);
+  renderHistory(); refreshProgress();
 }
 
 async function addSteps(){
@@ -2471,25 +2470,12 @@ async function addSteps(){
   stepLog.sort(function(a,b){return a.date.localeCompare(b.date);});
   await saveArr('step-log', stepLog);
   document.getElementById('stepVal').value='';
-  renderStepTable(); renderToday(); refreshProgress();
+  renderHistory(); renderToday(); refreshProgress();
 }
 async function deleteSteps(date){
   stepLog = stepLog.filter(function(e){return e.date!==date;});
   await saveArr('step-log', stepLog);
-  renderStepTable(); renderToday(); refreshProgress();
-}
-function renderStepTable(){
-  var tbody=document.querySelector('#stepTable tbody');
-  tbody.innerHTML='';
-  var kg = latestWeightKg();
-  stepLog.slice().reverse().slice(0,12).forEach(function(e){
-    var tr=document.createElement('tr');
-    tr.innerHTML='<td>'+fmtDate(e.date)+'</td><td>'+e.steps.toLocaleString()+'</td><td>'+
-      Math.round(stepBurn(e.steps,kg))+'</td>'+
-      '<td><button class="icon-del" onclick="deleteSteps(\''+e.date+'\')">✕</button></td>';
-    tbody.appendChild(tr);
-  });
-  if(!stepLog.length) tbody.innerHTML='<tr><td colspan="4" class="empty">No entries yet</td></tr>';
+  renderHistory(); renderToday(); refreshProgress();
 }
 
 /* Drinks append like food does — a night out is several entries, not one
@@ -2507,13 +2493,13 @@ async function addAlcohol(){
   document.getElementById('alcName').value='';
   document.getElementById('alcVal').value='';
   document.getElementById('alcKcal').value='';
-  renderAlcTable(); renderAlcoholChart(); refreshProgress();
+  renderAlcTable(); renderHistory(); renderAlcoholChart(); refreshProgress();
 }
 /* By index, since a date no longer identifies a single row. */
 async function deleteAlc(i){
   alcLog.splice(i,1);
   await saveArr('alc-log', alcLog);
-  renderAlcTable(); renderAlcoholChart(); refreshProgress();
+  renderAlcTable(); renderHistory(); renderAlcoholChart(); refreshProgress();
 }
 function renderAlcTable(){
   var tbody=document.querySelector('#alcTable tbody');
@@ -2533,6 +2519,208 @@ function renderAlcTable(){
   var weekAgo=new Date(now.getTime()-7*DAY_MS);
   var weekTotal = alcLog.filter(function(e){return new Date(e.date+'T00:00:00')>=weekAgo;}).reduce(function(s,e){return s+e.units;},0);
   document.getElementById('weekUnitsBadge').textContent = weekTotal+' units';
+}
+
+/* ================= LOG HISTORY =================
+   One table over every log rather than a short list under each form. The
+   dropdown picks the type; the date and exercise filters are what a tap on a
+   Progress chart sets, so a point on a chart lands on the rows behind it. */
+var HIST_PAGE = 25;
+var histFilter = {type:'all', date:null, exercise:null, limit:HIST_PAGE};
+
+function histEsc(s){
+  return String(s==null?'':s).replace(/[&<>"]/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];
+  });
+}
+function histPcf(e){ return (e.protein||0)+'/'+(e.carbs||0)+'/'+(e.fat||0); }
+
+/* One entry per log type: how to head its own table, how to fill a row there,
+   and how it reads in the combined view where every type shares four columns. */
+var HIST_DEFS = {
+  bw: {
+    label:'Bodyweight',
+    head:['Date','Kg',''],
+    cells:function(r){ return ['<td>'+fmtDate(r.e.date)+'</td>','<td>'+r.e.kg.toFixed(1)+'</td>']; },
+    what:function(){ return 'Bodyweight'; },
+    val:function(r){ return r.e.kg.toFixed(1)+' kg'; },
+    del:function(r){ return "deleteBw('"+r.e.date+"')"; }
+  },
+  steps: {
+    label:'Steps',
+    head:['Date','Steps','~kcal',''],
+    cells:function(r){
+      return ['<td>'+fmtDate(r.e.date)+'</td>',
+              '<td>'+r.e.steps.toLocaleString()+'</td>',
+              '<td>'+Math.round(stepBurn(r.e.steps, latestWeightKg()))+'</td>'];
+    },
+    what:function(){ return 'Steps'; },
+    val:function(r){ return r.e.steps.toLocaleString()+' · ~'+Math.round(stepBurn(r.e.steps, latestWeightKg()))+' kcal'; },
+    del:function(r){ return "deleteSteps('"+r.e.date+"')"; }
+  },
+  food: {
+    label:'Food',
+    /* Meal rides under the item rather than taking a column of its own —
+       six columns do not fit a phone without the delete button falling off. */
+    head:['Date','Item','Kcal','P/C/F',''],
+    cells:function(r){
+      return ['<td>'+fmtDate(r.e.date)+'</td>',
+              '<td class="name">'+histEsc(r.e.name)+'<span class="hist-sub">'+histEsc(mealOf(r.e))+'</span></td>',
+              '<td>'+(r.e.kcal||0)+'</td>',
+              '<td>'+histPcf(r.e)+'</td>'];
+    },
+    what:function(r){ return '<span class="name">'+histEsc(r.e.name)+'</span><span class="hist-sub">'+histEsc(mealOf(r.e))+'</span>'; },
+    val:function(r){ return (r.e.kcal||0)+' kcal<span class="hist-sub">'+histPcf(r.e)+' p/c/f</span>'; },
+    del:function(r){ return 'deleteFood('+r.i+')'; }
+  },
+  lift: {
+    label:'Lifts',
+    head:['Date','Exercise','Kg','R×S',''],
+    cells:function(r){
+      return ['<td>'+fmtDate(r.e.date)+'</td>',
+              '<td class="name">'+histEsc(r.e.exercise)+'</td>',
+              '<td>'+r.e.weight+'</td>',
+              '<td>'+r.e.reps+'×'+r.e.sets+'</td>'];
+    },
+    what:function(r){ return '<span class="name">'+histEsc(r.e.exercise)+'</span>'; },
+    val:function(r){ return r.e.weight+' kg<span class="hist-sub">'+r.e.reps+'×'+r.e.sets+'</span>'; },
+    del:function(r){ return 'deleteLift('+r.i+')'; }
+  },
+  alc: {
+    label:'Drinks',
+    head:['Date','Drink','Units','kcal',''],
+    cells:function(r){
+      return ['<td>'+fmtDate(r.e.date)+'</td>',
+              '<td class="name">'+histEsc(r.e.name||'Drink')+'</td>',
+              '<td>'+r.e.units+'</td>',
+              '<td>'+Math.round(alcKcalFor(r.e))+(typeof r.e.kcal==='number'?'':' <span style="color:var(--ink-dim)">est</span>')+'</td>'];
+    },
+    what:function(r){ return '<span class="name">'+histEsc(r.e.name||'Drink')+'</span>'; },
+    val:function(r){ return r.e.units+' units<span class="hist-sub">'+Math.round(alcKcalFor(r.e))+' kcal</span>'; },
+    del:function(r){ return 'deleteAlc('+r.i+')'; }
+  },
+  note: {
+    label:'Notes',
+    head:['Date','Pain','Note',''],
+    cells:function(r){
+      return ['<td>'+fmtDate(r.e.date)+'</td>',
+              '<td>'+(r.e.pain==null?'—':r.e.pain+'/10')+'</td>',
+              '<td class="name">'+histEsc(r.e.text||'—')+'</td>'];
+    },
+    what:function(r){ return '<span class="name">'+histEsc(r.e.text||'Check-in')+'</span>'; },
+    val:function(r){ return r.e.pain==null ? '—' : r.e.pain+'/10<span class="hist-sub">shoulder</span>'; },
+    del:function(r){ return 'deleteNote('+r.i+')'; }
+  }
+};
+/* Dropdown order, and the order rows from the same day fall in. */
+var HIST_ORDER = ['bw','steps','food','lift','alc','note'];
+
+function histSource(type){
+  return {bw:bwLog, steps:stepLog, food:foodLog, lift:liftLog, alc:alcLog, note:noteLog}[type] || [];
+}
+/* Indices are into the live arrays, which is what the delete handlers take. */
+function histRows(){
+  var types = histFilter.type==='all' ? HIST_ORDER : [histFilter.type];
+  var rows = [];
+  types.forEach(function(t){
+    histSource(t).forEach(function(e,i){
+      if(histFilter.date && e.date !== histFilter.date) return;
+      if(histFilter.exercise && t==='lift' && e.exercise !== histFilter.exercise) return;
+      rows.push({type:t, date:e.date, e:e, i:i});
+    });
+  });
+  /* Newest first. Sort is stable, so a shared date keeps HIST_ORDER. */
+  rows.sort(function(a,b){ return a.date===b.date ? 0 : (a.date<b.date ? 1 : -1); });
+  return rows;
+}
+
+function setHistType(type){
+  histFilter.type = type;
+  histFilter.limit = HIST_PAGE;
+  if(type!=='lift' && type!=='all') histFilter.exercise = null;
+  renderHistory();
+}
+function clearHistDate(){ histFilter.date=null; histFilter.limit=HIST_PAGE; renderHistory(); }
+function clearHistExercise(){ histFilter.exercise=null; histFilter.limit=HIST_PAGE; renderHistory(); }
+function clearHistFilters(){
+  histFilter.date=null; histFilter.exercise=null; histFilter.limit=HIST_PAGE;
+  renderHistory();
+}
+function histShowMore(){ histFilter.limit += HIST_PAGE; renderHistory(); }
+function histShowFewer(){ histFilter.limit = HIST_PAGE; renderHistory(); renderHistoryScrollTop(); }
+function renderHistoryScrollTop(){
+  var card=document.getElementById('logHistoryCard');
+  if(card) card.scrollIntoView({block:'start'});
+}
+
+function renderHistory(){
+  var table = document.getElementById('histTable');
+  if(!table) return;
+  var sel = document.getElementById('histType');
+  if(sel && sel.value !== histFilter.type) sel.value = histFilter.type;
+
+  /* Active filters, one chip each so a date can be dropped without losing the
+     exercise a lift-chart tap came with. */
+  var bar = document.getElementById('histFilterBar');
+  var chips = [];
+  if(histFilter.date) chips.push('<span class="chip">'+fmtDateLong(histFilter.date)+
+    '<button onclick="clearHistDate()" aria-label="Clear date filter">✕</button></span>');
+  if(histFilter.exercise) chips.push('<span class="chip">'+histEsc(histFilter.exercise)+
+    '<button onclick="clearHistExercise()" aria-label="Clear exercise filter">✕</button></span>');
+  bar.innerHTML = chips.join('');
+  bar.style.display = chips.length ? 'flex' : 'none';
+
+  var rows = histRows();
+  var all = histFilter.type === 'all';
+  var head = all ? ['Date','Type','Entry','Value',''] : HIST_DEFS[histFilter.type].head;
+  table.querySelector('thead').innerHTML =
+    '<tr>'+head.map(function(h){ return '<th>'+h+'</th>'; }).join('')+'</tr>';
+
+  var tbody = table.querySelector('tbody');
+  if(!rows.length){
+    tbody.innerHTML = '<tr><td colspan="'+head.length+'" class="empty">'+
+      (chips.length ? 'Nothing logged for this filter' : 'No entries yet')+'</td></tr>';
+    document.getElementById('histFoot').innerHTML = chips.length
+      ? '<button class="btn ghost full" onclick="clearHistFilters()">Clear filters</button>' : '';
+    return;
+  }
+
+  var shown = rows.slice(0, histFilter.limit);
+  tbody.innerHTML = shown.map(function(r){
+    var def = HIST_DEFS[r.type];
+    var cells = all
+      ? ['<td>'+fmtDate(r.date)+'</td>',
+         '<td class="hist-type">'+def.label+'</td>',
+         '<td class="name">'+def.what(r)+'</td>',
+         '<td>'+def.val(r)+'</td>']
+      : def.cells(r);
+    return '<tr>'+cells.join('')+
+      '<td><button class="icon-del" onclick="'+def.del(r)+'">✕</button></td></tr>';
+  }).join('');
+
+  var foot = document.getElementById('histFoot');
+  var bits = ['<span class="hist-count">Showing '+shown.length+' of '+rows.length+'</span>'];
+  if(rows.length > shown.length){
+    bits.push('<button class="btn ghost" onclick="histShowMore()">Show '+
+      Math.min(HIST_PAGE, rows.length-shown.length)+' more</button>');
+  } else if(histFilter.limit > HIST_PAGE){
+    bits.push('<button class="btn ghost" onclick="histShowFewer()">Show fewer</button>');
+  }
+  foot.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px">'+
+    bits.join('')+'</div>';
+}
+
+/* Entry point for a tap on a Progress chart: switch to the log, filtered to
+   the point that was tapped, and put that table on screen. */
+function openLogFor(type, date, opts){
+  histFilter.type = HIST_DEFS[type] ? type : 'all';
+  histFilter.date = date || null;
+  histFilter.exercise = (opts && opts.exercise) || null;
+  histFilter.limit = HIST_PAGE;
+  showView('log');
+  renderHistory();
+  var card = document.getElementById('logHistoryCard');
+  if(card) card.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 /* ================= QUICK ADD (from links Claude generates after reading a photo) ================= */
@@ -2580,11 +2768,11 @@ async function applyImportItems(items, defaultDate){
     }
   });
   function srt(a,b){ return a.date.localeCompare(b.date); }
-  if(touched.lift){ liftLog.sort(srt); await saveArr('lift-log', liftLog); renderLiftTable(); populateLiftChartSelect(); }
-  if(touched.food){ foodLog.sort(srt); await saveArr('food-log', foodLog); renderFoodTable(); }
-  if(touched.bw){ bwLog.sort(srt); await saveArr('bw-log', bwLog); renderBwTable(); renderHeader(); }
-  if(touched.alc){ alcLog.sort(srt); await saveArr('alc-log', alcLog); renderAlcTable(); renderAlcoholChart(); }
-  if(touched.steps){ stepLog.sort(srt); await saveArr('step-log', stepLog); renderStepTable(); }
+  if(touched.lift){ liftLog.sort(srt); await saveArr('lift-log', liftLog); renderHistory(); populateLiftChartSelect(); }
+  if(touched.food){ foodLog.sort(srt); await saveArr('food-log', foodLog); renderHistory(); }
+  if(touched.bw){ bwLog.sort(srt); await saveArr('bw-log', bwLog); renderHistory(); renderHeader(); }
+  if(touched.alc){ alcLog.sort(srt); await saveArr('alc-log', alcLog); renderAlcTable(); renderHistory(); renderAlcoholChart(); }
+  if(touched.steps){ stepLog.sort(srt); await saveArr('step-log', stepLog); renderHistory(); }
   if(touched.note){ noteLog.sort(srt); await saveArr('note-log', noteLog); }
   if(touched.equip){ await saveArr('equipment-log', equipLog); renderEquipment(); }
   renderToday(); refreshProgress();
@@ -2773,7 +2961,7 @@ function checkQuickAdd(){
       foodLog.push({date:date,name:name,kcal:kcal,protein:protein,carbs:carbs,fat:fat});
       foodLog.sort(function(a,b){return a.date.localeCompare(b.date);});
       await saveArr('food-log', foodLog);
-      renderFoodTable(); renderToday(); refreshProgress();
+      renderHistory(); renderToday(); refreshProgress();
       banner.style.display='none'; clearQAFromUrl(); showView('today');
     };
   } else if(qa==='lift'){
@@ -2785,7 +2973,7 @@ function checkQuickAdd(){
       liftLog.push({date:date2,exercise:exercise,weight:weight,reps:reps,sets:sets});
       liftLog.sort(function(a,b){return a.date.localeCompare(b.date);});
       await saveArr('lift-log', liftLog);
-      renderLiftTable(); populateLiftChartSelect(); refreshProgress();
+      renderHistory(); populateLiftChartSelect(); refreshProgress();
       banner.style.display='none'; clearQAFromUrl(); showView('log');
     };
   } else if(qa==='weight'){
@@ -2797,7 +2985,7 @@ function checkQuickAdd(){
       bwLog.push({date:date3,kg:kg});
       bwLog.sort(function(a,b){return a.date.localeCompare(b.date);});
       await saveArr('bw-log', bwLog);
-      renderBwTable(); renderHeader(); refreshProgress();
+      renderHistory(); renderHeader(); refreshProgress();
       banner.style.display='none'; clearQAFromUrl(); showView('today');
     };
   } else {
@@ -3056,6 +3244,7 @@ function drawLineChart(canvas, series, labels){
   if(!allVals.length){
     ctx.fillStyle='#8A94A0'; ctx.font='12px sans-serif'; ctx.textAlign='center';
     ctx.fillText('No data logged yet', W/2, H/2);
+    canvas._hit = null;
     return;
   }
   var min=Math.min.apply(null,allVals), max=Math.max.apply(null,allVals);
@@ -3098,6 +3287,8 @@ function drawLineChart(canvas, series, labels){
       });
     }
   });
+  /* Enough geometry for chartHit() to turn a tap back into a label. */
+  canvas._hit = {mode:'line', W:W, H:H, padL:padL, padR:padR, n:n, labels:labels, keys:labels};
 }
 /* Stacked bars with lines over the top, on one shared scale. Used for calories
    (intake stacked, burn as lines) and units (daily bars, rolling total line). */
@@ -3109,6 +3300,7 @@ function drawComboChart(canvas, labels, opts){
   if(!n){
     ctx.fillStyle='#8A94A0'; ctx.font='12px sans-serif'; ctx.textAlign='center';
     ctx.fillText(opts.empty||'No data logged yet', W/2, H/2);
+    canvas._hit = null;
     return;
   }
   var padL=34,padR=8,padT=10,padB=18;
@@ -3168,8 +3360,49 @@ function drawComboChart(canvas, labels, opts){
     if(i % every !== 0 && i !== n-1) return;
     ctx.fillText(lb, X(i), H-4);
   });
+  /* Stack geometry too, so a tap can tell which band of a bar it landed in.
+     opts.keys carries the raw dates behind the shortened axis labels. */
+  canvas._hit = {mode:'combo', W:W, H:H, padL:padL, padR:padR, padT:padT, padB:padB,
+                 n:n, labels:labels, keys:opts.keys||labels, max:max, stacks:stacks};
 }
 
+/* ---- Tapping a chart ----
+   Turns a tap into the point under it: which column, and for a stacked bar
+   which band. Coordinates come back in the canvas's own CSS pixels, so a
+   horizontally scrolled chart-box needs no correction. */
+function chartHit(canvas, ev){
+  var h = canvas._hit;
+  /* A chart drawn while its tab was hidden measures zero, and every coordinate
+     off it would come back NaN — treat that as no hit rather than row one. */
+  if(!h || !h.n || !h.W || !h.H) return null;
+  var rect = canvas.getBoundingClientRect();
+  var sx = h.W / (rect.width || h.W), sy = h.H / (rect.height || h.H);
+  var x = (ev.clientX - rect.left) * sx, y = (ev.clientY - rect.top) * sy;
+  var inner = h.W - h.padL - h.padR, i;
+  if(h.mode === 'line'){
+    i = h.n<=1 ? 0 : Math.round((x - h.padL) / inner * (h.n-1));
+  } else {
+    i = Math.floor((x - h.padL) / (inner / h.n));
+  }
+  if(isNaN(i)) return null;
+  i = Math.max(0, Math.min(h.n-1, i));
+  var out = {index:i, key:h.keys[i], label:h.labels[i], stack:null};
+  if(h.mode === 'combo' && h.stacks){
+    var base = h.H - h.padB, plot = h.H - h.padT - h.padB;
+    for(var k=0; k<h.stacks.length; k++){
+      var v = h.stacks[k].data[i] || 0;
+      if(v<=0) continue;
+      var bh = plot * (v / h.max);
+      if(y >= base-bh && y <= base){ out.stack = h.stacks[k].key || null; break; }
+      base -= bh;
+    }
+  }
+  return out;
+}
+function attachChartTap(canvas, fn){
+  canvas.style.cursor = 'pointer';
+  canvas.onclick = function(ev){ var hit = chartHit(canvas, ev); if(hit) fn(hit); };
+}
 function drawBarChart(canvas, labels, values, color){
   var p = prepCanvas(canvas);
   var ctx=p.ctx, W=p.W, H=p.H;
@@ -3225,6 +3458,7 @@ function renderWeightChart(){
     {data:target, color:'#E8A33D', dashed:true}
   ], labels);
   scrollChartToEnd(canvas);
+  attachChartTap(canvas, function(hit){ openLogFor('bw', hit.key); });
 }
 function populateLiftChartSelect(){
   var sel = document.getElementById('liftChartSelect');
@@ -3242,6 +3476,7 @@ function renderLiftChart(){
   sizeChart(canvas, data.length, 18);
   drawLineChart(canvas, [{data:data.map(function(e){return e.weight;}), color:'#4FB6C9', points:true}], data.map(function(e){return e.date;}));
   scrollChartToEnd(canvas);
+  attachChartTap(canvas, function(hit){ openLogFor('lift', hit.key, {exercise: sel}); });
 }
 /* ---- Progress trend charts ---- */
 /* Nothing was recorded before trackingStart, so a window that reaches further
@@ -3275,11 +3510,15 @@ function renderCalorieChart(){
   sizeChart(calCanvas, dates.length, 16);
   drawComboChart(calCanvas,
     dates.map(function(d){ return fmtDate(d).replace(/^[A-Za-z]+,\s*/,''); }), {
-      stacks: [ {data:food, color:'#4FB6C9'}, {data:alc, color:'#E8A33D'} ],
+      keys: dates,
+      stacks: [ {data:food, color:'#4FB6C9', key:'food'}, {data:alc, color:'#E8A33D', key:'alc'} ],
       lines:  [ {data:rest, color:'#8A94A0', dashed:true}, {data:out, color:'#6FCF97'} ],
       empty: 'Log some food to see this'
     });
   scrollChartToEnd(calCanvas);
+  /* Tap the food or alcohol band for that type alone; anywhere else in the
+     column is everything logged that day. */
+  attachChartTap(calCanvas, function(hit){ openLogFor(hit.stack || 'all', hit.key); });
   var logged = food.filter(function(v,i){ return v>0 || alc[i]>0; }).length;
   var avgIn = logged ? (food.reduce(function(a,b){return a+b;},0)+alc.reduce(function(a,b){return a+b;},0))/logged : 0;
   var avgOut = out.reduce(function(a,b){return a+b;},0)/out.length;
@@ -3307,12 +3546,14 @@ function renderAlcTrendChart(){
   sizeChart(alcCanvas, dates.length, 14);
   drawComboChart(alcCanvas,
     dates.map(function(d){ return fmtDate(d).replace(/^[A-Za-z]+,\s*/,''); }), {
-      stacks: [ {data:daily, color:'#E8A33D'} ],
+      keys: dates,
+      stacks: [ {data:daily, color:'#E8A33D', key:'alc'} ],
       lines:  [ {data:rolling, color:'#4FB6C9'} ],
       guide:  {value: UK_WEEKLY_UNIT_GUIDELINE, color:'#E2574C'},
       empty:  'No units logged yet'
     });
   scrollChartToEnd(alcCanvas);
+  attachChartTap(alcCanvas, function(hit){ openLogFor('alc', hit.key); });
   var latest = rolling[rolling.length-1];
   var note = document.getElementById('alcTrendNote');
   if(note){
@@ -3790,11 +4031,8 @@ async function startApp(){
   renderToday();
   renderPlan();
   renderDiet();
-  renderBwTable();
-  renderLiftTable();
   renderAlcTable();
-  renderFoodTable();
-  renderStepTable();
+  renderHistory();
   renderMealLibrary();
   populateLiftExerciseSelect();
   document.getElementById('trendRange').onchange = renderCalorieChart;

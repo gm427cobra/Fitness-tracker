@@ -308,18 +308,13 @@
   <div id="planList"></div>
 
   <div class="card">
-    <div class="card-h"><h2>Equipment &amp; exercises</h2><span class="badge" id="equipCount">—</span></div>
-    <p class="lead">Two kinds of row. <b>Movements from your plan</b> — always listed, with or without a
-      machine against them, so you can photograph them. <b>Machines in your inventory</b> — these carry a ✕
-      and are the only rows you can remove. Drives the "if it's busy" swaps, and exports for Claude.</p>
+    <div class="card-h"><h2>Machine inventory</h2><span class="badge" id="equipCount">—</span></div>
+    <p class="lead">The machines available to you, and nothing else — your plan's movements are on the Plan
+      and Today tabs. Add a machine's photo here; exercise photos go on the Today tab. Drives the
+      "if it's busy" swaps, and exports for Claude.</p>
     <button class="btn full" style="margin-bottom:8px" onclick="copyEquipmentPrompt()">Copy prompt to build the inventory</button>
     <button class="btn full" style="margin-bottom:8px" onclick="copyEquipment()">Copy inventory for Claude</button>
     <button class="btn ghost full" style="margin-bottom:8px" onclick="downloadEquipment()">Download inventory (.txt)</button>
-    <select id="equipFilter" onchange="renderEquipment()" style="margin-bottom:8px">
-      <option value="all">Show everything</option>
-      <option value="machines">Only machines I've recorded</option>
-      <option value="missing">Only movements with no machine</option>
-    </select>
     <input type="text" id="equipSearch" placeholder="Search machines…" oninput="renderEquipment()">
     <p class="lead" id="equipTally" style="margin:8px 0 0"></p>
     <div id="equipList" style="margin-top:10px"></div>
@@ -653,7 +648,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-07-3';
+var BUILD = '2026-09-07-4';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -2162,66 +2157,45 @@ function equipmentForExercise(name){
     });
   })[0];
 }
-/* Plan movements first — each is a photo slot shared with the Today tab — then
-   any machine in the inventory that no plan movement claims. */
+/* The inventory and nothing else: one row per machine, by name. Plan movements
+   used to be listed here too, which made an empty inventory read as a full list
+   that refused to delete — they belong to the Plan and Today tabs. */
 function buildEquipRows(){
-  var rows = [], claimed = [];
-  planExerciseList().forEach(function(px){
-    var eq = equipmentForExercise(px.name);
-    if(eq && claimed.indexOf(eq)===-1) claimed.push(eq);
-    rows.push({kind:'exercise', name:px.name, group:px.group, equip:eq, img:px.img,
-               photoKey:px.name, repoFallback:true});
-  });
-  equipLog.forEach(function(e){
-    if(claimed.indexOf(e)!==-1) return;
-    rows.push({kind:'equipment', name:e.name, equip:e,
-               photoKey:equipPhotoKey(e.name), repoFallback:false});
-  });
-  return rows;
+  return equipLog.slice()
+    .sort(function(x,y){ return (x.name||'').localeCompare(y.name||''); })
+    .map(function(e){ return {name:e.name, equip:e, photoKey:equipPhotoKey(e.name)}; });
 }
 var EQUIP_LIMIT = 40;
 function renderEquipment(){
   var out = document.getElementById('equipList');
   if(!out) return;
   var q = (document.getElementById('equipSearch').value||'').trim().toLowerCase();
-  var view = (document.getElementById('equipFilter')||{}).value || 'all';
   var all = buildEquipRows();
   var rows = all.filter(function(r){
-    if(view==='machines' && !r.equip) return false;
-    if(view==='missing'  &&  r.equip) return false;
-    var eq = r.equip || {};
-    return matchesSearch([r.name, r.group, eq.name, eq.muscles, eq.exercises, eq.notes].join(' '), q);
+    var eq = r.equip;
+    return matchesSearch([eq.name, eq.muscles, eq.exercises, eq.unit, eq.notes].join(' '), q);
   });
   var withPhoto = all.filter(function(r){ return exPhotoUrl(r.photoKey); }).length;
-  document.getElementById('equipCount').textContent = withPhoto + ' of ' + all.length + ' with photos';
+  document.getElementById('equipCount').textContent =
+    all.length ? withPhoto + ' of ' + all.length + ' with photos' : 'empty';
 
-  /* The row count on its own hides an empty inventory behind the plan movements,
-     which are always listed — so say the two numbers separately. */
-  var gaps = all.filter(function(r){ return r.kind==='exercise' && !r.equip; }).length;
+  /* The movements still without a machine are the reason to keep photographing,
+     but they are the Plan tab's to show — so count them here rather than list them. */
+  var gaps = planExerciseList().filter(function(px){ return !equipmentForExercise(px.name); }).length;
   document.getElementById('equipTally').textContent =
-    equipLog.length + (equipLog.length===1?' machine':' machines') + ' in your inventory · ' +
-    gaps + (gaps===1?' plan movement with none':' plan movements with none');
+    all.length + (all.length===1 ? ' machine' : ' machines') + ' · ' +
+    (gaps ? gaps + ' plan movement' + (gaps===1?'':'s') + ' with none against ' + (gaps===1?'it':'them')
+          : 'every plan movement has one');
 
   if(!rows.length){
-    var empty = q ? 'Nothing matches that.'
-      : view==='machines' ? 'No machines in your inventory yet — paste some in below, or add one by hand.'
-      : view==='missing'  ? 'Every movement in your plan has a machine against it.'
-      : 'Nothing to show yet.';
-    out.innerHTML = '<div class="empty">'+empty+'</div>';
+    out.innerHTML = '<div class="empty">'+
+      (q ? 'No machine matches that.'
+         : 'No machines yet — paste them in below, or add one by hand.')+'</div>';
     return;
   }
   out.innerHTML = '';
-  var lastGroup = null;
   rows.slice(0, EQUIP_LIMIT).forEach(function(r){
     var eq = r.equip;
-    var heading = r.kind==='exercise' ? (r.group||'Other') : 'Other machines';
-    if(heading !== lastGroup){
-      var h = document.createElement('h3');
-      h.className = 'section';
-      h.textContent = heading;
-      out.appendChild(h);
-      lastGroup = heading;
-    }
     var div = document.createElement('div');
     div.className = 'exrow';
     var main = document.createElement('div');
@@ -2229,31 +2203,23 @@ function renderEquipment(){
     var text = document.createElement('div');
     text.className = 'ex-text';
     text.innerHTML =
-      '<div class="exname">'+r.name+'</div>'+
-      (eq && eq.muscles? '<div class="exmeta">'+eq.muscles+'</div>':'')+
-      (eq && eq.name!==r.name? '<div class="exnote">Machine: '+eq.name+'</div>':'')+
-      (eq && eq.exercises && r.kind==='equipment'? '<div class="exnote">Used for: '+eq.exercises+'</div>':'')+
-      (eq && eq.unit? '<div class="exnote">Loads in '+eq.unit+'</div>':'')+
-      (eq && eq.notes? '<div class="exnote">'+eq.notes+'</div>':'')+
-      (!eq && r.kind==='exercise'? '<div class="exnote" style="color:var(--ink-dim)">No machine recorded</div>':'');
+      '<div class="exname">'+histEsc(eq.name)+'</div>'+
+      (eq.muscles?   '<div class="exmeta">'+histEsc(eq.muscles)+'</div>' : '')+
+      (eq.exercises? '<div class="exnote">Used for: '+histEsc(eq.exercises)+'</div>' : '')+
+      (eq.unit?      '<div class="exnote">Loads in '+histEsc(eq.unit)+'</div>' : '')+
+      (eq.notes?     '<div class="exnote">'+histEsc(eq.notes)+'</div>' : '');
     main.appendChild(text);
     div.appendChild(main);
     out.appendChild(div);
-    addExerciseThumb(main, r.photoKey, r.img, true,
-                     {caption:r.name, noRepoFallback:!r.repoFallback});
-    /* Every machine gets a cross wherever it appears — on its own row when no
-       movement claims it, under the movement it serves when one does. The cross
-       removes the machine, never the movement: a plan exercise stays put and
-       goes back to reading "no machine recorded". */
-    if(eq){
-      var del = document.createElement('button');
-      del.className = 'icon-del';
-      del.style.cssText = 'flex:none;align-self:flex-start;padding:2px 0 0 8px';
-      del.textContent = '✕';
-      del.title = 'Remove ' + eq.name + ' from the inventory';
-      del.onclick = function(){ removeMachine(eq.name); };
-      main.appendChild(del);
-    }
+    /* No repo fallback: a gym machine has no stock illustration to stand in. */
+    addExerciseThumb(main, r.photoKey, null, true, {caption:eq.name, noRepoFallback:true});
+    var del = document.createElement('button');
+    del.className = 'icon-del';
+    del.style.cssText = 'flex:none;align-self:flex-start;padding:2px 0 0 8px';
+    del.textContent = '✕';
+    del.title = 'Remove ' + eq.name + ' from the inventory';
+    del.onclick = function(){ removeMachine(eq.name); };
+    main.appendChild(del);
   });
   if(rows.length>EQUIP_LIMIT){
     var more = document.createElement('p');

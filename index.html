@@ -331,9 +331,6 @@
     <textarea id="equipPaste" rows="4" placeholder='{"type":"equipment","name":"Pit Shark Belt Squat","muscles":"quads; glutes","exercises":"Belt Squat","unit":"kg","notes":"Plate-loaded"}'></textarea>
     <button class="btn full" style="margin-top:8px" onclick="importEquipmentPaste()">Load machines</button>
 
-    <div class="divider"></div>
-    <button class="btn ghost full" onclick="clearEquipment()">Clear the machine inventory</button>
-    <p class="lead" style="margin:6px 0 0">Machines only — your plan, training logs and photos stay put.</p>
     <p class="lead" id="equipMsg" style="margin:8px 0 0"></p>
   </div>
 
@@ -648,7 +645,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-07-1';
+var BUILD = '2026-09-07-2';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -2103,22 +2100,6 @@ async function addEquipment(){
   document.getElementById('equipMsg').textContent = existing? 'Updated '+name+'.' : 'Added '+name+'.';
   renderEquipment(); renderToday();
 }
-/* Machines only. The plan, the training logs and the photo store are separate,
-   so none of them move — and because a photo is keyed by machine name,
-   re-importing a machine under the same name picks its picture straight back
-   up. That is what makes clear-then-reload a safe way to rebuild the inventory. */
-async function clearEquipment(){
-  var msg = document.getElementById('equipMsg');
-  if(!equipLog.length){ msg.textContent = 'The inventory is already empty.'; return; }
-  var n = equipLog.length;
-  if(!confirm('Delete all '+n+' machines from the inventory?\n\n'+
-              'Your plan, training logs and exercise photos are not touched.')) return;
-  equipLog = [];
-  await saveArr('equipment-log', equipLog);
-  renderEquipment(); renderToday();
-  msg.textContent = 'Cleared '+n+' machines. Photos were kept — reload a machine under the same '+
-                    'name and its photo comes back with it.';
-}
 /* The parser the Log tab's paste box uses, narrowed to machines so a stray
    food line pasted in here cannot land silently in the food log. */
 async function importEquipmentPaste(){
@@ -2137,10 +2118,19 @@ async function importEquipmentPaste(){
   msg.textContent = 'Loaded '+machines.length+' machine'+(machines.length===1?'':'s')+
     (skipped? ' — ignored '+skipped+' non-equipment '+(skipped===1?'entry':'entries')+'.' : '.');
 }
-async function deleteEquipment(i){
-  equipLog.splice(i,1);
+/* By name, not by index. Name is the key everywhere else in the inventory —
+   findEquipment(), the import upsert and the photo key all match on it — and
+   an index would be read off a list that search and EQUIP_LIMIT have already
+   filtered. */
+async function removeMachine(name){
+  var before = equipLog.length;
+  equipLog = equipLog.filter(function(e){ return (e.name||'') !== name; });
+  if(equipLog.length === before) return;
   await saveArr('equipment-log', equipLog);
   renderEquipment(); renderToday();
+  document.getElementById('equipMsg').textContent =
+    'Removed '+name+'. Its photo is kept — add the machine back under the same name '+
+    'and the photo comes back with it.';
 }
 /* Every movement the plan calls for, in plan order, deduplicated. */
 function planExerciseList(){
@@ -2174,9 +2164,9 @@ function buildEquipRows(){
     rows.push({kind:'exercise', name:px.name, group:px.group, equip:eq, img:px.img,
                photoKey:px.name, repoFallback:true});
   });
-  equipLog.forEach(function(e, i){
+  equipLog.forEach(function(e){
     if(claimed.indexOf(e)!==-1) return;
-    rows.push({kind:'equipment', name:e.name, equip:e, index:i,
+    rows.push({kind:'equipment', name:e.name, equip:e,
                photoKey:equipPhotoKey(e.name), repoFallback:false});
   });
   return rows;
@@ -2228,13 +2218,17 @@ function renderEquipment(){
     out.appendChild(div);
     addExerciseThumb(main, r.photoKey, r.img, true,
                      {caption:r.name, noRepoFallback:!r.repoFallback});
-    if(r.kind==='equipment'){
-      /* Only inventory entries can be deleted; plan movements come from the plan. */
+    /* Every machine gets a cross wherever it appears — on its own row when no
+       movement claims it, under the movement it serves when one does. The cross
+       removes the machine, never the movement: a plan exercise stays put and
+       goes back to reading "no machine recorded". */
+    if(eq){
       var del = document.createElement('button');
       del.className = 'icon-del';
       del.style.cssText = 'flex:none;align-self:flex-start;padding:2px 0 0 8px';
       del.textContent = '✕';
-      del.onclick = function(){ deleteEquipment(r.index); };
+      del.title = 'Remove ' + eq.name + ' from the inventory';
+      del.onclick = function(){ removeMachine(eq.name); };
       main.appendChild(del);
     }
   });

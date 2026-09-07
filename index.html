@@ -309,11 +309,19 @@
 
   <div class="card">
     <div class="card-h"><h2>Equipment &amp; exercises</h2><span class="badge" id="equipCount">—</span></div>
-    <p class="lead">Every movement in your plan, plus any other machine you've recorded. Add a photo here or on the Today tab — it's the same picture either way. Drives the "if it's busy" swaps, and exports for Claude.</p>
+    <p class="lead">Two kinds of row. <b>Movements from your plan</b> — always listed, with or without a
+      machine against them, so you can photograph them. <b>Machines in your inventory</b> — these carry a ✕
+      and are the only rows you can remove. Drives the "if it's busy" swaps, and exports for Claude.</p>
     <button class="btn full" style="margin-bottom:8px" onclick="copyEquipmentPrompt()">Copy prompt to build the inventory</button>
     <button class="btn full" style="margin-bottom:8px" onclick="copyEquipment()">Copy inventory for Claude</button>
     <button class="btn ghost full" style="margin-bottom:8px" onclick="downloadEquipment()">Download inventory (.txt)</button>
+    <select id="equipFilter" onchange="renderEquipment()" style="margin-bottom:8px">
+      <option value="all">Show everything</option>
+      <option value="machines">Only machines I've recorded</option>
+      <option value="missing">Only movements with no machine</option>
+    </select>
     <input type="text" id="equipSearch" placeholder="Search machines…" oninput="renderEquipment()">
+    <p class="lead" id="equipTally" style="margin:8px 0 0"></p>
     <div id="equipList" style="margin-top:10px"></div>
     <div class="divider"></div>
     <h3 class="section" style="margin-top:0">Add or update a machine</h3>
@@ -645,7 +653,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-07-2';
+var BUILD = '2026-09-07-3';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -2176,15 +2184,30 @@ function renderEquipment(){
   var out = document.getElementById('equipList');
   if(!out) return;
   var q = (document.getElementById('equipSearch').value||'').trim().toLowerCase();
+  var view = (document.getElementById('equipFilter')||{}).value || 'all';
   var all = buildEquipRows();
   var rows = all.filter(function(r){
+    if(view==='machines' && !r.equip) return false;
+    if(view==='missing'  &&  r.equip) return false;
     var eq = r.equip || {};
     return matchesSearch([r.name, r.group, eq.name, eq.muscles, eq.exercises, eq.notes].join(' '), q);
   });
   var withPhoto = all.filter(function(r){ return exPhotoUrl(r.photoKey); }).length;
   document.getElementById('equipCount').textContent = withPhoto + ' of ' + all.length + ' with photos';
+
+  /* The row count on its own hides an empty inventory behind the plan movements,
+     which are always listed — so say the two numbers separately. */
+  var gaps = all.filter(function(r){ return r.kind==='exercise' && !r.equip; }).length;
+  document.getElementById('equipTally').textContent =
+    equipLog.length + (equipLog.length===1?' machine':' machines') + ' in your inventory · ' +
+    gaps + (gaps===1?' plan movement with none':' plan movements with none');
+
   if(!rows.length){
-    out.innerHTML = '<div class="empty">'+(q? 'Nothing matches that.' : 'Nothing to show yet.')+'</div>';
+    var empty = q ? 'Nothing matches that.'
+      : view==='machines' ? 'No machines in your inventory yet — paste some in below, or add one by hand.'
+      : view==='missing'  ? 'Every movement in your plan has a machine against it.'
+      : 'Nothing to show yet.';
+    out.innerHTML = '<div class="empty">'+empty+'</div>';
     return;
   }
   out.innerHTML = '';

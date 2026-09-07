@@ -320,8 +320,20 @@
     <div class="field"><label>Name</label><input type="text" id="equipName" placeholder="Cybex Eagle NX Arm Curl"></div>
     <div class="field"><label>Trains (semicolon separated)</label><input type="text" id="equipMuscles" placeholder="biceps; elbow flexion"></div>
     <div class="field"><label>Used for</label><input type="text" id="equipExercises" placeholder="Machine Arm Curl"></div>
+    <div class="field"><label>Loads in</label><input type="text" id="equipUnit" placeholder="kg"></div>
     <div class="field"><label>Notes</label><input type="text" id="equipNotes" placeholder="Stack maxes at 103kg"></div>
     <button class="btn full" style="margin-top:8px" onclick="addEquipment()">Save machine</button>
+
+    <div class="divider"></div>
+    <h3 class="section" style="margin-top:0">Load machines from Claude</h3>
+    <p class="lead">Paste one machine, a list of them, or pipe lines. Keyed by name, so re-pasting a
+      machine corrects it rather than adding a second one.</p>
+    <textarea id="equipPaste" rows="4" placeholder='{"type":"equipment","name":"Pit Shark Belt Squat","muscles":"quads; glutes","exercises":"Belt Squat","unit":"kg","notes":"Plate-loaded"}'></textarea>
+    <button class="btn full" style="margin-top:8px" onclick="importEquipmentPaste()">Load machines</button>
+
+    <div class="divider"></div>
+    <button class="btn ghost full" onclick="clearEquipment()">Clear the machine inventory</button>
+    <p class="lead" style="margin:6px 0 0">Machines only — your plan, training logs and photos stay put.</p>
     <p class="lead" id="equipMsg" style="margin:8px 0 0"></p>
   </div>
 
@@ -636,7 +648,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-06-3';
+var BUILD = '2026-09-07-1';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -1986,6 +1998,7 @@ function buildEquipmentExport(){
     lines.push('- '+e.name);
     if(e.muscles)   lines.push('    trains: '+e.muscles);
     if(e.exercises) lines.push('    used for: '+e.exercises);
+    if(e.unit)      lines.push('    loads in: '+e.unit);
     if(e.notes)     lines.push('    notes: '+e.notes);
   });
   var missing = planExerciseList().filter(function(px){ return !equipmentForExercise(px.name); });
@@ -2021,7 +2034,7 @@ function buildEquipmentPrompt(){
   L.push('training app. For each machine in the photos I send, give me ONE line in');
   L.push('exactly this format, and nothing else — no commentary between lines:');
   L.push('');
-  L.push('  equipment | Name | muscles | used-for exercises | notes');
+  L.push('  equipment | Name | muscles | used-for exercises | notes | unit');
   L.push('');
   L.push('Rules:');
   L.push('  - Name: the make and model if it is on the machine, otherwise a plain');
@@ -2032,7 +2045,9 @@ function buildEquipmentPrompt(){
   L.push('  - used-for: which of MY exercises it is for, semicolon-separated, using');
   L.push('    my exact names from the list below. Leave empty if none apply.');
   L.push('  - notes: anything useful — stack maximum, plate-loaded, seat quirks,');
-  L.push('    "two of these". Leave empty if nothing stands out.');
+  L.push('    "two of these", out of service. Leave empty if nothing stands out.');
+  L.push('  - unit: what the machine is loaded in — kg, lb, or "plates" — so I am');
+  L.push('    not converting in my head at the rack. Leave empty if unmarked.');
   L.push('  - Use "|" as the separator; commas are fine inside a field.');
   L.push('  - If you cannot identify a machine confidently, say so on its own line');
   L.push('    starting with # rather than guessing — a wrong entry is worse than a');
@@ -2052,8 +2067,8 @@ function buildEquipmentPrompt(){
     L.push('');
   }
   L.push('Example of the output I want:');
-  L.push('  equipment | Cybex Eagle NX Arm Curl | biceps | Machine Arm Curl | Stack maxes at 103kg');
-  L.push('  equipment | Arsenal Strength Plate Leg Press | quads; glutes; hamstrings | Leg Press | Plate loaded, max 160kg');
+  L.push('  equipment | Cybex Eagle NX Arm Curl | biceps | Machine Arm Curl | Stack maxes at 103kg | kg');
+  L.push('  equipment | Arsenal Strength Plate Leg Press | quads; glutes; hamstrings | Leg Press | Plate loaded, max 160kg | kg');
   return L.join('\n');
 }
 function copyEquipmentPrompt(){
@@ -2075,17 +2090,52 @@ async function addEquipment(){
     name: name,
     muscles: document.getElementById('equipMuscles').value.trim(),
     exercises: document.getElementById('equipExercises').value.trim(),
+    unit: document.getElementById('equipUnit').value.trim(),
     notes: document.getElementById('equipNotes').value.trim()
   };
   var existing = findEquipment(name);
   if(existing){ for(var k in entry) existing[k] = entry[k]; }
   else equipLog.push(entry);
   await saveArr('equipment-log', equipLog);
-  ['equipName','equipMuscles','equipExercises','equipNotes'].forEach(function(id){
+  ['equipName','equipMuscles','equipExercises','equipUnit','equipNotes'].forEach(function(id){
     document.getElementById(id).value='';
   });
   document.getElementById('equipMsg').textContent = existing? 'Updated '+name+'.' : 'Added '+name+'.';
   renderEquipment(); renderToday();
+}
+/* Machines only. The plan, the training logs and the photo store are separate,
+   so none of them move — and because a photo is keyed by machine name,
+   re-importing a machine under the same name picks its picture straight back
+   up. That is what makes clear-then-reload a safe way to rebuild the inventory. */
+async function clearEquipment(){
+  var msg = document.getElementById('equipMsg');
+  if(!equipLog.length){ msg.textContent = 'The inventory is already empty.'; return; }
+  var n = equipLog.length;
+  if(!confirm('Delete all '+n+' machines from the inventory?\n\n'+
+              'Your plan, training logs and exercise photos are not touched.')) return;
+  equipLog = [];
+  await saveArr('equipment-log', equipLog);
+  renderEquipment(); renderToday();
+  msg.textContent = 'Cleared '+n+' machines. Photos were kept — reload a machine under the same '+
+                    'name and its photo comes back with it.';
+}
+/* The parser the Log tab's paste box uses, narrowed to machines so a stray
+   food line pasted in here cannot land silently in the food log. */
+async function importEquipmentPaste(){
+  var box = document.getElementById('equipPaste');
+  var msg = document.getElementById('equipMsg');
+  var res = parseImportBlock(box.value, todayStr());
+  if(res.errors.length){ msg.textContent = res.errors[0]; return; }
+  var machines = res.items.filter(function(it){ return String(it.type||'').toLowerCase()==='equipment'; });
+  var skipped = res.items.length - machines.length;
+  if(!machines.length){
+    msg.textContent = 'No machines in that — each one needs "type":"equipment".';
+    return;
+  }
+  await applyImportItems(machines, todayStr());
+  box.value = '';
+  msg.textContent = 'Loaded '+machines.length+' machine'+(machines.length===1?'':'s')+
+    (skipped? ' — ignored '+skipped+' non-equipment '+(skipped===1?'entry':'entries')+'.' : '.');
 }
 async function deleteEquipment(i){
   equipLog.splice(i,1);
@@ -2170,6 +2220,7 @@ function renderEquipment(){
       (eq && eq.muscles? '<div class="exmeta">'+eq.muscles+'</div>':'')+
       (eq && eq.name!==r.name? '<div class="exnote">Machine: '+eq.name+'</div>':'')+
       (eq && eq.exercises && r.kind==='equipment'? '<div class="exnote">Used for: '+eq.exercises+'</div>':'')+
+      (eq && eq.unit? '<div class="exnote">Loads in '+eq.unit+'</div>':'')+
       (eq && eq.notes? '<div class="exnote">'+eq.notes+'</div>':'')+
       (!eq && r.kind==='exercise'? '<div class="exnote" style="color:var(--ink-dim)">No machine recorded</div>':'');
     main.appendChild(text);
@@ -2757,7 +2808,8 @@ async function applyImportItems(items, defaultDate){
       case 'equipment':
         /* Keyed by name so re-sending a machine updates it rather than
            duplicating — inventories get corrected as photos are reviewed. */
-        var eq = {name:it.name||'Machine', muscles:it.muscles||'', exercises:it.exercises||'', notes:it.notes||''};
+        var eq = {name:it.name||'Machine', muscles:it.muscles||'', exercises:it.exercises||'',
+                  unit:it.unit||'', notes:it.notes||''};
         var prev = findEquipment(eq.name);
         if(prev){ for(var ek in eq) prev[ek] = eq[ek]; }
         else equipLog.push(eq);
@@ -2794,7 +2846,8 @@ var IMPORT_FIELDS = {
   alcohol: ['name','units','kcal?'],
   steps:   ['steps'],
   note:    ['pain','text'],
-  equipment: ['name','muscles','exercises?','notes?']
+  /* unit last, so pipe lines written before it existed still parse. */
+  equipment: ['name','muscles','exercises?','notes?','unit?']
 };
 function parseImportBlock(text, fallbackDate){
   var items = [], errors = [], date = fallbackDate;
@@ -3737,7 +3790,7 @@ function buildImportSpec(){
     {type:'steps', steps:8400},
     {type:'note', pain:3, text:'Shoulder fine on floor press.'},
     {type:'equipment', name:'Cybex Eagle NX Arm Curl', muscles:'biceps; elbow flexion',
-     exercises:'Machine Arm Curl', notes:'Stack maxes at 103kg'}
+     exercises:'Machine Arm Curl', unit:'kg', notes:'Stack maxes at 103kg'}
   ];
   var exerciseNames = [];
   for(var k in PLAN.templates){
@@ -3782,14 +3835,15 @@ function buildImportSpec(){
 '  {"type":"note",    "pain":num 0-10 or null, "text":str}',
 '      Appends. Used for shoulder/injury notes.',
 '',
-'  {"type":"equipment", "name":str, "muscles":str, "exercises":str, "notes":str}',
+'  {"type":"equipment", "name":str, "muscles":str, "exercises":str, "unit":str, "notes":str}',
 '      My gym\'s kit. Keyed by name — re-sending a machine updates it rather',
 '      than adding a duplicate, so corrections are safe.',
 '      "muscles" is a semicolon-separated list of what it trains, and it is what',
 '      drives the "if busy" swap suggestions, so be specific and consistent',
 '      ("chest; triceps" rather than "upper body").',
-'      "exercises" names the movements I do on it; "notes" is anything useful',
-'      like a stack maximum. Send these when I show you photos of the gym.',
+'      "exercises" names the movements I do on it; "unit" is what it loads in',
+'      (kg, lb, plates); "notes" is anything useful like a stack maximum or that',
+'      it is out of service. Send these when I show you photos of the gym.',
 '',
 'EXERCISE NAMES IN THE CURRENT PLAN',
 '  '+exerciseNames.join('\n  '),

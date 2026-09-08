@@ -656,7 +656,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-08-6';
+var BUILD = '2026-09-08-7';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -762,7 +762,7 @@ var DEFAULT_PLAN = {
       "peakDate": "2027-03-01",
       "cutRateKgPerWeek": 0.73
   },
-  planVersion: '2026-09-09-hypertrophy-r3',
+  planVersion: '2026-09-09-hypertrophy-r4',
   /* The first day the new program applies. Anything before it is training that
      already happened and must be taken from the stored plan, not from here. */
   programChangeover: '2026-09-09',
@@ -1243,7 +1243,7 @@ var DEFAULT_PLAN = {
        own right. weight:null renders as "calibrate" — the signal to treat the
        first session on it as a genuine ramp-up test rather than a guess. */
     lowerA:{label:'Lower A — quads & calves', ex:[
-      {name:'Leg Press', machine:'Cybex', sets:5, reps:'10–15', weight:'160kg', rir:'1–2',
+      {name:'Leg Press', machine:'Cybex', sets:5, reps:'10–15', weight:'160kg', cap:'160kg', rir:'1–2',
        tempo:'3-1-1', rest:'2–3 min',
        note:'Wider rep range than the rest because the load cannot move: 160kg is this machine\u2019s ceiling, not a training cap — it has nothing left to add. Keep progressing on reps and pause until 5×10 is comfortable at RIR 1–2, then move to the 45° below and calibrate it as a new exercise. That is the progression route, not a fallback.',
        alts:[{machine:'Leg Press 45° (black)', sets:5, reps:'10–15', weight:null, rir:'1–2', tempo:'3-1-1', rest:'2–3 min',
@@ -1301,7 +1301,7 @@ var DEFAULT_PLAN = {
        alts:[{machine:'Multi Hip, Booty Builder', sets:5, reps:'8–10', weight:null, perSide:true, rir:'1–2', tempo:'2-1-1', rest:'2 min',
               note:'Unilateral station.'}]},
       {name:'Kneeling Leg Curl', machine:'Hammer Strength MTS', sets:4, reps:'10–12', weight:'60kg',
-       perSide:true, rir:'1–2', tempo:'2-1-2', rest:'90s',
+       cap:'75kg', perSide:true, rir:'1–2', tempo:'2-1-2', rest:'90s',
        note:'Only kneeling curl in the gym — if busy, add a Prone Leg Curl set from Monday instead.'},
       {name:'DB Split Squat', machine:'Dumbbell', sets:4, reps:'10–12/side', weight:'16kg/hand',
        rir:'1–2', tempo:'2-1-1', rest:'90s',
@@ -2083,16 +2083,85 @@ function renderExerciseBlock(tpl, containerEl, allowUpload){
    reduced target is shown alongside, since that is the number to load today. */
 function prescriptionMeta(e){
   var out = e.sets + ' × ' + e.reps;
-  if(e.weight){
-    out += ' @ ' + e.weight;
-    var scaled = phaseAdjustedWeight(e.weight);
-    if(scaled) out += ' <span style="color:var(--amber)">→ ' + scaled + ' this week</span>';
-  } else if(e.weight === null){
+  var t = workingTarget(e);
+  if(t.state === 'none'){
     out += ' @ <span style="color:var(--amber)">calibrate</span>';
+  } else if(t.weightStr){
+    out += ' @ ' + t.weightStr;
+    if(t.state === 'progressed') out += ' <span style="color:var(--green)">▲</span>';
+    /* Phase C sets the load itself, off the working weight rather than the
+       figure the plan was written with. */
+    var scaled = phaseAdjustedWeight(t.weightStr);
+    if(scaled) out += ' <span style="color:var(--amber)">→ ' + scaled + ' this week</span>';
   }
   if(e.perSide) out += ' <span style="color:var(--ink-dim)">· log per side</span>';
   return out;
 }
+/* ================= WORKING TARGET =================
+   The plan's weight is where an exercise starts; after the first session the
+   log is what it weighs. This computes the next target from what was actually
+   lifted, so the double-progression rule is applied rather than described. */
+function parseWeight(str){
+  var m = String(str||'').match(/^(~?)(\d+(?:\.\d+)?)\s*(kg|lb)?(.*)$/);
+  if(!m) return null;
+  return {prefix:m[1], value:parseFloat(m[2]), unit:m[3]||'kg', suffix:m[4]||''};
+}
+function formatWeight(p, value){
+  /* Half a kilo is the finest thing that can actually go on a bar or a stack. */
+  return p.prefix + (Math.round(value*2)/2) + p.unit + p.suffix;
+}
+/* The smallest real increment. A dumbbell rack steps in whole kilos a side, a
+   pound stack in fives, everything else in the usual 2.5kg pair of plates.
+   Where a machine differs, logging what you actually loaded corrects it — the
+   next target is computed from the log, so it self-corrects. */
+function loadStep(p){
+  if(/\/hand/.test(p.suffix)) return 2;
+  return p.unit === 'lb' ? 5 : 2.5;
+}
+function workingTarget(e){
+  var base = parseWeight(e.weight);
+  var out = {state:'none', weightStr:null, aim:null, last:null};
+  if(e.weight === null || !base) return out;
+  out.weightStr = e.weight; out.state = 'plan';
+  var ends = repRangeEnds(e.reps);
+  var last = lastLoggedSession(e.name);
+  if(!last || !ends) return out;
+  out.last = last;
+  /* Work in the unit it was logged in, so a pound machine never gets a kilo
+     target. "/hand" survives because it still qualifies the number; a note
+     like "to start" does not, once there is a real session to work from. */
+  var unit = liftUnitOf(last);
+  var p = {prefix:'', value:last.weight, unit:unit,
+           suffix: /\/hand/.test(base.suffix) ? '/hand' : ''};
+  out.weightStr = formatWeight(p, last.weight);
+  out.state = 'hold';
+  if(!(last.reps >= ends.top && last.sets >= e.sets)) return out;
+  /* The load only climbs in a phase that runs the rule. Through the return
+     ramp it is the phase percentage that sets the weight, so the working
+     number holds where the last session left it. */
+  var ph = currentPhase();
+  if(!ph || ph.rule !== 'double-progression') return out;
+
+  var step = loadStep(p);
+  var next = Math.ceil(((last.weight * 1.025) - 1e-9) / step) * step;
+  if(next <= last.weight) next = last.weight + step;
+  var cap = e.cap ? parseWeight(e.cap) : null;
+  if(cap){
+    var capVal = cap.unit === unit ? cap.value : convertLift(cap.value, cap.unit, unit);
+    if(next > capVal){
+      out.state = 'capped';
+      out.weightStr = formatWeight(p, Math.min(last.weight, capVal));
+      return out;
+    }
+  }
+  out.state = 'progressed';
+  out.from = formatWeight(p, last.weight);
+  out.weightStr = formatWeight(p, next);
+  out.aim = ends.bottom;
+  out.jumpPct = Math.round((next/last.weight - 1) * 1000) / 10;
+  return out;
+}
+
 /* The ends of a prescribed range: "10–12" gives 10 and 12, "10–12/side" the
    same, "6–8" gives 6 and 8. A single target has no top to work toward, which
    is how the maintenance movements opt out of the ladder. */
@@ -2119,26 +2188,30 @@ function progressionCue(e){
   if(!phase || phase.rule !== 'double-progression') return '';
   var ends = repRangeEnds(e.reps);
   if(!ends) return '';
-  var last = lastLoggedSession(e.name);
+  var t = workingTarget(e);
+  var last = t.last;
   if(!last){
     return '<span style="color:var(--ink-dim)">Nothing logged for this yet — the first session sets the starting point.</span>';
   }
-  var w = last.weight + ' ' + liftUnitOf(last);
-  var did = last.sets + ' × ' + last.reps + ' @ ' + w;
-  if(last.reps >= ends.top && last.sets >= e.sets){
-    return '<span style="color:var(--green)">Ready to add load</span> — ' + fmtDate(last.date) + ' you logged ' +
-      did + ', the top of the range. Add 2.5–5% and expect to drop back toward ' + ends.bottom + ' reps. ' +
-      '<span style="color:var(--ink-dim)">Only if that one had real room at RIR ' + (e.rir||'target') +
-      ' — never after a grind.</span>';
+  var did = last.sets + ' × ' + last.reps + ' @ ' + last.weight + ' ' + liftUnitOf(last) +
+            ' on ' + fmtDate(last.date);
+  if(t.state === 'progressed'){
+    return '<span style="color:var(--green)">Target raised from ' + t.from + '</span> — ' + did +
+      ' put you at the top of the range, so this session is ' + t.weightStr + ', aiming for ' + t.aim +
+      ' reps' + (t.jumpPct > 5 ? ' (a ' + t.jumpPct + '% jump — the smallest step this loads in)' : '') + '. ' +
+      '<span style="color:var(--ink-dim)">Drop back to ' + t.from + ' if that last one was a grind rather than RIR ' +
+      (e.rir||'target') + '.</span>';
   }
-  /* Reps at the top but sets short is a different problem to reps short, and
-     telling someone to chase a rep they already hit reads as a broken app. */
+  if(t.state === 'capped'){
+    return '<span style="color:var(--amber)">Machine maxed at ' + e.cap + '</span> — ' + did +
+      '. No load left to add here, so keep taking reps and pause time up.';
+  }
   if(last.reps >= ends.top){
-    return '<span style="color:var(--amber)">Stay at ' + w + '</span> — ' + fmtDate(last.date) + ' you logged ' +
-      did + ': the reps are there, the sets are not. Get all ' + e.sets + ' at this weight before adding load.';
+    return '<span style="color:var(--amber)">Holding ' + t.weightStr + '</span> — ' + did +
+      ': the reps are there, the sets are not. Get all ' + e.sets + ' at this weight before the load moves.';
   }
-  return '<span style="color:var(--amber)">Stay at ' + w + '</span> — ' + fmtDate(last.date) + ' you logged ' +
-    did + '. Chase one more rep, up to ' + ends.top + '.';
+  return '<span style="color:var(--amber)">Holding ' + t.weightStr + '</span> — ' + did +
+    '. Chase one more rep, up to ' + ends.top + ', and the target moves itself.';
 }
 
 /* Machine, then the set-execution detail, then the written note. On the Plan

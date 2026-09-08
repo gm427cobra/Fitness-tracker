@@ -602,6 +602,7 @@ steps | 8400"></textarea>
     <button class="btn full" style="margin-bottom:8px" onclick="pushPlanToCloud()">Push this device's plan to my account</button>
     <button class="btn ghost full" style="margin-bottom:8px" onclick="restoreLocalPlan()">Restore the plan saved on this device</button>
     <button class="btn ghost full" style="margin-bottom:8px" onclick="restorePlanBackup()">Undo the last program update</button>
+    <button class="btn ghost full" style="margin-bottom:8px" onclick="resetPlanToBuiltIn()">Replace plan with the app's built-in program</button>
     <pre id="planDiagOut" style="display:none;white-space:pre-wrap;word-break:break-word;font-family:var(--f-mono);font-size:11px;color:var(--ink-dim);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:6px;padding:9px;margin:0 0 8px"></pre>
     <button class="btn ghost full" onclick="applyUpdate()">Force reload latest version</button>
   </div>
@@ -655,7 +656,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-08-3';
+var BUILD = '2026-09-08-4';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -701,7 +702,67 @@ var DEFAULT_PLAN = {
   startKg: 96.0,
   totalProgramDays: 84,
   profile: {heightCm: 178, age: 45, sex: 'male'},
-  planVersion: '2026-09-09-hypertrophy',
+  "weightProjection": {
+      "note": "Modeled from the original plan structure: slow bulk (+0.2kg/wk) Sep 2026–Feb 2027, then cut to hit target by program end. Baseline uses pre-creatine bodyweight (96.0kg, 1 Sep) rather than the current reading, since that still includes temporary water retention from creatine loading (started 31 Aug) that will settle within a few weeks and is not part of the real trend.",
+      "points": [
+          [
+              "2026-09-01",
+              96
+          ],
+          [
+              "2026-10-01",
+              96.9
+          ],
+          [
+              "2026-10-31",
+              97.7
+          ],
+          [
+              "2026-11-30",
+              98.6
+          ],
+          [
+              "2026-12-30",
+              99.4
+          ],
+          [
+              "2027-01-29",
+              100.3
+          ],
+          [
+              "2027-02-28",
+              101.1
+          ],
+          [
+              "2027-03-01",
+              101.2
+          ],
+          [
+              "2027-03-31",
+              98.1
+          ],
+          [
+              "2027-04-30",
+              94.9
+          ],
+          [
+              "2027-05-30",
+              91.8
+          ],
+          [
+              "2027-06-29",
+              88.7
+          ],
+          [
+              "2027-07-15",
+              87
+          ]
+      ],
+      "peakKg": 101.2,
+      "peakDate": "2027-03-01",
+      "cutRateKgPerWeek": 0.73
+  },
+  planVersion: '2026-09-09-hypertrophy-r2',
   /* The first day the new program applies. Anything before it is training that
      already happened and must be taken from the stored plan, not from here. */
   programChangeover: '2026-09-09',
@@ -714,9 +775,9 @@ var DEFAULT_PLAN = {
      they keep the old templates — rewriting them would regrade history in the
      adherence grid. The 9 Sep program starts on the Wednesday of week 2. */
   weekPlan: [
-    ['upperPush1','legs1','cardioJog','upperPull1','hipCore1','cardioRun','restFull'],
-    ['upperPush2','legs2','cardioJog','upperPull2','hipCore2','cardioRun','restFull'],
-    ['upperPushBuild','legsBuild','cardioJog','lowerB','upperB','cardioRun','restFull'],
+    ['legs1','upperPush1','cardioJog','hipCore1','upperPull1','cardioRun','restFull'],
+    ['legs2','upperPush2','cardioJog','hipCore2','upperPull2','cardioRun','restFull'],
+    ['legsBuild','upperPushBuild','cardioJog','lowerB','upperB','cardioRun','restFull'],
     ['lowerA','upperA','cardioJog','lowerB','upperB','opDay','postOpWalk'],
     ['postOpWalk','postOpWalk','postOpWalk','postOpWalk','postOpWalk','postOpWalk','postOpWalk'],
     ['postOpWalk','postOpWalk','postOpWalk','postOpWalk','postOpWalk','postOpWalk','postOpWalk'],
@@ -748,81 +809,434 @@ var DEFAULT_PLAN = {
      resumes on the 5th, so the build numbers come back with it. */
   dietPhaseBreaks: [ {upto:14,phase:'reset'}, {upto:27,phase:'build'}, {upto:41,phase:'rest'}, {upto:999999,phase:'build'} ],
   templates: {
-    upperPush1:{label:'Upper Push', ex:[
-      {name:'Floor Press', sets:3, reps:'6', note:'Start light — log the actual weight you use. Stop short of any pinch.'},
-      {name:'DB Neutral-Grip Press', sets:3, reps:'10', note:'Palms facing, moderate load.'},
-      {name:'Low-Incline Cable Fly', sets:3, reps:'12', note:'Light, controlled.'},
-      {name:'Face Pull', sets:3, reps:'15'},
-      {name:'Side-Lying External Rotation', sets:3, reps:'15', note:'Light — rehab work.'},
-      {name:'Band Wall Slide', sets:2, reps:'10'}
-    ]},
-    upperPush2:{label:'Upper Push', ex:[
-      {name:'Floor Press', sets:4, reps:'6', note:'+1 set. Add 2.5–5kg only if last week felt RPE ≤7.'},
-      {name:'DB Neutral-Grip Press', sets:4, reps:'10', note:'+1 set.'},
-      {name:'Low-Incline Cable Fly', sets:3, reps:'12'},
-      {name:'Face Pull', sets:3, reps:'15'},
-      {name:'Side-Lying External Rotation', sets:3, reps:'15'},
-      {name:'Band Wall Slide', sets:2, reps:'10'}
-    ]},
-    upperPushBuild:{label:'Upper Push', ex:[
-      {name:'Floor Press', sets:4, reps:'6', note:'Progress load if pain-free.'},
-      {name:'DB Neutral-Grip Press', sets:4, reps:'10', note:'Progress load if pain-free.'},
-      {name:'Low-Incline Cable Fly', sets:3, reps:'12'},
-      {name:'Face Pull', sets:3, reps:'15'},
-      {name:'Side-Lying External Rotation', sets:3, reps:'15'},
-      {name:'Band Wall Slide', sets:2, reps:'10'}
-    ]},
-    legs1:{label:'Legs', ex:[
-      {name:'Leg Press', sets:4, reps:'10', note:'160kg is this machine\'s max — once you\'re there, progress via reps/pause, not load.'},
-      {name:'Leg Extension', sets:3, reps:'10', weight:'120kg', note:'Recalibrated 24 Aug — 120kg was hard for a backoff set.'},
-      {name:'Prone Leg Curl', sets:3, reps:'10', weight:'25kg', note:'20kg was easy, 40kg only gave 2 reps — 25kg is the test point.'},
-      {name:'Calf Raise', sets:3, reps:'15', note:'Log & calibrate.'},
-      {name:'Machine Arm Curl', sets:3, reps:'8', weight:'50kg', note:'Neutral grip — switched from straight bar curl, pain-free here.'}
-    ]},
-    legs2:{label:'Legs', ex:[
-      {name:'Leg Press', sets:5, reps:'10', note:'+1 set. At 160kg max, add reps or a 2s pause instead of load.'},
-      {name:'Leg Extension', sets:3, reps:'10', weight:'125kg'},
-      {name:'Prone Leg Curl', sets:3, reps:'10', weight:'27.5kg'},
-      {name:'Calf Raise', sets:3, reps:'15'},
-      {name:'Machine Arm Curl', sets:3, reps:'8', weight:'55kg'}
-    ]},
-    legsBuild:{label:'Legs', ex:[
-      {name:'Leg Press', sets:5, reps:'10', note:'Progress reps/pause — load capped at 160kg.'},
-      {name:'Leg Extension', sets:3, reps:'10', weight:'125–130kg', note:'Progress if pain-free.'},
-      {name:'Prone Leg Curl', sets:3, reps:'10', weight:'27.5–30kg'},
-      {name:'Calf Raise', sets:3, reps:'15'},
-      {name:'Machine Arm Curl', sets:3, reps:'8', weight:'55–60kg'}
-    ]},
-    upperPull1:{label:'Upper Pull', ex:[
-      {name:'Chest-Supported Row', sets:4, reps:'8', note:'Log & calibrate.'},
-      {name:'Lat Pulldown', sets:3, reps:'10', note:'Log & calibrate.'},
-      {name:'Rear Delt Fly', sets:3, reps:'12', note:'Light.'},
-      {name:'Face Pull', sets:3, reps:'15'},
-      {name:'External Rotation', sets:3, reps:'15', note:'Light.'}
-    ]},
-    upperPull2:{label:'Upper Pull', ex:[
-      {name:'Chest-Supported Row', sets:5, reps:'8', note:'+1 set. Add load if RPE ≤7.'},
-      {name:'Lat Pulldown', sets:4, reps:'10', note:'+1 set.'},
-      {name:'Rear Delt Fly', sets:3, reps:'12'},
-      {name:'Face Pull', sets:3, reps:'15'},
-      {name:'External Rotation', sets:3, reps:'15'}
-    ]},
-    hipCore1:{label:'Hip & Core', ex:[
-      {name:'Hip Thrust', sets:4, reps:'8', note:'Log & calibrate.'},
-      {name:'Kneeling Leg Curl', sets:3, reps:'10', note:'Log & calibrate — different stretch angle to Prone Leg Curl.'},
-      {name:'DB Split Squat', sets:3, reps:'10/side', note:'Log & calibrate.'},
-      {name:'Pallof Press', sets:3, reps:'12/side'},
-      {name:'Suitcase Carry', sets:3, reps:'40m/side', note:'Heavy, controlled.'},
-      {name:'Side Plank + Leg Raise', sets:3, reps:'30–45s/side'}
-    ]},
-    hipCore2:{label:'Hip & Core', ex:[
-      {name:'Hip Thrust', sets:5, reps:'8', note:'+1 set. Add load if RPE ≤7.'},
-      {name:'Kneeling Leg Curl', sets:4, reps:'10'},
-      {name:'DB Split Squat', sets:4, reps:'10/side'},
-      {name:'Pallof Press', sets:3, reps:'12/side'},
-      {name:'Suitcase Carry', sets:3, reps:'40m/side'},
-      {name:'Side Plank + Leg Raise', sets:3, reps:'30–45s/side'}
-    ]},
+    "upperPush1": {
+          "label": "Upper Push",
+          "ex": [
+                {
+                      "name": "Floor Press",
+                      "sets": 3,
+                      "reps": "6",
+                      "note": "Start light — log the actual weight you use. Stop short of any pinch."
+                },
+                {
+                      "name": "DB Neutral-Grip Press",
+                      "sets": 3,
+                      "reps": "10",
+                      "note": "Palms facing, moderate load."
+                },
+                {
+                      "name": "Low-Incline Cable Fly",
+                      "sets": 3,
+                      "reps": "12",
+                      "note": "Light, controlled."
+                },
+                {
+                      "name": "Face Pull",
+                      "sets": 3,
+                      "reps": "15"
+                },
+                {
+                      "name": "Side-Lying External Rotation",
+                      "sets": 3,
+                      "reps": "15",
+                      "note": "Light — rehab work."
+                },
+                {
+                      "name": "Band Wall Slide",
+                      "sets": 2,
+                      "reps": "10"
+                }
+          ]
+    },
+    "upperPush2": {
+          "label": "Upper Push",
+          "ex": [
+                {
+                      "name": "Bench Press Machine (Hammer Strength Iso-Lateral)",
+                      "sets": 4,
+                      "reps": "6",
+                      "note": "Swapped from Floor Press 31 Aug — tested pain-free up to 120kg x7 on this machine (full range of motion, further than Floor Press ever asked of the shoulder). 95kg is a real working weight, not the ramp-test ceiling.",
+                      "weight": "95kg"
+                },
+                {
+                      "name": "DB Neutral-Grip Press",
+                      "sets": 4,
+                      "reps": "10",
+                      "note": "+1 set. Press in a straight line, not toward the middle — that's what keeps this shoulder-safe.",
+                      "weight": "24kg/hand"
+                },
+                {
+                      "name": "Low-Incline Cable Fly",
+                      "sets": 3,
+                      "reps": "12",
+                      "weight": "15kg",
+                      "note": "Big stretch at the bottom, squeeze without the handles drifting behind your body."
+                },
+                {
+                      "name": "Face Pull",
+                      "sets": 3,
+                      "reps": "15",
+                      "weight": "25kg",
+                      "note": "Pull to eye level, thumbs finish pointing back — the rotation is the point, not the pull."
+                },
+                {
+                      "name": "Side-Lying External Rotation",
+                      "sets": 3,
+                      "reps": "15",
+                      "weight": "5kg",
+                      "note": "Elbow stays pinned to your side all rep — if it drifts forward you're using shoulder, not cuff."
+                },
+                {
+                      "name": "Band Wall Slide",
+                      "sets": 2,
+                      "reps": "10"
+                },
+                {
+                      "name": "Triceps Isolation (pushdown or overhead extension — pick what’s free)",
+                      "sets": 3,
+                      "reps": "12",
+                      "note": "Added 8 Sep — closes the gap: nothing in the plan was hitting triceps directly, only incidentally through pressing. Find whatever triceps isolation machine/cable is free — pushdown or overhead extension both work — and log the first session to calibrate."
+                }
+          ]
+    },
+    "upperPushBuild": {
+          "label": "Upper Push",
+          "ex": [
+                {
+                      "name": "Bench Press Machine (Hammer Strength Iso-Lateral)",
+                      "sets": 4,
+                      "reps": "6",
+                      "note": "Swapped from Floor Press 31 Aug — tested pain-free up to 120kg x7 on this machine (full range of motion, further than Floor Press ever asked of the shoulder). 95kg is a real working weight, not the ramp-test ceiling.",
+                      "weight": "95kg"
+                },
+                {
+                      "name": "DB Neutral-Grip Press",
+                      "sets": 4,
+                      "reps": "10",
+                      "note": "Progress load if pain-free. Press in a straight line, not toward the middle.",
+                      "weight": "24kg/hand"
+                },
+                {
+                      "name": "Low-Incline Cable Fly",
+                      "sets": 3,
+                      "reps": "12",
+                      "weight": "15kg",
+                      "note": "Big stretch at the bottom, squeeze without the handles drifting behind your body."
+                },
+                {
+                      "name": "Face Pull",
+                      "sets": 3,
+                      "reps": "15",
+                      "weight": "25kg",
+                      "note": "Pull to eye level, thumbs finish pointing back."
+                },
+                {
+                      "name": "Side-Lying External Rotation",
+                      "sets": 3,
+                      "reps": "15",
+                      "weight": "5kg",
+                      "note": "Elbow stays pinned to your side all rep."
+                },
+                {
+                      "name": "Band Wall Slide",
+                      "sets": 2,
+                      "reps": "10"
+                },
+                {
+                      "name": "Triceps Isolation (pushdown or overhead extension — pick what’s free)",
+                      "sets": 3,
+                      "reps": "12",
+                      "note": "Added 8 Sep — closes the gap: nothing in the plan was hitting triceps directly, only incidentally through pressing. Find whatever triceps isolation machine/cable is free — pushdown or overhead extension both work — and log the first session to calibrate."
+                }
+          ]
+    },
+    "legs1": {
+          "label": "Legs",
+          "ex": [
+                {
+                      "name": "Leg Press",
+                      "sets": 4,
+                      "reps": "10",
+                      "note": "160kg is this machine's max — once you're there, progress via reps/pause, not load."
+                },
+                {
+                      "name": "Leg Extension",
+                      "sets": 3,
+                      "reps": "10",
+                      "weight": "120kg",
+                      "note": "Recalibrated 24 Aug — 120kg was hard for a backoff set."
+                },
+                {
+                      "name": "Prone Leg Curl",
+                      "sets": 3,
+                      "reps": "10",
+                      "weight": "25kg",
+                      "note": "20kg was easy, 40kg only gave 2 reps — 25kg is the test point."
+                },
+                {
+                      "name": "Calf Raise",
+                      "sets": 3,
+                      "reps": "15",
+                      "note": "Log & calibrate."
+                },
+                {
+                      "name": "Machine Arm Curl",
+                      "sets": 3,
+                      "reps": "8",
+                      "weight": "50kg",
+                      "note": "Neutral grip — switched from straight bar curl, pain-free here."
+                }
+          ]
+    },
+    "legs2": {
+          "label": "Legs",
+          "ex": [
+                {
+                      "name": "Leg Press",
+                      "sets": 5,
+                      "reps": "10",
+                      "note": "+1 set. At 160kg max, add reps or a 2s pause instead of load."
+                },
+                {
+                      "name": "Leg Extension",
+                      "sets": 3,
+                      "reps": "10",
+                      "weight": "125kg"
+                },
+                {
+                      "name": "Prone Leg Curl",
+                      "sets": 3,
+                      "reps": "10",
+                      "weight": "27.5kg"
+                },
+                {
+                      "name": "Calf Raise",
+                      "sets": 3,
+                      "reps": "15"
+                },
+                {
+                      "name": "Machine Arm Curl",
+                      "sets": 3,
+                      "reps": "8",
+                      "weight": "55kg"
+                }
+          ]
+    },
+    "legsBuild": {
+          "label": "Legs",
+          "ex": [
+                {
+                      "name": "Leg Press",
+                      "sets": 5,
+                      "reps": "10",
+                      "note": "Progress reps/pause — load capped at 160kg."
+                },
+                {
+                      "name": "Leg Extension",
+                      "sets": 3,
+                      "reps": "10",
+                      "weight": "125–130kg",
+                      "note": "Progress if pain-free."
+                },
+                {
+                      "name": "Prone Leg Curl",
+                      "sets": 3,
+                      "reps": "10",
+                      "weight": "49.5kg",
+                      "note": "Confirmed twice now (1 Sep, 7 Sep) clean for a full 3x10 — real working weight, not the old estimate."
+                },
+                {
+                      "name": "Calf Raise",
+                      "sets": 3,
+                      "reps": "15",
+                      "weight": "54.4kg",
+                      "note": "Confirmed twice now (1 Sep, 7 Sep), full 3x15."
+                },
+                {
+                      "name": "Machine Arm Curl",
+                      "sets": 3,
+                      "reps": "8",
+                      "weight": "85.5kg",
+                      "note": "Confirmed twice now (1 Sep, 7 Sep), full 3x8."
+                }
+          ]
+    },
+    "upperPull1": {
+          "label": "Upper Pull",
+          "ex": [
+                {
+                      "name": "Chest-Supported Row",
+                      "sets": 4,
+                      "reps": "8",
+                      "note": "Squeeze shoulder blades together at the top, no momentum off the pad.",
+                      "weight": "50kg"
+                },
+                {
+                      "name": "Lat Pulldown",
+                      "sets": 3,
+                      "reps": "10",
+                      "note": "Lead with the elbows, not the hands — think elbows to back pockets.",
+                      "weight": "70kg"
+                },
+                {
+                      "name": "Rear Delt Fly",
+                      "sets": 3,
+                      "reps": "12",
+                      "note": "Light. Slight bend in the elbows, lead with the pinkies — this is a finisher, not an ego lift.",
+                      "weight": "12kg"
+                },
+                {
+                      "name": "Face Pull",
+                      "sets": 3,
+                      "reps": "15",
+                      "weight": "25kg",
+                      "note": "Pull to eye level, thumbs finish pointing back."
+                },
+                {
+                      "name": "External Rotation",
+                      "sets": 3,
+                      "reps": "15",
+                      "note": "Light. Elbow pinned to your side — don't let the shoulder take over from the cuff.",
+                      "weight": "5kg"
+                }
+          ]
+    },
+    "upperPull2": {
+          "label": "Upper Pull",
+          "ex": [
+                {
+                      "name": "Chest-Supported Row",
+                      "sets": 5,
+                      "reps": "8",
+                      "note": "+1 set. Add load if RPE ≤7. Squeeze shoulder blades together at the top, no momentum off the pad.",
+                      "weight": "50kg"
+                },
+                {
+                      "name": "Lat Pulldown",
+                      "sets": 4,
+                      "reps": "10",
+                      "note": "+1 set. Lead with the elbows, not the hands.",
+                      "weight": "70kg"
+                },
+                {
+                      "name": "Rear Delt Fly",
+                      "sets": 3,
+                      "reps": "12",
+                      "weight": "12kg",
+                      "note": "Slight bend in the elbows, lead with the pinkies."
+                },
+                {
+                      "name": "Face Pull",
+                      "sets": 3,
+                      "reps": "15",
+                      "weight": "25kg",
+                      "note": "Pull to eye level, thumbs finish pointing back."
+                },
+                {
+                      "name": "External Rotation",
+                      "sets": 3,
+                      "reps": "15",
+                      "weight": "5kg",
+                      "note": "Elbow pinned to your side, don't let the shoulder take over."
+                },
+                {
+                      "name": "Biceps Curl (incline DB, cable, or preacher — pick what’s free)",
+                      "sets": 3,
+                      "reps": "10",
+                      "note": "Added 8 Sep — gives biceps a second weekly touch alongside Machine Arm Curl on Legs day, and pairs it with back work where it naturally belongs. Find a free curl variation (incline DB, cable, preacher) and log the first session to calibrate."
+                }
+          ]
+    },
+    "hipCore1": {
+          "label": "Hip & Core",
+          "ex": [
+                {
+                      "name": "Hip Thrust",
+                      "sets": 4,
+                      "reps": "8",
+                      "note": "Chin tucked, ribs down at the top — don't arch the lower back to find the last few degrees.",
+                      "weight": "100kg"
+                },
+                {
+                      "name": "Kneeling Leg Curl",
+                      "sets": 3,
+                      "reps": "10",
+                      "note": "Full stretch at the bottom, hard squeeze at the top — different angle to Prone Leg Curl, don't expect the same number to feel the same.",
+                      "weight": "22.5kg"
+                },
+                {
+                      "name": "DB Split Squat",
+                      "sets": 3,
+                      "reps": "10/side",
+                      "note": "Rear foot elevated if there's a bench free. Back knee drops straight down, front knee tracks over the laces.",
+                      "weight": "20kg/hand"
+                },
+                {
+                      "name": "Pallof Press",
+                      "sets": 3,
+                      "reps": "12/side",
+                      "weight": "18kg",
+                      "note": "Challenge: hold each rep 1 second at full extension without your hips twisting toward the cable."
+                },
+                {
+                      "name": "Single-Arm Farmer's Hold",
+                      "sets": 3,
+                      "reps": "20-30s/side",
+                      "note": "Swapped from Suitcase Carry — same loaded anti-lateral-flexion stimulus, no walking lane needed. Stand tall, ribs stacked over hips, don't let the loaded side pull you into a lean.",
+                      "weight": "32kg/hand"
+                },
+                {
+                      "name": "Side Plank + Leg Raise",
+                      "sets": 3,
+                      "reps": "30–45s/side"
+                }
+          ]
+    },
+    "hipCore2": {
+          "label": "Hip & Core",
+          "ex": [
+                {
+                      "name": "Hip Thrust",
+                      "sets": 5,
+                      "reps": "8",
+                      "note": "Recalibrated 28 Aug — 120kg was just doable for 8, so 105kg is the real straight-set working weight, not a guess anymore. Add load if RPE ≤7. Chin tucked, ribs down at the top.",
+                      "weight": "105kg"
+                },
+                {
+                      "name": "Kneeling Leg Curl",
+                      "sets": 4,
+                      "reps": "10",
+                      "weight": "60kg",
+                      "note": "Recalibrated 28 Aug — 50kg was clean with a full squeeze at the top, and this machine caps at 75kg, so there is real room. Full stretch at the bottom, hard squeeze at the top."
+                },
+                {
+                      "name": "DB Split Squat",
+                      "sets": 4,
+                      "reps": "10/side",
+                      "weight": "16kg/hand",
+                      "note": "Holding at 16kg/hand deliberately — first session (28 Aug) was ok but genuinely challenging by the last reps. Bed in the movement and balance before adding load, not before."
+                },
+                {
+                      "name": "Pallof Press",
+                      "sets": 3,
+                      "reps": "12/side",
+                      "weight": "11.3kg",
+                      "note": "First session (28 Aug) ramped 2.3→4.5→6.8→9.1→11.3kg, 10 reps each, no shoulder issue. Aim for 2-3 straight sets at 11.3kg rather than ramping again."
+                },
+                {
+                      "name": "Single-Arm Farmer's Hold",
+                      "sets": 3,
+                      "reps": "20-30s/side",
+                      "weight": "38kg/hand",
+                      "note": "Bumped from 32kg — first session (28 Aug) had room left at the full 30s. Stand tall, ribs stacked over hips, stop the moment you lean toward the loaded side."
+                },
+                {
+                      "name": "Side Plank + Leg Raise",
+                      "sets": 3,
+                      "reps": "30–45s/side"
+                }
+          ]
+    },
     /* ---- 9 Sep 2026 revision: 4-day Upper/Lower hypertrophy split ----
        Every exercise carries its own full prescription, and so does every
        alternate: a different machine is a different exercise, tracked in its
@@ -942,33 +1356,33 @@ var DEFAULT_PLAN = {
     reset: {
       label:'Reset — Wk 1–2', dateRange:'24 Aug – 6 Sep', kcal:2800, protein:190, carbs:300, fat:90,
       meals:[
-        {name:'Breakfast', kcal:520, protein:36, food:'4 whole eggs + 2 whites, 2 slices sourdough, ½ avocado'},
-        {name:'Lunch', kcal:630, protein:48, food:'200g chicken/salmon, 250g potato, big salad, olive oil'},
-        {name:'Training snack', kcal:340, protein:32, food:'Whey shake + banana + 40g oats'},
-        {name:'Dinner — Prep Kitchen', kcal:700, protein:55, food:'Filter: Higher Protein + Under 500kcal (Regular), served Large', pk:true, pkTag:'MUSCLE GAIN · LARGE'},
-        {name:'Evening', kcal:610, protein:19, food:'300g Greek yoghurt, berries, 30g honey, 30g granola'}
+        {name:'Breakfast', kcal:520, protein:36, food:'4 whole eggs + 2 whites, 2 slices sourdough, ½ avocado', time:'07:30'},
+        {name:'Lunch', kcal:630, protein:48, food:'200g chicken/salmon, 250g potato, big salad, olive oil', time:'12:30'},
+        {name:'Training snack', kcal:340, protein:32, food:'Whey shake + banana + 40g oats', time:'16:00'},
+        {name:'Dinner — Prep Kitchen', kcal:700, protein:55, food:'Filter: Higher Protein + Under 500kcal (Regular), served Large', pk:true, pkTag:'MUSCLE GAIN · LARGE', time:'19:00'},
+        {name:'Evening', kcal:610, protein:19, food:'300g Greek yoghurt, berries, 30g honey, 30g granola', time:'21:00'}
       ],
       note: null
     },
     build: {
       label:'Build — Wk 3–4', dateRange:'7 Sep – 19 Sep', kcal:3050, protein:200, carbs:370, fat:95,
       meals:[
-        {name:'Breakfast', kcal:620, protein:38, food:'4 whole eggs + 2 whites, 3 slices sourdough, ½ avocado'},
-        {name:'Lunch', kcal:720, protein:52, food:'220g chicken/salmon/beef, 300g potato/rice, salad, olive oil'},
-        {name:'Training snack', kcal:420, protein:34, food:'Whey shake + banana + 50g oats + honey'},
-        {name:'Dinner — Prep Kitchen', kcal:750, protein:55, food:'Same filter — pick the higher-kcal higher-protein dish of the week', pk:true, pkTag:'MUSCLE GAIN · LARGE'},
-        {name:'Evening', kcal:540, protein:21, food:'350g Greek yoghurt, 70g granola (nut-free), banana, honey'}
+        {name:'Breakfast', kcal:620, protein:38, food:'4 whole eggs + 2 whites, 3 slices sourdough, ½ avocado', time:'07:30'},
+        {name:'Lunch', kcal:720, protein:52, food:'220g chicken/salmon/beef, 300g potato/rice, salad, olive oil', time:'12:30'},
+        {name:'Training snack', kcal:420, protein:34, food:'Whey shake + banana + 50g oats + honey', time:'16:00'},
+        {name:'Dinner — Prep Kitchen', kcal:750, protein:55, food:'Same filter — pick the higher-kcal higher-protein dish of the week', pk:true, pkTag:'MUSCLE GAIN · LARGE', time:'19:00'},
+        {name:'Evening', kcal:540, protein:21, food:'350g Greek yoghurt, 70g granola (nut-free), banana, honey', time:'21:00'}
       ],
       note: 'Sat 19 Sep (op day): ignore these numbers — follow the hospital\'s pre-op fasting instructions instead.'
     },
     rest: {
       label:'Post-Op Rest — 2wk', dateRange:'20 Sep – 3 Oct', kcal:2500, protein:200, carbs:240, fat:90,
       meals:[
-        {name:'Breakfast', kcal:400, protein:35, food:'3 whole eggs + 3 whites, 1 slice sourdough'},
-        {name:'Lunch', kcal:700, protein:48, food:'200g chicken/fish, 250g rice/potato, big salad, olive oil'},
-        {name:'Snack', kcal:250, protein:28, food:'Whey shake + apple'},
-        {name:'Dinner — Prep Kitchen', kcal:700, protein:55, food:'Protein target doesn\'t drop just because training has stopped', pk:true, pkTag:'MUSCLE GAIN · LARGE'},
-        {name:'Evening', kcal:400, protein:30, food:'300g Greek yoghurt + berries'}
+        {name:'Breakfast', kcal:400, protein:35, food:'3 whole eggs + 3 whites, 1 slice sourdough', time:'07:30'},
+        {name:'Lunch', kcal:700, protein:48, food:'200g chicken/fish, 250g rice/potato, big salad, olive oil', time:'12:30'},
+        {name:'Snack', kcal:250, protein:28, food:'Whey shake + apple', time:'16:00'},
+        {name:'Dinner — Prep Kitchen', kcal:700, protein:55, food:'Protein target doesn\'t drop just because training has stopped', pk:true, pkTag:'MUSCLE GAIN · LARGE', time:'19:00'},
+        {name:'Evening', kcal:400, protein:30, food:'300g Greek yoghurt + berries', time:'21:00'}
       ],
       note: 'Calories drop here because there\'s no training to fuel — hold this even if the scale ticks up. That\'s post-surgical fluid, not fat.'
     }
@@ -2114,6 +2528,23 @@ async function loadLatestProgram(){
   await savePlan(PLAN);
   renderHeader(); renderToday(); renderPlan(); renderDiet(); refreshProgress();
   populateLiftExerciseSelect(); renderEquipment();
+}
+/* The merge protects a stored plan's own history, which is right when that
+   history is sound. When it is not — a bad update already wrote over it — the
+   way back is to take the built-in program entire, historical weeks included.
+   Deliberately separate from the update button, and behind its own warning. */
+async function resetPlanToBuiltIn(){
+  if(!confirm('Replace your whole plan with the ' + DEFAULT_PLAN.planVersion + ' program?\n\n' +
+              'This overwrites the historical weeks too, not just the sessions ahead.\n' +
+              'Only use it to recover from a plan that is already wrong.\n\n' +
+              'Your training logs, weights, photos and inventory are not touched.')) return;
+  await backupPlan(PLAN);
+  PLAN = JSON.parse(JSON.stringify(DEFAULT_PLAN));
+  await savePlan(PLAN);
+  renderHeader(); renderToday(); renderPlan(); renderDiet(); refreshProgress();
+  populateLiftExerciseSelect(); renderEquipment();
+  planDiagOut('Plan replaced with the built-in program:\n  ' + planSignature(PLAN) +
+              '\nThe plan you had is backed up — "Undo the last program update" puts it back.');
 }
 /* Undo, for when a program update turns out to have taken something with it. */
 async function restorePlanBackup(){

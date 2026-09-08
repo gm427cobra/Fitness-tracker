@@ -304,6 +304,7 @@
 </div>
 
 <div class="view" id="view-plan">
+  <div class="note-strip" id="planUpdateStrip" style="display:none"></div>
   <div class="note-strip blue" id="planNote"></div>
   <div id="planList"></div>
 
@@ -648,7 +649,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-07-4';
+var BUILD = '2026-09-08-1';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -692,19 +693,51 @@ var DEFAULT_PLAN = {
   programEnd: '2027-07-15',
   targetKg: 87.0,
   startKg: 96.0,
-  totalProgramDays: 41,
+  totalProgramDays: 84,
   profile: {heightCm: 178, age: 45, sex: 'male'},
-  planNote: '6-week block: Reset → Build → Taper → Op (Sat 19 Sep) → Post-op rest (to Sat 3 Oct). Month 2 build resumes Mon 5 Oct.',
-  weekNames: ['Reset — Week 1','Reset — Week 2','Build — Week 1','Build — Week 2 (Taper)','Post-Op Rest — Week 1','Post-Op Rest — Week 2'],
+  planVersion: '2026-09-09-hypertrophy',
+  planNote: '4-day Upper/Lower hypertrophy split, designed 9 Sep. Phase A pre-op push to 18 Sep → op Sat 19 Sep → rest to 3 Oct → return ramp from 5 Oct → normal progression from 19 Oct.',
+  weekNames: ['Reset — Week 1','Reset — Week 2','Changeover — new program from Wed 9 Sep',
+              'Phase A — Pre-op push','Phase B — Post-op rest 1','Phase B — Post-op rest 2',
+              'Phase C1 — Return ramp, week 1','Phase C2 — Return ramp, week 2',
+              'Phase D — Week 1','Phase D — Week 2','Phase D — Week 3','Phase D — Week 4'],
+  /* Weeks 0–1 and the Mon/Tue of week 2 are training that already happened, so
+     they keep the old templates — rewriting them would regrade history in the
+     adherence grid. The 9 Sep program starts on the Wednesday of week 2. */
   weekPlan: [
     ['upperPush1','legs1','cardioJog','upperPull1','hipCore1','cardioRun','restFull'],
     ['upperPush2','legs2','cardioJog','upperPull2','hipCore2','cardioRun','restFull'],
-    ['upperPushBuild','legsBuild','cardioJog','upperPullBuild','hipCoreBuild','cardioRun','restFull'],
-    ['upperPushTaper','legsTaper','cardioJog','upperPullTaper','restFull','opDay','postOpWalk'],
+    ['upperPushBuild','legsBuild','cardioJog','lowerB','upperB','cardioRun','restFull'],
+    ['lowerA','upperA','cardioJog','lowerB','upperB','opDay','postOpWalk'],
     ['postOpWalk','postOpWalk','postOpWalk','postOpWalk','postOpWalk','postOpWalk','postOpWalk'],
-    ['postOpWalk','postOpWalk','postOpWalk','postOpWalk','postOpWalk','postOpWalk','postOpWalk']
+    ['postOpWalk','postOpWalk','postOpWalk','postOpWalk','postOpWalk','postOpWalk','postOpWalk'],
+    ['lowerA','upperA','cardioJog','lowerB','upperB','cardioRun','restFull'],
+    ['lowerA','upperA','cardioJog','lowerB','upperB','cardioRun','restFull'],
+    ['lowerA','upperA','cardioJog','lowerB','upperB','cardioRun','restFull'],
+    ['lowerA','upperA','cardioJog','lowerB','upperB','cardioRun','restFull'],
+    ['lowerA','upperA','cardioJog','lowerB','upperB','cardioRun','restFull'],
+    ['lowerA','upperA','cardioJog','lowerB','upperB','cardioRun','restFull']
   ],
-  dietPhaseBreaks: [ {upto:14,phase:'reset'}, {upto:27,phase:'build'}, {upto:999999,phase:'rest'} ],
+  /* Date-driven, so the app can say which rule is running today rather than that
+     logic living only in the written plan. Phase C carries a load percentage of
+     the Phase A working weight; A and D run double progression. */
+  progressionPhase: {
+    phases: [
+      {id:'A',  label:'Pre-op push',          start:'2026-09-09', end:'2026-09-18', rule:'double-progression',
+       note:'Double progression, per exercise, session to session. Every set at the top of its rep range at the prescribed RIR → add 2.5–5% next time. Still working up, or last session was a grind → repeat the weight and chase one more rep. Never add load after a genuine RIR 0–1 grind.'},
+      {id:'B',  label:'Enforced rest',        start:'2026-09-19', end:'2026-10-03', rule:'none',
+       note:'No lifting. Operation, then post-op recovery. Whatever your surgical team says about activity overrides everything in this plan.'},
+      {id:'C1', label:'Return ramp — week 1', start:'2026-10-05', end:'2026-10-11', loadPct:0.75, rirTarget:'3–4',
+       note:'Get explicit clearance from your surgical team before resuming. Around 70–80% of your Phase A weights, prescribed sets or one fewer on compounds. Re-acclimating tissue and technique — not testing anything.'},
+      {id:'C2', label:'Return ramp — week 2', start:'2026-10-12', end:'2026-10-18', loadPct:0.875, rirTarget:'2–3',
+       note:'Around 85–90% of Phase A, full prescribed sets. Rebuilding toward normal working intensity. Anything that feels wrong rather than merely hard — stop and check with your surgical team.'},
+      {id:'D',  label:'Resume progression',   start:'2026-10-19', rule:'double-progression',
+       note:'Back to the Phase A double-progression rule from wherever the return ramp left you.'}
+    ]
+  },
+  /* Rest-phase macros run to the end of the post-op window (3 Oct); training
+     resumes on the 5th, so the build numbers come back with it. */
+  dietPhaseBreaks: [ {upto:14,phase:'reset'}, {upto:27,phase:'build'}, {upto:41,phase:'rest'}, {upto:999999,phase:'build'} ],
   templates: {
     upperPush1:{label:'Upper Push', ex:[
       {name:'Floor Press', sets:3, reps:'6', note:'Start light — log the actual weight you use. Stop short of any pinch.'},
@@ -730,12 +763,6 @@ var DEFAULT_PLAN = {
       {name:'Side-Lying External Rotation', sets:3, reps:'15'},
       {name:'Band Wall Slide', sets:2, reps:'10'}
     ]},
-    upperPushTaper:{label:'Upper Push — Taper', ex:[
-      {name:'Floor Press', sets:2, reps:'6', note:'Taper: same weight, fewer sets.'},
-      {name:'DB Neutral-Grip Press', sets:2, reps:'10'},
-      {name:'Face Pull', sets:2, reps:'15'},
-      {name:'Side-Lying External Rotation', sets:2, reps:'15'}
-    ]},
     legs1:{label:'Legs', ex:[
       {name:'Leg Press', sets:4, reps:'10', note:'160kg is this machine\'s max — once you\'re there, progress via reps/pause, not load.'},
       {name:'Leg Extension', sets:3, reps:'10', weight:'120kg', note:'Recalibrated 24 Aug — 120kg was hard for a backoff set.'},
@@ -757,13 +784,6 @@ var DEFAULT_PLAN = {
       {name:'Calf Raise', sets:3, reps:'15'},
       {name:'Machine Arm Curl', sets:3, reps:'8', weight:'55–60kg'}
     ]},
-    legsTaper:{label:'Legs — Taper', ex:[
-      {name:'Leg Press', sets:3, reps:'10', note:'Taper: same weight, fewer sets.'},
-      {name:'Leg Extension', sets:3, reps:'10', weight:'120kg'},
-      {name:'Prone Leg Curl', sets:2, reps:'10', weight:'25kg'},
-      {name:'Calf Raise', sets:2, reps:'15'},
-      {name:'Machine Arm Curl', sets:2, reps:'8', weight:'50kg'}
-    ]},
     upperPull1:{label:'Upper Pull', ex:[
       {name:'Chest-Supported Row', sets:4, reps:'8', note:'Log & calibrate.'},
       {name:'Lat Pulldown', sets:3, reps:'10', note:'Log & calibrate.'},
@@ -777,19 +797,6 @@ var DEFAULT_PLAN = {
       {name:'Rear Delt Fly', sets:3, reps:'12'},
       {name:'Face Pull', sets:3, reps:'15'},
       {name:'External Rotation', sets:3, reps:'15'}
-    ]},
-    upperPullBuild:{label:'Upper Pull', ex:[
-      {name:'Chest-Supported Row', sets:5, reps:'8', note:'Progress load.'},
-      {name:'Lat Pulldown', sets:4, reps:'10', note:'Progress load.'},
-      {name:'Rear Delt Fly', sets:3, reps:'12'},
-      {name:'Face Pull', sets:3, reps:'15'},
-      {name:'External Rotation', sets:3, reps:'15'}
-    ]},
-    upperPullTaper:{label:'Upper Pull — Taper (light)', ex:[
-      {name:'Chest-Supported Row', sets:2, reps:'8', note:'Taper: same weight, fewer sets.'},
-      {name:'Lat Pulldown', sets:2, reps:'10'},
-      {name:'Face Pull', sets:2, reps:'15'},
-      {name:'External Rotation', sets:2, reps:'15'}
     ]},
     hipCore1:{label:'Hip & Core', ex:[
       {name:'Hip Thrust', sets:4, reps:'8', note:'Log & calibrate.'},
@@ -807,13 +814,114 @@ var DEFAULT_PLAN = {
       {name:'Suitcase Carry', sets:3, reps:'40m/side'},
       {name:'Side Plank + Leg Raise', sets:3, reps:'30–45s/side'}
     ]},
-    hipCoreBuild:{label:'Hip & Core', ex:[
-      {name:'Hip Thrust', sets:5, reps:'8', note:'Progress load.'},
-      {name:'Kneeling Leg Curl', sets:4, reps:'10'},
-      {name:'DB Split Squat', sets:4, reps:'10/side'},
-      {name:'Pallof Press', sets:3, reps:'12/side'},
-      {name:'Suitcase Carry', sets:3, reps:'40m/side'},
-      {name:'Side Plank + Leg Raise', sets:3, reps:'30–45s/side'}
+    /* ---- 9 Sep 2026 revision: 4-day Upper/Lower hypertrophy split ----
+       Every exercise carries its own full prescription, and so does every
+       alternate: a different machine is a different exercise, tracked in its
+       own right. weight:null renders as "calibrate" — the signal to treat the
+       first session on it as a genuine ramp-up test rather than a guess. */
+    lowerA:{label:'Lower A — quads & calves', ex:[
+      {name:'Leg Press', machine:'Cybex — confirm which unit is your 160kg machine (black or white)',
+       sets:5, reps:'10', weight:'160kg', rir:'1–2', tempo:'3-1-1', rest:'2–3 min',
+       note:'Capped at 160kg — progress via reps and pause, not load.',
+       alts:[{machine:'Leg Press 45° (black)', sets:5, reps:'10', weight:null, rir:'1–2', tempo:'3-1-1', rest:'2–3 min',
+              note:'Direct swap, fixed groove.'}]},
+      {name:'Leg Extension', machine:'Prime', sets:3, reps:'10', weight:'130kg', rir:'1–2',
+       tempo:'2-1-2', rest:'90s', note:'Squeeze at the top.',
+       alts:[{machine:'Leg Extension, silver plate-loaded', sets:3, reps:'10', weight:null, rir:'1–2', tempo:'2-1-2', rest:'90s'}]},
+      {name:'Prone Leg Curl', machine:'Prime', sets:3, reps:'10', weight:'49.5kg', rir:'1–2',
+       tempo:'2-1-2', rest:'90s', note:'Squeeze at the top.',
+       alts:[{machine:'Prone Leg Curl, Cybex Prestige', sets:3, reps:'10', weight:null, rir:'1–2', tempo:'2-1-2', rest:'90s'},
+             {machine:'Prone Leg Curl, Hammer Strength (plate-loaded)', sets:3, reps:'10', weight:null, rir:'1–2', tempo:'2-1-2', rest:'90s'}]},
+      {name:'Standing Calf Raise', machine:'GYM 80 — stack is in lb, not kg', sets:4, reps:'15',
+       weight:'120lb', rir:'0–1', tempo:'2-1-2', rest:'60s',
+       note:'Full stretch at the bottom. Confirm this is the 54.4kg/120lb machine — increments fit but it is not certain.',
+       alts:[{machine:'Standing Calf Raise, Muscleworks', sets:4, reps:'15', weight:null, rir:'0–1', tempo:'2-1-2', rest:'60s',
+              note:'Load is NOT interchangeable with the GYM 80 — recalibrate if you switch.'}]},
+      {name:'Abdominal Crunch', machine:'Cybex Eagle NX', sets:3, reps:'15', weight:null, rir:'0–1',
+       tempo:'2-1-2', rest:'60s', note:'Squeeze and hold 1s at the top.',
+       alts:[{machine:'Abdominal Crunch, plate-loaded', sets:3, reps:'15', weight:null, rir:'0–1', tempo:'2-1-2', rest:'60s'}]}
+    ]},
+    upperA:{label:'Upper A — chest & shoulders', ex:[
+      {name:'Bench Press Machine', machine:'Iso-Lateral Horizontal Bench Press, Hammer Strength',
+       sets:4, reps:'6', weight:'95kg', perSide:true, rir:'1–2', tempo:'2-0-1', rest:'2–3 min',
+       note:'Proven shoulder-safe, tested clean to 120kg.',
+       alts:[{machine:'Seated Chest Press (flat), Hammer Strength', sets:4, reps:'6', weight:'120kg', perSide:true,
+              rir:'1–2', tempo:'2-0-1', rest:'2–3 min',
+              note:'Tested 31 Aug at 8×3 — a real number, but confirm it still feels right for 4×6.'},
+             {machine:'Decline Chest Press (shallow), Hammer Strength', sets:4, reps:'6', weight:null, perSide:true,
+              rir:'1–2', tempo:'2-0-1', rest:'2–3 min'}]},
+      {name:'Incline Press', machine:'Incline Chest Press, Hammer Strength', sets:3, reps:'10',
+       weight:null, perSide:true, rir:'1–2', tempo:'2-0-1', rest:'2 min',
+       note:'Only upper-chest-bias machine available. Expect a lower weight than the flat press. No alternate for this angle — if it is busy, swap the whole slot for a second flat-press variant rather than forcing a substitute.'},
+      {name:'DB Neutral-Grip Press', machine:'Dumbbell, neutral grip', sets:3, reps:'10',
+       weight:'24kg/hand', rir:'1–2', tempo:'2-1-1', rest:'90s', note:'Free weight — always available.'},
+      {name:'Lateral Raise', machine:'Dumbbell', sets:3, reps:'15', weight:null, rir:'0–1',
+       tempo:'2-1-2', rest:'60s', note:'No swinging. Closes the shoulder-width gap — side delts were previously zero.',
+       alts:[{machine:'Cable lateral raise, Adjustable Cable Station (Cybex)', sets:3, reps:'15', weight:null, rir:'0–1', tempo:'2-1-2', rest:'60s'}]},
+      {name:'Low-Incline Cable Fly', machine:'Adjustable Cable Station, Cybex', sets:3, reps:'12',
+       weight:'15kg', rir:'1–2', tempo:'2-1-2', rest:'60s',
+       note:'Big stretch. Only cable station covering this — if busy, add sets to Incline Press instead.'},
+      {name:'Triceps Pushdown', machine:'Adjustable Cable Station, Cybex (rope or straight bar)',
+       sets:3, reps:'12', weight:null, rir:'0–1', tempo:'2-0-1', rest:'60s',
+       note:'No second cable station — if busy this is the one to skip, rather than force a poor substitute. The presses already carry real triceps volume.'},
+      {name:'Face Pull', machine:'Adjustable Cable Station, Cybex', sets:3, reps:'15', weight:'25kg',
+       rir:'1–2', tempo:'controlled, pause at face', rest:'60s',
+       note:'Maintenance, not rehab — this stays in even once the shoulder feels good.'},
+      {name:'Prone Y-Raise', machine:'Incline bench, light DB or bodyweight', sets:2, reps:'10',
+       weight:null, rir:'2–3', tempo:'slow, controlled', rest:'45s',
+       note:'Light. Maintenance, not a growth driver.'}
+    ]},
+    lowerB:{label:'Lower B — posterior chain, abs & calves', ex:[
+      {name:'Hip Thrust', machine:'Gluteator 2.0, Rogers Athletic', sets:5, reps:'8', weight:'~75kg to start',
+       rir:'1–2', tempo:'2-1-1', rest:'2 min',
+       note:'Purpose-built station, switching primary here. RECALIBRATE — your 105kg was set on a different setup, so start around 70% of it and work up. Squeeze glutes hard at the top.',
+       alts:[{machine:'Multi Hip, Booty Builder', sets:5, reps:'8', weight:null, perSide:true, rir:'1–2', tempo:'2-1-1', rest:'2 min',
+              note:'Unilateral station.'}]},
+      {name:'Kneeling Leg Curl', machine:'Hammer Strength MTS', sets:4, reps:'10', weight:'60kg',
+       perSide:true, rir:'1–2', tempo:'2-1-2', rest:'90s',
+       note:'Only kneeling curl in the gym — if busy, add a Prone Leg Curl set from Monday instead.'},
+      {name:'DB Split Squat', machine:'Dumbbell', sets:4, reps:'10/side', weight:'16kg/hand',
+       rir:'1–2', tempo:'2-1-1', rest:'90s',
+       alts:[{machine:'Iso-Lateral Leg Press, Hammer Strength', sets:4, reps:'10/side', weight:null, perSide:true,
+              rir:'1–2', tempo:'2-1-1', rest:'90s', note:'Single-leg, spine-safe cover for this movement. Start light.'}]},
+      {name:'Pallof Press', machine:'Adjustable Cable Station, Cybex', sets:3, reps:'12/side',
+       weight:'11.3kg', rir:'1–2', tempo:'pause 1s at extension', rest:'60s'},
+      {name:'Single-Arm Farmer’s Hold', machine:'Dumbbell or kettlebell', sets:3, reps:'20–30s/side',
+       weight:'38kg', rir:'near-failure grip', tempo:'hold', rest:'60s'},
+      {name:'Abdominal Crunch', machine:'Plate-loaded', sets:3, reps:'15', weight:null, rir:'0–1',
+       tempo:'2-1-2', rest:'60s', note:'A different machine to Monday’s, same movement — genuine 2x/week frequency.',
+       alts:[{machine:'Abdominal Crunch, Cybex Eagle NX', sets:3, reps:'15', weight:null, rir:'0–1', tempo:'2-1-2', rest:'60s'}]},
+      {name:'Seated Calf Raise', machine:'Arsenal Strength Reloaded (AR-SC / 9034)', sets:4, reps:'15',
+       weight:null, rir:'0–1', tempo:'2-1-2', rest:'60s',
+       note:'Soleus-biased, complements Monday’s gastroc-biased standing raise. Full stretch at the bottom. About 9kg of built-in lever resistance before any plate goes on, so this number understates true load — keep it consistent session to session rather than comparing it to Monday.'}
+    ]},
+    upperB:{label:'Upper B — back, side delts & arms', ex:[
+      {name:'Chest-Supported Row', machine:'Cybex Eagle NX', sets:5, reps:'8', weight:'40kg',
+       rir:'1–2', tempo:'2-1-1', rest:'2 min', note:'Squeeze the shoulder blades.',
+       alts:[{machine:'Iso-Lateral D.Y. Row, Hammer Strength', sets:5, reps:'8', weight:null, perSide:true, rir:'1–2', tempo:'2-1-1', rest:'2 min'},
+             {machine:'Iso-Lateral Row, Hammer Strength (silver frame)', sets:5, reps:'8', weight:null, perSide:true, rir:'1–2', tempo:'2-1-1', rest:'2 min'}]},
+      {name:'Lat Pulldown', machine:'Plate-loaded, independent handles', sets:4, reps:'10', weight:'70kg',
+       perSide:true, rir:'1–2', tempo:'2-1-1', rest:'90s', note:'Elbows lead.',
+       alts:[{machine:'Lat Pulldown, Arsenal Strength', sets:4, reps:'10', weight:null, perSide:true, rir:'1–2', tempo:'2-1-1', rest:'90s'},
+             {machine:'Lat Pulldown, silver frame (plate-loaded lever)', sets:4, reps:'10', weight:null, rir:'1–2', tempo:'2-1-1', rest:'90s'},
+             {machine:'Seated Lat Pulldown, black (plate-loaded)', sets:4, reps:'10', weight:null, rir:'1–2', tempo:'2-1-1', rest:'90s',
+              note:'Confirm whether the arms move independently — if they do, log per side.'}]},
+      {name:'High Row', machine:'Iso-Lateral High Row, Hammer Strength', sets:3, reps:'10', weight:null,
+       perSide:true, rir:'1–2', tempo:'2-1-1', rest:'90s',
+       note:'Sits between the pulldown and the row — a genuinely different angle.'},
+      {name:'Rear Delt Fly', machine:'Adjustable Cable Station, Cybex', sets:3, reps:'12', weight:'12kg',
+       rir:'1–2', tempo:'2-1-2', rest:'60s',
+       alts:[{machine:'Dedicated rear delt machine, if free', sets:3, reps:'12', weight:null, rir:'1–2', tempo:'2-1-2', rest:'60s'}]},
+      {name:'Machine Arm Curl', machine:'Machine Arm Curl', sets:3, reps:'8', weight:'85.5kg',
+       rir:'1–2', tempo:'2-0-2', rest:'60s',
+       note:'Used for weeks but never catalogued — add a photo and an inventory entry when you can.',
+       alts:[{machine:'Cable curl, Adjustable Cable Station (Cybex)', sets:3, reps:'8', weight:null, rir:'1–2', tempo:'2-0-2', rest:'60s'}]},
+      {name:'Incline DB Curl', machine:'Incline bench, dumbbells', sets:2, reps:'10', weight:null,
+       rir:'0–1', tempo:'slow, full stretch at the bottom', rest:'45s',
+       note:'Second curl angle — gives biceps genuine 2x/week frequency.'},
+      {name:'External Rotation', machine:'Adjustable Cable Station, Cybex, or light DB', sets:3, reps:'15',
+       weight:'5kg', rir:'2–3', tempo:'slow, controlled', rest:'45s',
+       note:'Maintenance. Stays in even once the shoulder feels good.'}
     ]},
     cardioJog:{label:'Cardio — Easy Jog', cardio:{name:'Jog', dist:'3km', note:'Conversational pace, no watch-chasing.'}},
     cardioRun:{label:'Cardio — Run', cardio:{name:'Run', dist:'5km', note:'Easy–moderate pace.'}},
@@ -1002,11 +1110,19 @@ function planFromDoc(data){
   }
   return data.plan || null;
 }
+/* planVersion names the stored plan, so it is the one key that must never be
+   filled in from the defaults: a plan that kept its own templates but borrowed
+   the new stamp would claim to be a program it is not, and the update banner
+   would never appear. Absent means "older than any stamped version". */
+var PLAN_IDENTITY_KEYS = {planVersion:1};
 function mergeWithDefaults(stored){
   var merged = {};
   var missing = false;
   for(var k in DEFAULT_PLAN){
-    if(stored[k]===undefined){ merged[k]=DEFAULT_PLAN[k]; missing=true; }
+    if(stored[k]===undefined){
+      if(PLAN_IDENTITY_KEYS[k]) continue;
+      merged[k]=DEFAULT_PLAN[k]; missing=true;
+    }
     else merged[k]=stored[k];
   }
   for(var k2 in stored){ if(merged[k2]===undefined) merged[k2]=stored[k2]; }
@@ -1228,6 +1344,43 @@ function fmtDate(dateStr){
 function fmtDateLong(dateStr){
   var d=new Date(dateStr+'T00:00:00');
   return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+}
+
+/* ================= PROGRESSION PHASE =================
+   Which rule is running today, by date. The written plan puts the phases in a
+   table; keeping them as data means the app can say what today's rule is and
+   what to load, rather than leaving that to be read off the document. */
+function currentPhase(dateStr){
+  var pp = PLAN.progressionPhase;
+  if(!pp || !pp.phases) return null;
+  var d = dateStr || todayStr();
+  for(var i=0; i<pp.phases.length; i++){
+    var p = pp.phases[i];
+    if(d >= p.start && (!p.end || d <= p.end)) return p;
+  }
+  return null;
+}
+/* Scale a prescribed weight to the phase's load percentage, keeping whatever
+   unit or suffix the plan wrote ("120lb", "24kg/hand"). Returns null when
+   nothing needs scaling, so the caller can leave the row alone. */
+function phaseAdjustedWeight(weightStr, dateStr){
+  var p = currentPhase(dateStr);
+  if(!p || !p.loadPct || !weightStr) return null;
+  var m = String(weightStr).match(/^(~?)(\d+(?:\.\d+)?)(.*)$/);
+  if(!m) return null;
+  var val = parseFloat(m[2]) * p.loadPct;
+  /* Half-kg is the finest thing you can actually load, and stacks are coarser
+     still — a number like 71.25 would be false precision. */
+  return m[1] + (Math.round(val*2)/2) + m[3];
+}
+function phaseStripHtml(dateStr){
+  var p = currentPhase(dateStr);
+  if(!p) return '';
+  var cls = p.rule==='none' ? ' red' : (p.loadPct ? '' : ' blue');
+  var head = 'Phase ' + p.id + ' — ' + p.label;
+  if(p.loadPct)    head += ' · ' + Math.round(p.loadPct*100) + '% of your Phase A weights';
+  if(p.rirTarget)  head += ' · RIR ' + p.rirTarget;
+  return '<div class="note-strip'+cls+'"><b>'+head+'</b><br>'+p.note+'</div>';
 }
 
 /* ================= HEADER RING ================= */
@@ -1464,7 +1617,7 @@ function renderExerciseBlock(tpl, containerEl, allowUpload){
   if(tpl.rest){ containerEl.innerHTML += '<div class="empty">Full rest day. No training.</div>'; return; }
   if(tpl.op){ containerEl.innerHTML += '<div class="note-strip red">'+tpl.note+'</div>'; return; }
   if(tpl.postop){ containerEl.innerHTML += '<div class="note-strip" style="border-left-color:var(--amber)">'+tpl.note+'</div>'; return; }
-  function exRow(name, metaHtml, noteHtml, explicitImg, imgName){
+  function exRow(name, metaHtml, noteHtml, explicitImg, imgName, skipDerivedSwaps){
     var div=document.createElement('div');
     div.className='exrow';
     var main=document.createElement('div');
@@ -1480,7 +1633,7 @@ function renderExerciseBlock(tpl, containerEl, allowUpload){
     containerEl.appendChild(div);
     /* Only on Today: the Plan tab lists 40 days and a swap line on every row
        there would be noise. */
-    if(allowUpload){
+    if(allowUpload && !skipDerivedSwaps){
       var alts = alternativesFor(imgName || name, 3);
       if(alts.length){
         var swap = document.createElement('div');
@@ -1499,8 +1652,60 @@ function renderExerciseBlock(tpl, containerEl, allowUpload){
     return;
   }
   tpl.ex.forEach(function(e){
-    exRow(e.name, e.sets+' × '+e.reps+(e.weight? ' @ '+e.weight:''), e.note, e.img);
+    exRow(e.name, prescriptionMeta(e), prescriptionNote(e, allowUpload), e.img, null,
+          !!(e.alts && e.alts.length));
   });
+}
+/* "5 × 10 @ 160kg" — or "@ calibrate" where no weight is known yet, which is
+   the signal to ramp up and find one rather than guess heavy. Under Phase C the
+   reduced target is shown alongside, since that is the number to load today. */
+function prescriptionMeta(e){
+  var out = e.sets + ' × ' + e.reps;
+  if(e.weight){
+    out += ' @ ' + e.weight;
+    var scaled = phaseAdjustedWeight(e.weight);
+    if(scaled) out += ' <span style="color:var(--amber)">→ ' + scaled + ' this week</span>';
+  } else if(e.weight === null){
+    out += ' @ <span style="color:var(--amber)">calibrate</span>';
+  }
+  if(e.perSide) out += ' <span style="color:var(--ink-dim)">· log per side</span>';
+  return out;
+}
+/* Machine, then the set-execution detail, then the written note. On the Plan
+   tab the alternates are left out — forty days of them would be noise; Today
+   carries them in full, because that is where you are standing at the rack. */
+function prescriptionNote(e, withAlts){
+  var bits = [];
+  if(e.machine) bits.push('<span style="color:var(--ink-dim)">Machine:</span> ' + e.machine);
+  var exec = [];
+  if(e.rir)   exec.push('RIR ' + e.rir);
+  if(e.tempo) exec.push('Tempo ' + e.tempo);
+  if(e.rest)  exec.push('Rest ' + e.rest);
+  if(exec.length) bits.push(exec.join(' · '));
+  if(e.note) bits.push(e.note);
+  if(withAlts && e.alts && e.alts.length){
+    bits.push(e.alts.map(function(a, i){
+      /* An alternate is a full prescription in its own right, so the phase's
+         load reduction has to reach it too — showing the unscaled Phase A
+         number here would put return-ramp weight on the wrong machine. */
+      var w = a.weight ? a.weight : '<span style="color:var(--amber)">calibrate</span>';
+      if(a.weight){
+        var altScaled = phaseAdjustedWeight(a.weight);
+        if(altScaled) w += ' <span style="color:var(--amber)">→ ' + altScaled + ' this week</span>';
+      }
+      var line = '<span style="color:var(--amber)">If busy ' + (i+1) + ':</span> ' + a.machine +
+                 ' — ' + a.sets + ' × ' + a.reps + ' @ ' + w +
+                 (a.perSide ? ' · log per side' : '');
+      var ex2 = [];
+      if(a.rir)   ex2.push('RIR ' + a.rir);
+      if(a.tempo) ex2.push('Tempo ' + a.tempo);
+      if(a.rest)  ex2.push('Rest ' + a.rest);
+      if(ex2.length) line += '<br><span style="color:var(--ink-dim)">' + ex2.join(' · ') + '</span>';
+      if(a.note) line += '<br><span style="color:var(--ink-dim)">' + a.note + '</span>';
+      return line;
+    }).join('<br>'));
+  }
+  return bits.join('<br>');
 }
 /* ================= MEAL PACING =================
    Meals carry no clock time in the plan data, so fall back to a sensible
@@ -1786,6 +1991,8 @@ function renderToday(){
     var badgeClass = tkey==='opDay'?'op':(tkey==='postOpWalk'?'rest':diet);
     h.innerHTML = '<h2>Today — '+fmtDate(t)+'</h2><span class="badge '+badgeClass+'">'+tpl.label+'</span>';
     card.appendChild(h);
+    /* Which progression rule is running today, before the exercises it governs. */
+    card.innerHTML += phaseStripHtml(t);
     renderExerciseBlock(tpl, card, true);
   }
 
@@ -1830,7 +2037,36 @@ function renderToday(){
 }
 
 /* ================= PLAN VIEW ================= */
+/* The stored plan is the one that counts: mergeWithDefaults only fills in keys
+   an account is missing, so a revised program shipped inside the app never
+   reaches an existing account by itself. Offer it rather than apply it — the
+   stored plan may carry hand edits made in the plan editor. */
+function renderPlanUpdateBanner(){
+  var strip = document.getElementById('planUpdateStrip');
+  if(!strip) return;
+  var have = PLAN.planVersion || 'an earlier program';
+  var latest = DEFAULT_PLAN.planVersion;
+  if(!latest || PLAN.planVersion === latest){ strip.style.display = 'none'; return; }
+  strip.className = 'note-strip blue';
+  strip.style.display = 'block';
+  strip.innerHTML =
+    '<b>A newer program is available.</b><br>You are running ' + histEsc(have) +
+    '; the app ships <b>' + histEsc(latest) + '</b> — the 4-day Upper/Lower split. ' +
+    'Loading it replaces the sessions, sets, weights and progression phases. ' +
+    'Your training logs, bodyweight, photos and machine inventory are untouched.' +
+    '<button class="btn full" style="margin-top:8px" onclick="loadLatestProgram()">Load the new program</button>';
+}
+async function loadLatestProgram(){
+  if(!confirm('Replace your plan with the ' + DEFAULT_PLAN.planVersion + ' program?\n\n' +
+              'Anything you changed by hand in Edit Plan Data will be lost.\n' +
+              'Your training logs, weights, photos and inventory are not touched.')) return;
+  PLAN = JSON.parse(JSON.stringify(DEFAULT_PLAN));
+  await savePlan(PLAN);
+  renderHeader(); renderToday(); renderPlan(); renderDiet(); refreshProgress();
+  populateLiftExerciseSelect(); renderEquipment();
+}
 function renderPlan(){
+  renderPlanUpdateBanner();
   document.getElementById('planNote').textContent = PLAN.planNote || '';
   var list = document.getElementById('planList');
   list.innerHTML='';

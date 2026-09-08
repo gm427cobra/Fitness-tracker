@@ -656,7 +656,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-08-5';
+var BUILD = '2026-09-08-6';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -2093,6 +2093,54 @@ function prescriptionMeta(e){
   if(e.perSide) out += ' <span style="color:var(--ink-dim)">· log per side</span>';
   return out;
 }
+/* The ends of a prescribed range: "10–12" gives 10 and 12, "10–12/side" the
+   same, "6–8" gives 6 and 8. A single target has no top to work toward, which
+   is how the maintenance movements opt out of the ladder. */
+function repRangeEnds(reps){
+  var m = String(reps||'').match(/^(\d+)\s*[–-]\s*(\d+)/);
+  return m ? {bottom:parseInt(m[1],10), top:parseInt(m[2],10)} : null;
+}
+function lastLoggedSession(name){
+  var rows = liftLog.filter(function(e){ return e.exercise === name; });
+  if(!rows.length) return null;
+  rows.sort(function(a,b){ return a.date.localeCompare(b.date); });
+  return rows[rows.length-1];
+}
+/* Double progression, made checkable against what you actually logged.
+
+   Two things it deliberately will not do. It only speaks in phases that run
+   the rule — during the return ramp the load is set by the phase percentage,
+   not by last week's reps. And it never says a session felt easy: the log
+   holds one rep count per exercise and no RIR at all, so it can report that
+   the reps are there and hand the judgement back, which is where the plan
+   puts it too. */
+function progressionCue(e){
+  var phase = currentPhase();
+  if(!phase || phase.rule !== 'double-progression') return '';
+  var ends = repRangeEnds(e.reps);
+  if(!ends) return '';
+  var last = lastLoggedSession(e.name);
+  if(!last){
+    return '<span style="color:var(--ink-dim)">Nothing logged for this yet — the first session sets the starting point.</span>';
+  }
+  var w = last.weight + ' ' + liftUnitOf(last);
+  var did = last.sets + ' × ' + last.reps + ' @ ' + w;
+  if(last.reps >= ends.top && last.sets >= e.sets){
+    return '<span style="color:var(--green)">Ready to add load</span> — ' + fmtDate(last.date) + ' you logged ' +
+      did + ', the top of the range. Add 2.5–5% and expect to drop back toward ' + ends.bottom + ' reps. ' +
+      '<span style="color:var(--ink-dim)">Only if that one had real room at RIR ' + (e.rir||'target') +
+      ' — never after a grind.</span>';
+  }
+  /* Reps at the top but sets short is a different problem to reps short, and
+     telling someone to chase a rep they already hit reads as a broken app. */
+  if(last.reps >= ends.top){
+    return '<span style="color:var(--amber)">Stay at ' + w + '</span> — ' + fmtDate(last.date) + ' you logged ' +
+      did + ': the reps are there, the sets are not. Get all ' + e.sets + ' at this weight before adding load.';
+  }
+  return '<span style="color:var(--amber)">Stay at ' + w + '</span> — ' + fmtDate(last.date) + ' you logged ' +
+    did + '. Chase one more rep, up to ' + ends.top + '.';
+}
+
 /* Machine, then the set-execution detail, then the written note. On the Plan
    tab the alternates are left out — forty days of them would be noise; Today
    carries them in full, because that is where you are standing at the rack. */
@@ -2105,6 +2153,12 @@ function prescriptionNote(e, withAlts){
   if(e.rest)  exec.push('Rest ' + e.rest);
   if(exec.length) bits.push(exec.join(' · '));
   if(e.note) bits.push(e.note);
+  /* Today only, like the alternates — the Plan tab's forty-odd days would each
+     carry a cue about a session that has not happened yet. */
+  if(withAlts){
+    var cue = progressionCue(e);
+    if(cue) bits.push(cue);
+  }
   if(withAlts && e.alts && e.alts.length){
     bits.push(e.alts.map(function(a, i){
       /* An alternate is a full prescription in its own right, so the phase's

@@ -656,7 +656,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-08-7';
+var BUILD = '2026-09-08-8';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -703,66 +703,66 @@ var DEFAULT_PLAN = {
   totalProgramDays: 84,
   profile: {heightCm: 178, age: 45, sex: 'male'},
   "weightProjection": {
-      "note": "Modeled from the original plan structure: slow bulk (+0.2kg/wk) Sep 2026–Feb 2027, then cut to hit target by program end. Baseline uses pre-creatine bodyweight (96.0kg, 1 Sep) rather than the current reading, since that still includes temporary water retention from creatine loading (started 31 Aug) that will settle within a few weeks and is not part of the real trend.",
+      "note": "Revised 8 Sep: hold rather than bulk. A surplus adds little muscle at this training age and would have to be dieted back off in a long cut that risks the muscle it bought, with 9.7kg still to lose. Flat through the operation and the recovery fortnight, then roughly 0.24kg/week off — gentle enough to keep training hard through it. Expect the scale to move slower than fat does if muscle is being gained at the same time, so read this alongside the strength trend rather than on its own.",
       "points": [
           [
-              "2026-09-01",
-              96
+              "2026-09-08",
+              96.7
           ],
           [
-              "2026-10-01",
-              96.9
+              "2026-09-19",
+              96.5
           ],
           [
-              "2026-10-31",
-              97.7
+              "2026-10-05",
+              96.5
           ],
           [
-              "2026-11-30",
-              98.6
+              "2026-11-01",
+              96.0
           ],
           [
-              "2026-12-30",
-              99.4
+              "2026-12-01",
+              95.2
           ],
           [
-              "2027-01-29",
-              100.3
+              "2027-01-01",
+              94.3
           ],
           [
-              "2027-02-28",
-              101.1
+              "2027-02-01",
+              93.2
           ],
           [
               "2027-03-01",
-              101.2
+              92.1
           ],
           [
-              "2027-03-31",
-              98.1
+              "2027-04-01",
+              91.0
           ],
           [
-              "2027-04-30",
-              94.9
+              "2027-05-01",
+              89.9
           ],
           [
-              "2027-05-30",
-              91.8
-          ],
-          [
-              "2027-06-29",
+              "2027-06-01",
               88.7
           ],
           [
+              "2027-07-01",
+              87.5
+          ],
+          [
               "2027-07-15",
-              87
+              87.0
           ]
       ],
-      "peakKg": 101.2,
-      "peakDate": "2027-03-01",
-      "cutRateKgPerWeek": 0.73
+      "peakKg": 96.7,
+      "peakDate": "2026-09-08",
+      "cutRateKgPerWeek": 0.24
   },
-  planVersion: '2026-09-09-hypertrophy-r4',
+  planVersion: '2026-09-09-hypertrophy-r5',
   /* The first day the new program applies. Anything before it is training that
      already happened and must be taken from the stored plan, not from here. */
   programChangeover: '2026-09-09',
@@ -1364,23 +1364,30 @@ var DEFAULT_PLAN = {
       ],
       note: null
     },
+    /* 2800 rather than the original 3050: a surplus buys very little muscle at
+       thirty years of training age and fifty, and it is hard to justify while
+       still 9.7kg above target — the fat would only have to come back off in a
+       long cut that puts the new muscle at risk. Protein is held at 200g,
+       since that is the lever that actually drives growth; the calories come
+       off carbs and fat. Weight should sit flat or drift down very slowly,
+       and progress gets read off the strength ladder instead of the scale. */
     build: {
-      label:'Build — Wk 3–4', dateRange:'7 Sep – 19 Sep', kcal:3050, protein:200, carbs:370, fat:95,
+      label:'Recomp — hold weight', dateRange:'7 Sep onward', kcal:2800, protein:200, carbs:295, fat:90,
       meals:[
-        {name:'Breakfast', kcal:620, protein:38, food:'4 whole eggs + 2 whites, 3 slices sourdough, ½ avocado', time:'07:30'},
-        {name:'Lunch', kcal:720, protein:52, food:'220g chicken/salmon/beef, 300g potato/rice, salad, olive oil', time:'12:30'},
-        {name:'Training snack', kcal:420, protein:34, food:'Whey shake + banana + 50g oats + honey', time:'16:00'},
-        {name:'Dinner — Prep Kitchen', kcal:750, protein:55, food:'Same filter — pick the higher-kcal higher-protein dish of the week', pk:true, pkTag:'MUSCLE GAIN · LARGE', time:'19:00'},
-        {name:'Evening', kcal:540, protein:21, food:'350g Greek yoghurt, 70g granola (nut-free), banana, honey', time:'21:00'}
+        {name:'Breakfast', kcal:570, protein:38, food:'4 whole eggs + 2 whites, 2 slices sourdough, ½ avocado', time:'07:30'},
+        {name:'Lunch', kcal:700, protein:52, food:'220g chicken/salmon/beef, 275g potato/rice, salad, olive oil', time:'12:30'},
+        {name:'Training snack', kcal:340, protein:34, food:'Whey shake + banana + 40g oats', time:'16:00'},
+        {name:'Dinner — Prep Kitchen', kcal:750, protein:55, food:'Same filter — pick the higher-protein dish of the week', pk:true, pkTag:'MUSCLE GAIN · LARGE', time:'19:00'},
+        {name:'Evening', kcal:440, protein:21, food:'300g Greek yoghurt, 40g granola (nut-free), banana', time:'21:00'}
       ],
-      note: 'Sat 19 Sep (op day): ignore these numbers — follow the hospital\'s pre-op fasting instructions instead.'
+      note: 'Around maintenance, not a surplus. Judge this by the 7-day weight average and by whether working weights are still climbing — flat weight with rising loads is the outcome to want. Sat 19 Sep (op day): ignore these numbers and follow the hospital\'s pre-op fasting instructions instead.'
     },
     rest: {
       label:'Post-Op Rest — 2wk', dateRange:'20 Sep – 3 Oct', kcal:2500, protein:200, carbs:240, fat:90,
       meals:[
         {name:'Breakfast', kcal:400, protein:35, food:'3 whole eggs + 3 whites, 1 slice sourdough', time:'07:30'},
         {name:'Lunch', kcal:700, protein:48, food:'200g chicken/fish, 250g rice/potato, big salad, olive oil', time:'12:30'},
-        {name:'Snack', kcal:250, protein:28, food:'Whey shake + apple', time:'16:00'},
+        {name:'Snack', kcal:300, protein:32, food:'Whey shake + apple', time:'16:00'},
         {name:'Dinner — Prep Kitchen', kcal:700, protein:55, food:'Protein target doesn\'t drop just because training has stopped', pk:true, pkTag:'MUSCLE GAIN · LARGE', time:'19:00'},
         {name:'Evening', kcal:400, protein:30, food:'300g Greek yoghurt + berries', time:'21:00'}
       ],

@@ -601,6 +601,7 @@ steps | 8400"></textarea>
     <button class="btn ghost full" style="margin-bottom:8px" onclick="runPlanDiagnostics()">Check plan in cloud</button>
     <button class="btn full" style="margin-bottom:8px" onclick="pushPlanToCloud()">Push this device's plan to my account</button>
     <button class="btn ghost full" style="margin-bottom:8px" onclick="restoreLocalPlan()">Restore the plan saved on this device</button>
+    <button class="btn ghost full" style="margin-bottom:8px" onclick="restorePlanBackup()">Undo the last program update</button>
     <pre id="planDiagOut" style="display:none;white-space:pre-wrap;word-break:break-word;font-family:var(--f-mono);font-size:11px;color:var(--ink-dim);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:6px;padding:9px;margin:0 0 8px"></pre>
     <button class="btn ghost full" onclick="applyUpdate()">Force reload latest version</button>
   </div>
@@ -654,7 +655,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-08-2';
+var BUILD = '2026-09-08-3';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -701,6 +702,9 @@ var DEFAULT_PLAN = {
   totalProgramDays: 84,
   profile: {heightCm: 178, age: 45, sex: 'male'},
   planVersion: '2026-09-09-hypertrophy',
+  /* The first day the new program applies. Anything before it is training that
+     already happened and must be taken from the stored plan, not from here. */
+  programChangeover: '2026-09-09',
   planNote: '4-day Upper/Lower hypertrophy split, designed 9 Sep. Phase A pre-op push to 18 Sep → op Sat 19 Sep → rest to 3 Oct → return ramp from 5 Oct → normal progression from 19 Oct.',
   weekNames: ['Reset — Week 1','Reset — Week 2','Changeover — new program from Wed 9 Sep',
               'Phase A — Pre-op push','Phase B — Post-op rest 1','Phase B — Post-op rest 2',
@@ -2060,14 +2064,76 @@ function renderPlanUpdateBanner(){
     'Your training logs, bodyweight, photos and machine inventory are untouched.' +
     '<button class="btn full" style="margin-top:8px" onclick="loadLatestProgram()">Load the new program</button>';
 }
+/* A revision must never rewrite training that already happened. The days before
+   the changeover are the account's own record of what was scheduled; the copy
+   built into the app is only ever a guess at them, and a straight replace put
+   that guess over the real thing. Keep the stored days, take the new program
+   from the changeover date forward. */
+function mergeProgramForward(stored, incoming){
+  var out = JSON.parse(JSON.stringify(incoming));
+  if(!stored || !stored.weekPlan || !stored.templates) return out;
+  /* Day numbers only line up when both plans count from the same start. */
+  if(stored.programStart !== incoming.programStart) return out;
+  var start = new Date(incoming.programStart + 'T00:00:00');
+  var cutISO = incoming.programChangeover || todayStr();
+  var cut = Math.round((new Date(cutISO + 'T00:00:00') - start) / DAY_MS);
+  if(!(cut > 0)) return out;
+  for(var i=0; i<cut; i++){
+    var w = Math.floor(i/7), d = i%7;
+    if(!stored.weekPlan[w] || !out.weekPlan[w]) continue;
+    if(stored.weekPlan[w][d]) out.weekPlan[w][d] = stored.weekPlan[w][d];
+  }
+  /* Preserved days point at the old templates, so carry across any the new
+     program does not define — otherwise those day cards render empty. */
+  out.weekPlan.forEach(function(row){
+    (row||[]).forEach(function(k){
+      if(k && !out.templates[k] && stored.templates[k]) out.templates[k] = stored.templates[k];
+    });
+  });
+  return out;
+}
+/* The cloud holds one plan document and overwrites it, so without this a plan
+   update is unrecoverable. Snapshot the outgoing plan before replacing it. */
+async function backupPlan(plan){
+  try{ if(hasLocalStorage()) localStorage.setItem('buildlog_plan-backup', JSON.stringify(plan)); }catch(e){}
+  try{
+    if(currentUser && db && CLOUD_READY){
+      await db.collection('users').doc(currentUser.uid).collection('plan').doc('previous')
+              .set(planToDoc(plan));
+    }
+  }catch(e){ console.error('plan backup failed', e); }
+}
 async function loadLatestProgram(){
-  if(!confirm('Replace your plan with the ' + DEFAULT_PLAN.planVersion + ' program?\n\n' +
-              'Anything you changed by hand in Edit Plan Data will be lost.\n' +
-              'Your training logs, weights, photos and inventory are not touched.')) return;
-  PLAN = JSON.parse(JSON.stringify(DEFAULT_PLAN));
+  if(!confirm('Load the ' + DEFAULT_PLAN.planVersion + ' program?\n\n' +
+              'Sessions from ' + DEFAULT_PLAN.programChangeover + ' onward are replaced.\n' +
+              'Everything before that is left exactly as your plan has it.\n' +
+              'Your training logs, weights, photos and inventory are not touched.\n\n' +
+              'The plan you have now is backed up, and Tools can put it back.')) return;
+  await backupPlan(PLAN);
+  PLAN = mergeProgramForward(PLAN, DEFAULT_PLAN);
   await savePlan(PLAN);
   renderHeader(); renderToday(); renderPlan(); renderDiet(); refreshProgress();
   populateLiftExerciseSelect(); renderEquipment();
+}
+/* Undo, for when a program update turns out to have taken something with it. */
+async function restorePlanBackup(){
+  var raw = null;
+  try{ if(hasLocalStorage()) raw = localStorage.getItem('buildlog_plan-backup'); }catch(e){}
+  if(!raw && currentUser && db){
+    try{
+      var d = await db.collection('users').doc(currentUser.uid).collection('plan').doc('previous').get({source:'server'});
+      if(d.exists) raw = JSON.stringify(planFromDoc(d.data()));
+    }catch(e){}
+  }
+  if(!raw){ planDiagOut('No pre-update plan is stored, on this device or in your account.'); return; }
+  var prev;
+  try{ prev = JSON.parse(raw); }catch(e){ planDiagOut('The stored backup could not be read: '+e.message); return; }
+  if(!prev || !prev.weekPlan){ planDiagOut('The stored backup is not a usable plan.'); return; }
+  PLAN = mergeWithDefaults(prev).plan;
+  await savePlan(PLAN);
+  renderHeader(); renderToday(); renderPlan(); renderDiet(); refreshProgress();
+  populateLiftExerciseSelect(); renderEquipment();
+  planDiagOut('Put back the plan from before the last program update:\n  ' + planSignature(PLAN));
 }
 function renderPlan(){
   renderPlanUpdateBanner();

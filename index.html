@@ -436,8 +436,12 @@ steps | 8400"></textarea>
       <select id="liftExercise"></select>
     </div>
     <div id="liftExerciseOther" class="field" style="display:none"><label>Exercise name</label><input type="text" id="liftExerciseOtherVal"></div>
-    <div class="row3">
-      <div class="field"><label>Weight (kg)</label><input type="number" step="0.5" id="liftWeight"></div>
+    <div class="row4">
+      <div class="field"><label>Weight</label><input type="number" step="0.5" id="liftWeight"></div>
+      <div class="field"><label>Unit</label>
+        <!-- Preselected from the plan by syncLiftUnit() when the exercise changes. -->
+        <select id="liftUnit"><option value="kg">kg</option><option value="lb">lb</option></select>
+      </div>
       <div class="field"><label>Reps</label><input type="number" id="liftReps"></div>
       <div class="field"><label>Sets</label><input type="number" id="liftSets"></div>
     </div>
@@ -522,6 +526,7 @@ steps | 8400"></textarea>
       <select id="liftChartSelect" style="font-size:12px;padding:5px 8px;width:auto"></select>
     </div>
     <div class="chart-box"><canvas id="liftChart"></canvas></div>
+    <p class="chart-tip" id="liftChartUnit"></p>
     <p class="chart-tip">Tap a point for that session in the log.</p>
   </div>
 
@@ -649,7 +654,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-08-1';
+var BUILD = '2026-09-08-2';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -820,11 +825,11 @@ var DEFAULT_PLAN = {
        own right. weight:null renders as "calibrate" — the signal to treat the
        first session on it as a genuine ramp-up test rather than a guess. */
     lowerA:{label:'Lower A — quads & calves', ex:[
-      {name:'Leg Press', machine:'Cybex — confirm which unit is your 160kg machine (black or white)',
-       sets:5, reps:'10', weight:'160kg', rir:'1–2', tempo:'3-1-1', rest:'2–3 min',
-       note:'Capped at 160kg — progress via reps and pause, not load.',
+      {name:'Leg Press', machine:'Cybex', sets:5, reps:'10', weight:'160kg', rir:'1–2',
+       tempo:'3-1-1', rest:'2–3 min',
+       note:'160kg is this machine\u2019s ceiling, not a training cap — it has nothing left to add. Keep progressing on reps and pause until 5×10 is comfortable at RIR 1–2, then move to the 45° below and calibrate it as a new exercise. That is the progression route, not a fallback.',
        alts:[{machine:'Leg Press 45° (black)', sets:5, reps:'10', weight:null, rir:'1–2', tempo:'3-1-1', rest:'2–3 min',
-              note:'Direct swap, fixed groove.'}]},
+              note:'Where this movement goes once the Cybex tops out — and the swap if it is busy. Fixed groove, loads differently: calibrate it, do not carry 160kg across.'}]},
       {name:'Leg Extension', machine:'Prime', sets:3, reps:'10', weight:'130kg', rir:'1–2',
        tempo:'2-1-2', rest:'90s', note:'Squeeze at the top.',
        alts:[{machine:'Leg Extension, silver plate-loaded', sets:3, reps:'10', weight:null, rir:'1–2', tempo:'2-1-2', rest:'90s'}]},
@@ -832,9 +837,9 @@ var DEFAULT_PLAN = {
        tempo:'2-1-2', rest:'90s', note:'Squeeze at the top.',
        alts:[{machine:'Prone Leg Curl, Cybex Prestige', sets:3, reps:'10', weight:null, rir:'1–2', tempo:'2-1-2', rest:'90s'},
              {machine:'Prone Leg Curl, Hammer Strength (plate-loaded)', sets:3, reps:'10', weight:null, rir:'1–2', tempo:'2-1-2', rest:'90s'}]},
-      {name:'Standing Calf Raise', machine:'GYM 80 — stack is in lb, not kg', sets:4, reps:'15',
-       weight:'120lb', rir:'0–1', tempo:'2-1-2', rest:'60s',
-       note:'Full stretch at the bottom. Confirm this is the 54.4kg/120lb machine — increments fit but it is not certain.',
+      {name:'Standing Calf Raise', machine:'GYM 80', sets:4, reps:'15',
+       weight:'120lb', unit:'lb', rir:'0–1', tempo:'2-1-2', rest:'60s',
+       note:'Full stretch at the bottom. The stack is marked in lb, so log it in lb — the Log tab switches units for you when you pick this exercise. No converting in your head.',
        alts:[{machine:'Standing Calf Raise, Muscleworks', sets:4, reps:'15', weight:null, rir:'0–1', tempo:'2-1-2', rest:'60s',
               note:'Load is NOT interchangeable with the GYM 80 — recalibrate if you switch.'}]},
       {name:'Abdominal Crunch', machine:'Cybex Eagle NX', sets:3, reps:'15', weight:null, rir:'0–1',
@@ -914,7 +919,6 @@ var DEFAULT_PLAN = {
        alts:[{machine:'Dedicated rear delt machine, if free', sets:3, reps:'12', weight:null, rir:'1–2', tempo:'2-1-2', rest:'60s'}]},
       {name:'Machine Arm Curl', machine:'Machine Arm Curl', sets:3, reps:'8', weight:'85.5kg',
        rir:'1–2', tempo:'2-0-2', rest:'60s',
-       note:'Used for weeks but never catalogued — add a photo and an inventory entry when you can.',
        alts:[{machine:'Cable curl, Adjustable Cable Station (Cybex)', sets:3, reps:'8', weight:null, rir:'1–2', tempo:'2-0-2', rest:'60s'}]},
       {name:'Incline DB Curl', machine:'Incline bench, dumbbells', sets:2, reps:'10', weight:null,
        rir:'0–1', tempo:'slow, full stretch at the bottom', rest:'45s',
@@ -2643,11 +2647,14 @@ function populateLiftExerciseSelect(){
 
   if(prev && seen[prev]) sel.value = prev;
   else if(prev==='Other') sel.value = 'Other';
+  syncLiftUnit();
 }
 
 document.getElementById('liftExercise').addEventListener('change', function(){
   document.getElementById('liftExerciseOther').style.display = this.value==='Other'?'block':'none';
+  syncLiftUnit();
 });
+document.getElementById('liftExerciseOtherVal').addEventListener('input', syncLiftUnit);
 
 async function addBodyweight(){
   var date=document.getElementById('bwDate').value || todayStr();
@@ -2691,6 +2698,41 @@ async function deleteFood(i){
   renderHistory(); renderToday(); refreshProgress();
 }
 
+/* ================= LIFT UNITS =================
+   Bodyweight and food stay metric; a lift carries the unit its machine is
+   actually marked in. The GYM 80 calf stack is in lb, and converting it in your
+   head at the rack is exactly the error this avoids. Entries with no unit are
+   kg — every lift logged before this existed, so absence has to keep meaning kg. */
+var LB_PER_KG = 2.20462;
+function liftUnitOf(e){ return (e && e.unit === 'lb') ? 'lb' : 'kg'; }
+function convertLift(v, from, to){
+  if(from === to) return v;
+  return from === 'lb' ? v / LB_PER_KG : v * LB_PER_KG;
+}
+/* What the plan prescribes this movement in, so the form can preselect it. */
+function plannedUnitFor(name){
+  for(var k in PLAN.templates){
+    var ex = (PLAN.templates[k] || {}).ex || [];
+    for(var i=0; i<ex.length; i++){
+      if(ex[i].name !== name) continue;
+      if(ex[i].unit === 'lb') return 'lb';
+      if(/lb/i.test(ex[i].weight || '')) return 'lb';
+      return 'kg';
+    }
+  }
+  return 'kg';
+}
+/* Picking an exercise sets the unit its plan entry is written in, so the common
+   case needs no thought; the selector is still there to override. */
+function syncLiftUnit(){
+  var sel = document.getElementById('liftExercise');
+  var unit = document.getElementById('liftUnit');
+  if(!sel || !unit) return;
+  var name = sel.value === 'Other'
+    ? (document.getElementById('liftExerciseOtherVal').value || '')
+    : sel.value;
+  unit.value = plannedUnitFor(name);
+}
 async function addLift(){
   var date=document.getElementById('liftDate').value || todayStr();
   var exercise=document.getElementById('liftExercise').value;
@@ -2699,7 +2741,10 @@ async function addLift(){
   var reps=parseInt(document.getElementById('liftReps').value)||0;
   var sets=parseInt(document.getElementById('liftSets').value)||0;
   if(!weight && !reps) return;
-  liftLog.push({date:date,exercise:exercise,weight:weight,reps:reps,sets:sets});
+  var entry = {date:date, exercise:exercise, weight:weight, reps:reps, sets:sets};
+  /* Only stamped when it is not kg, so existing entries stay valid unchanged. */
+  if(document.getElementById('liftUnit').value === 'lb') entry.unit = 'lb';
+  liftLog.push(entry);
   liftLog.sort(function(a,b){return a.date.localeCompare(b.date);});
   await saveArr('lift-log', liftLog);
   document.getElementById('liftWeight').value='';
@@ -2850,11 +2895,11 @@ var HIST_DEFS = {
     cells:function(r){
       return ['<td>'+fmtDate(r.e.date)+'</td>',
               '<td class="name">'+histEsc(r.e.exercise)+'</td>',
-              '<td>'+r.e.weight+'</td>',
+              '<td>'+r.e.weight+' '+liftUnitOf(r.e)+'</td>',
               '<td>'+r.e.reps+'×'+r.e.sets+'</td>'];
     },
     what:function(r){ return '<span class="name">'+histEsc(r.e.exercise)+'</span>'; },
-    val:function(r){ return r.e.weight+' kg<span class="hist-sub">'+r.e.reps+'×'+r.e.sets+'</span>'; },
+    val:function(r){ return r.e.weight+' '+liftUnitOf(r.e)+'<span class="hist-sub">'+r.e.reps+'×'+r.e.sets+'</span>'; },
     del:function(r){ return 'deleteLift('+r.i+')'; }
   },
   alc: {
@@ -3034,8 +3079,10 @@ async function applyImportItems(items, defaultDate){
         else equipLog.push(eq);
         touched.equip=true; break;
       default:
-        liftLog.push({date:d, exercise:it.exercise||'Exercise', weight:+it.weight||0,
-                      reps:+it.reps||0, sets:+it.sets||0});
+        var le = {date:d, exercise:it.exercise||'Exercise', weight:+it.weight||0,
+                  reps:+it.reps||0, sets:+it.sets||0};
+        if(String(it.unit||'').toLowerCase()==='lb') le.unit = 'lb';
+        liftLog.push(le);
         touched.lift=true;
     }
   });
@@ -3060,7 +3107,7 @@ var NUMERIC_IMPORT_FIELDS = {kcal:1, protein:1, carbs:1, fat:1, weight:1, reps:1
                              kg:1, units:1, steps:1};
 var IMPORT_FIELDS = {
   food:    ['name','kcal','protein','carbs','fat','meal?'],
-  lift:    ['exercise','weight','reps','sets'],
+  lift:    ['exercise','weight','reps','sets','unit?'],
   weight:  ['kg'],
   alcohol: ['name','units','kcal?'],
   steps:   ['steps'],
@@ -3794,14 +3841,33 @@ function populateLiftChartSelect(){
   if(exercises.indexOf(prev)!==-1) sel.value=prev;
   sel.onchange = renderLiftChart;
 }
+/* The unit most of this exercise's entries were logged in — the one the chart
+   should be read in. A machine marked in lb stays in lb rather than being
+   converted to kg for the plot. */
+function dominantLiftUnit(rows){
+  var lb = 0;
+  rows.forEach(function(e){ if(liftUnitOf(e)==='lb') lb++; });
+  return lb > rows.length/2 ? 'lb' : 'kg';
+}
 function renderLiftChart(){
   var canvas=document.getElementById('liftChart');
   var sel = document.getElementById('liftChartSelect').value;
   var data = liftLog.filter(function(e){return e.exercise===sel && e.date>=PLAN.trackingStart;}).sort(function(a,b){return a.date.localeCompare(b.date);});
+  /* One scale or the line is nonsense: anything logged in the other unit is
+     converted into the dominant one before plotting. */
+  var unit = dominantLiftUnit(data);
+  var mixed = data.some(function(e){ return liftUnitOf(e)!==unit; });
   sizeChart(canvas, data.length, 18);
-  drawLineChart(canvas, [{data:data.map(function(e){return e.weight;}), color:'#4FB6C9', points:true}], data.map(function(e){return e.date;}));
+  drawLineChart(canvas, [{data:data.map(function(e){
+    return convertLift(e.weight, liftUnitOf(e), unit);
+  }), color:'#4FB6C9', points:true}], data.map(function(e){return e.date;}));
   scrollChartToEnd(canvas);
   attachChartTap(canvas, function(hit){ openLogFor('lift', hit.key, {exercise: sel}); });
+  var note = document.getElementById('liftChartUnit');
+  if(note){
+    note.textContent = !data.length ? ''
+      : 'Weights in ' + unit + (mixed ? ' — entries logged in the other unit are converted onto this scale.' : '.');
+  }
 }
 /* ---- Progress trend charts ---- */
 /* Nothing was recorded before trackingStart, so a window that reaches further
@@ -4213,9 +4279,15 @@ function generateSummary(){
     var rows = liftLog.filter(function(e){ return e.exercise===name; })
                       .sort(function(a,b){ return a.date.localeCompare(b.date); });
     var a = rows[0], b = rows[rows.length-1];
-    var delta = b.weight - a.weight;
-    return '  '+pad(name,26)+' '+num(b.weight,1)+'kg x'+b.reps+' x'+b.sets+
-           '  (from '+num(a.weight,1)+'kg on '+a.date+', '+(delta>=0?'+':'')+num(delta,1)+'kg over '+rows.length+' sessions, last '+b.date+')';
+    /* Report in the unit this exercise is logged in, converting the first entry
+       onto it if the unit changed mid-history — a delta across two units is
+       meaningless, and calling lb "kg" here would mislead Claude outright. */
+    var u = dominantLiftUnit(rows);
+    var last = convertLift(b.weight, liftUnitOf(b), u);
+    var first = convertLift(a.weight, liftUnitOf(a), u);
+    var delta = last - first;
+    return '  '+pad(name,26)+' '+num(last,1)+u+' x'+b.reps+' x'+b.sets+
+           '  (from '+num(first,1)+u+' on '+a.date+', '+(delta>=0?'+':'')+num(delta,1)+u+' over '+rows.length+' sessions, last '+b.date+')';
   }).join('\n');
 
   /* ---- alcohol ---- */

@@ -678,7 +678,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-09-3';
+var BUILD = '2026-09-09-4';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -3185,10 +3185,16 @@ function findEquipment(name){
 function normEquipName(s){
   return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 }
+/* The plan qualifies a machine with the attachment or setup to use — "Adjustable
+   Cable Station, Cybex (rope or straight bar)" is the same station as
+   "Adjustable Cable Station — Cybex". Strip that from the query side only: in
+   the inventory a bracket is what tells two machines apart ("Cybex (black)"
+   against "Cybex (white)"), and dropping it there would merge them. */
+function stripQualifiers(s){ return String(s||'').replace(/\([^)]*\)/g, ' '); }
 function findEquipmentLoose(name){
   var exact = findEquipment(name);
   if(exact) return exact;
-  var n = normEquipName(name);
+  var n = normEquipName(stripQualifiers(name));
   if(n.length < 6) return null;                 /* too short to match on safely */
   var hits = equipLog.filter(function(e){
     var en = normEquipName(e.name);
@@ -3219,19 +3225,39 @@ function equipmentPhotoKeysFor(e){
   }
   add(findEquipmentLoose(e.machine));
   add(findEquipmentLoose(e.name));
-  /* Named as neither — match the exercise against what each machine says it is
-     used for, the same way the "if busy" swap list does. Unique matches only. */
+  /* Named as neither — go by what each machine says it is used for, the same
+     field the "if busy" swap list reads. Where several machines do the exercise
+     (the gym has three prone leg curls and four lat pulldowns), the plan's
+     machine field is what picks between them: the inventory names a machine
+     "<exercise> — <make>", so "Prime" or "GYM 80" or "Cybex Eagle NX" narrows
+     the field to one. Still ambiguous after that means no photo. */
   if(!keys.length){
-    var n = normEquipName(e.name), byUse = [];
-    equipLog.forEach(function(eq){
-      (eq.exercises||'').split(/[;,]/).forEach(function(x){
-        var xn = normEquipName(x);      /* "Chest-Supported Row" vs "chest supported row" */
-        if(xn.length >= 5 && n.indexOf(xn) !== -1 && byUse.indexOf(eq) === -1) byUse.push(eq);
-      });
-    });
+    var byUse = equipmentByUse(e.name);
+    if(byUse.length > 1) byUse = narrowByMachine(byUse, e.machine);
     if(byUse.length === 1) add(byUse[0]);
   }
   return keys;
+}
+function equipmentByUse(exName){
+  var n = normEquipName(exName), out = [];
+  if(n.length < 5) return out;
+  equipLog.forEach(function(eq){
+    (eq.exercises||'').split(/[;,]/).forEach(function(x){
+      var xn = normEquipName(x);
+      if(xn.length < 5 || out.indexOf(eq) !== -1) return;
+      /* Either way round: the plan's "Bench Press Machine" against the
+         inventory's "Bench Press Machine (Hammer Strength Iso-Lateral)", and
+         plain "Abdominal Crunch" against "Abdominal Crunch". */
+      if(n.indexOf(xn) !== -1 || xn.indexOf(n) !== -1) out.push(eq);
+    });
+  });
+  return out;
+}
+function narrowByMachine(list, machine){
+  var m = normEquipName(stripQualifiers(machine));
+  if(m.length < 4) return list;
+  var hits = list.filter(function(eq){ return normEquipName(eq.name).indexOf(m) !== -1; });
+  return hits.length ? hits : list;
 }
 /* Equipment that trains at least one of the same muscles, nearest match first. */
 function alternativesFor(name, limit){
@@ -5076,13 +5102,24 @@ function reportExercisePhotos(){
         if(hit){
           borrowed++;
           out.push('  ' + pad + 'machine · ' + hit.replace('equip::',''));
-        } else if(keys.length){
-          none++;
+          return;
+        }
+        none++;
+        if(keys.length){
           out.push('  ' + pad + 'NONE · matches ' +
                    keys.map(function(key){ return '"'+key.replace('equip::','')+'"'; }).join(' / ') +
                    ', but no photo on it');
+          return;
+        }
+        /* Distinguish "the gym has no such machine" from "the gym has several
+           and the plan does not say which" — only the second is fixable here. */
+        var cands = equipmentByUse(e.name);
+        if(cands.length > 1) cands = narrowByMachine(cands, e.machine);
+        if(cands.length > 1){
+          out.push('  ' + pad + 'NONE · ' + cands.length + ' machines do this and the plan says only "' +
+                   (e.machine || '—') + '" — needs one of: ' +
+                   cands.map(function(eq){ return eq.name; }).join(' / '));
         } else {
-          none++;
           out.push('  ' + pad + 'NONE · nothing in the inventory matches "' + (e.machine || e.name) + '"');
         }
       });
@@ -5095,10 +5132,13 @@ function reportExercisePhotos(){
   out.push('A row finds its machine by name, or by that machine\'s "Used for" list');
   out.push('naming the exercise. So:');
   out.push('  NONE, machine matched → photograph that machine on the Equipment tab.');
-  out.push('  NONE, no match        → add the exercise to the right machine\'s "Used for"');
+  out.push('  NONE, needs one of    → the plan names the make but you own more than one;');
+  out.push('                          tell me which and I will put it in the plan.');
+  out.push('  NONE, nothing matches → add the exercise to the right machine\'s "Used for"');
   out.push('                          field on the Equipment tab. That is usually quicker');
   out.push('                          than renaming anything, and it fixes the "if busy"');
-  out.push('                          swap suggestions at the same time.');
+  out.push('                          swap suggestions at the same time. Dumbbell and');
+  out.push('                          band movements have no machine and never will.');
   planDiagOut(out.join('\n'));
 }
 function reportSessionLengths(){

@@ -2,10 +2,21 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<!-- viewport-fit=cover is what makes env(safe-area-inset-*) return real numbers;
+     without it every safe-area rule below silently computes to 0, which is why the
+     tab bar sat hard against the bottom edge of the phone. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
+<!-- Added to the Home Screen this launches with no browser chrome at all, which
+     is the only way to be rid of Safari's tap-to-reveal strip along the bottom
+     edge rather than merely designing around it. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Build Log">
+<meta name="theme-color" content="#12161B">
 <title>BUILD LOG — G.</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -25,14 +36,23 @@
     --f-display:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
     --f-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
     --f-body:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
+    /* Dead space held below the tab buttons. Zero everywhere except a touch
+       device running inside browser chrome — see applyBottomEdgeGuard(). */
+    --tab-gap:0px;
   }
+  /* iOS Safari keeps a tap-to-reveal strip along the bottom edge: with the
+     toolbar minimised, the first tap down there expands the browser chrome
+     instead of reaching the page, and by the time it lands the button has
+     moved. No page can switch that off, so keep the buttons out of the strip.
+     The bar still paints to the bottom edge — only inert padding sits in it. */
+  body.in-browser{--tab-gap:26px;}
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);-webkit-tap-highlight-color:transparent;}
   body{
     background-image:radial-gradient(var(--line) 1px, transparent 1px);
     background-size:18px 18px;
     background-position:-9px -9px;
-    padding-bottom:78px;
+    padding-bottom:calc(78px + env(safe-area-inset-bottom) + var(--tab-gap));
     min-height:100vh;
   }
   ::selection{background:var(--blue);color:#0a0d10;}
@@ -42,7 +62,9 @@
   .plate{
     background:linear-gradient(180deg,var(--panel-2),var(--panel));
     border-bottom:1px solid var(--line);
-    padding:16px 16px 14px;
+    /* viewport-fit=cover puts the page under the status bar, so the header has
+       to hold it off itself. Falls back to the old 16px where the inset is 0. */
+    padding:calc(16px + env(safe-area-inset-top)) 16px 14px;
     position:relative;
   }
   .plate::after{
@@ -68,11 +90,11 @@
     position:fixed;bottom:0;left:0;right:0;
     background:var(--panel-2);border-top:1px solid var(--line);
     display:flex;z-index:50;
-    padding-bottom:env(safe-area-inset-bottom);
+    padding-bottom:calc(env(safe-area-inset-bottom) + var(--tab-gap));
   }
   .tab{
     flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    gap:3px;padding:9px 2px 8px;background:none;border:none;color:var(--ink-dim);
+    gap:3px;padding:11px 2px 10px;background:none;border:none;color:var(--ink-dim);
     font-family:var(--f-body);font-size:10px;letter-spacing:.03em;cursor:pointer;
     border-top:2px solid transparent;
   }
@@ -339,6 +361,7 @@
 </div>
 
 <div class="view active" id="view-today">
+  <div class="note-strip blue" id="homeHint" style="display:none"></div>
   <div class="card" id="todayCard"></div>
   <div class="card" id="todayDietCard"></div>
 </div>
@@ -706,7 +729,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-09-5';
+var BUILD = '2026-09-09-6';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -1822,6 +1845,67 @@ function persistPhotosLocally(){
 }
 
 var bwLog=[], liftLog=[], alcLog=[], noteLog=[], foodLog=[], stepLog=[], equipLog=[], exPhotos=[];
+
+/* ================= BOTTOM-EDGE GUARD =================
+   On an iPhone in Safari the bottom of the screen is not the page's to use.
+   With the toolbar minimised, a tap in that strip expands the browser chrome
+   instead of hitting whatever is drawn there — and the expansion shifts the
+   page up, so the tab you aimed at is no longer under your thumb. There is no
+   API to decline this; the fix is to keep the tab buttons above the strip and,
+   better, to run without browser chrome at all.
+
+   So: when the app is running inside a browser on a touch device, hold a band
+   of dead space below the tab buttons. Launched from the Home Screen there is
+   no toolbar to reveal, the band collapses to nothing, and the bar sits where
+   it should. */
+function isStandaloneApp(){
+  try{
+    if(window.navigator.standalone === true) return true;          /* iOS */
+    return !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  }catch(e){ return false; }
+}
+function isTouchDevice(){
+  try{ return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches); }
+  catch(e){ return 'ontouchstart' in window; }
+}
+function applyBottomEdgeGuard(){
+  if(!document.body) return;
+  document.body.classList.toggle('in-browser', isTouchDevice() && !isStandaloneApp());
+}
+/* Only worth saying on an iPhone in Safari, only once, and never again after it
+   is dismissed — the guard above means the app works either way. */
+function renderHomeScreenHint(){
+  var el = document.getElementById('homeHint');
+  if(!el) return;
+  var iOS = /iP(hone|od|ad)/.test(navigator.userAgent);
+  var dismissed = false;
+  try{ dismissed = hasLocalStorage() && localStorage.getItem('buildlog_home_hint') === 'off'; }catch(e){}
+  if(!iOS || isStandaloneApp() || dismissed){ el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.innerHTML =
+    '<b>Tap the tabs twice down there?</b><br>' +
+    'That is Safari, not the app: a tap near the bottom edge opens its toolbar first. ' +
+    'The buttons now sit clear of that strip, but the real fix is to add this to your ' +
+    'Home Screen — Share → <b>Add to Home Screen</b>. It then opens with no browser bars ' +
+    'at all, and the tabs are exactly where you put your thumb.' +
+    '<button class="btn ghost full" style="margin-top:8px" onclick="dismissHomeScreenHint()">Got it</button>';
+}
+function dismissHomeScreenHint(){
+  try{ if(hasLocalStorage()) localStorage.setItem('buildlog_home_hint','off'); }catch(e){}
+  renderHomeScreenHint();
+}
+/* Before the login screen rather than after it: the guard is layout, and the
+   tab bar is on the page whether or not anyone has signed in yet. */
+applyBottomEdgeGuard();
+/* Adding the app to the Home Screen does not reload this page, and a rotation
+   can change which insets apply — so re-check rather than deciding once. */
+try{
+  var standaloneQuery = window.matchMedia('(display-mode: standalone)');
+  var onDisplayChange = function(){ applyBottomEdgeGuard(); renderHomeScreenHint(); };
+  if(standaloneQuery.addEventListener) standaloneQuery.addEventListener('change', onDisplayChange);
+  else if(standaloneQuery.addListener) standaloneQuery.addListener(onDisplayChange);
+}catch(e){}
+window.addEventListener('orientationchange', applyBottomEdgeGuard);
 
 /* ================= TAB SWITCHING ================= */
 function showView(name){
@@ -5970,6 +6054,8 @@ async function startApp(){
   document.getElementById('foodMeal').innerHTML = mealSlotOptions(defaultMealForNow());
   renderEquipment();
 
+  applyBottomEdgeGuard();
+  renderHomeScreenHint();
   renderHeader();
   renderToday();
   renderPlan();

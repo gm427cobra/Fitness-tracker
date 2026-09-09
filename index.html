@@ -619,6 +619,7 @@ steps | 8400"></textarea>
     <p class="lead" style="margin:0 0 8px">Build <span id="buildStamp"></span></p>
     <p class="lead" id="diagLine" style="margin:0 0 8px;font-family:var(--f-mono);font-size:11px"></p>
     <button class="btn ghost full" style="margin-bottom:8px" onclick="reportSessionLengths()">Check session lengths</button>
+    <button class="btn ghost full" style="margin-bottom:8px" onclick="reportExercisePhotos()">Check exercise photos</button>
     <button class="btn ghost full" style="margin-bottom:8px" onclick="runPlanDiagnostics()">Check plan in cloud</button>
     <button class="btn full" style="margin-bottom:8px" onclick="pushPlanToCloud()">Push this device's plan to my account</button>
     <button class="btn ghost full" style="margin-bottom:8px" onclick="restoreLocalPlan()">Restore the plan saved on this device</button>
@@ -677,7 +678,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-09-2';
+var BUILD = '2026-09-09-3';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -2242,6 +2243,10 @@ async function uploadExercisePhoto(name, file){
   exPhotos.push(entry);
   try{ await persistExercisePhoto(entry); }
   catch(e){ exPhotos = previous; throw e; }   /* don't show a photo that didn't save */
+  /* Exercise rows can borrow a machine's photo, so a new photo anywhere can
+     change what any row resolves to. Cheaper to drop the cache than to work
+     out which rows were borrowing from this key. */
+  EX_IMG_CACHE = {};
   EX_IMG_CACHE[name] = dataUrl;
   return dataUrl;
 }
@@ -2252,7 +2257,7 @@ async function removeExercisePhoto(name){
   exPhotos = exPhotos.filter(function(p){ return p.name!==name; });
   try{ await forgetExercisePhoto(entry.id); }
   catch(e){ exPhotos = previous; throw e; }
-  delete EX_IMG_CACHE[name];
+  EX_IMG_CACHE = {};                          /* borrowed rows go stale too */
 }
 var pendingPhotoFor = null;
 function pickExercisePhoto(name){
@@ -2295,11 +2300,18 @@ function addPhotoButton(row, name){
 }
 /* "name" is the storage key. Equipment keys are prefixed so a machine and an
    exercise sharing a name don't share a photo, and opts.caption keeps the
-   prefix out of the UI. */
+   prefix out of the UI.
+   opts.altKeys are further keys to try when nothing is stored under "name" —
+   how a plan row borrows the photo of the machine it is performed on. Uploads
+   still go to "name", so photographing from an exercise row always saves
+   against the exercise and always wins the next lookup. */
 function addExerciseThumb(row, name, explicit, allowUpload, opts){
   opts = opts || {};
   var label = opts.caption || name;
   var uploaded = exPhotoUrl(name);
+  if(!uploaded){
+    (opts.altKeys||[]).some(function(k){ uploaded = exPhotoUrl(k); return !!uploaded; });
+  }
   var cached = uploaded || EX_IMG_CACHE[name];
   if(!uploaded && cached===null){                 /* known to have no photo */
     if(allowUpload) addPhotoButton(row, name);
@@ -2357,7 +2369,7 @@ function renderExerciseBlock(tpl, containerEl, allowUpload, tkey){
   }
   if(tpl.op){ containerEl.innerHTML += '<div class="note-strip red">'+tpl.note+'</div>'; return; }
   if(tpl.postop){ containerEl.innerHTML += '<div class="note-strip" style="border-left-color:var(--amber)">'+tpl.note+'</div>'; return; }
-  function exRow(name, metaHtml, noteHtml, explicitImg, imgName, skipDerivedSwaps){
+  function exRow(name, metaHtml, noteHtml, explicitImg, imgName, skipDerivedSwaps, ex){
     var div=document.createElement('div');
     div.className='exrow';
     var main=document.createElement('div');
@@ -2384,7 +2396,8 @@ function renderExerciseBlock(tpl, containerEl, allowUpload, tkey){
         text.appendChild(swap);
       }
     }
-    addExerciseThumb(main, imgName || name, explicitImg, allowUpload);
+    addExerciseThumb(main, imgName || name, explicitImg, allowUpload,
+                     {altKeys: equipmentPhotoKeysFor(ex)});
   }
   if(tpl.cardio){
     /* The heading carries the distance; the photo is keyed off the bare name. */
@@ -2401,7 +2414,7 @@ function renderExerciseBlock(tpl, containerEl, allowUpload, tkey){
   }
   tpl.ex.forEach(function(e){
     exRow(e.name, prescriptionMeta(e), prescriptionNote(e, allowUpload), e.img, null,
-          !!(e.alts && e.alts.length));
+          !!(e.alts && e.alts.length), e);
   });
   renderStretchBlock(coolRoutine, containerEl);
 }
@@ -3162,6 +3175,63 @@ function equipMuscles(e){
 function findEquipment(name){
   var n = String(name||'').trim().toLowerCase();
   return equipLog.filter(function(e){ return (e.name||'').trim().toLowerCase() === n; })[0];
+}
+/* The plan and the inventory are written at different times and rarely agree
+   to the character — "Iso-Lateral Horizontal Bench Press, Hammer Strength" in
+   the plan against "Iso-Lateral Horizontal Bench Press" on the shop floor. So
+   fall back to containment either way once an exact match fails, and refuse to
+   answer when more than one machine fits: the wrong photo on an exercise is
+   worse than no photo, because you would go and load the wrong machine. */
+function normEquipName(s){
+  return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+}
+function findEquipmentLoose(name){
+  var exact = findEquipment(name);
+  if(exact) return exact;
+  var n = normEquipName(name);
+  if(n.length < 6) return null;                 /* too short to match on safely */
+  var hits = equipLog.filter(function(e){
+    var en = normEquipName(e.name);
+    if(en.length < 6) return false;
+    if(en.indexOf(n) === -1 && n.indexOf(en) === -1) return false;
+    /* Containment alone is not enough: the plan writes "Cybex" and "Prime" and
+       "Cybex Eagle NX" in the machine field, and a brand or series sits inside
+       half the inventory — that is how a leg press ends up showing a photo of a
+       row. So require the shorter string to account for most of the longer one.
+       "Iso-Lateral Horizontal Bench Press" still matches the plan's spelling of
+       it with ", Hammer Strength" on the end; "Cybex" matches nothing. */
+    var a = en.length, b = n.length;
+    return Math.min(a,b) / Math.max(a,b) >= 0.6;
+  });
+  return hits.length === 1 ? hits[0] : null;
+}
+/* Which inventory photos a plan exercise may borrow, best guess first. The two
+   photo stores stay separate — a machine and an exercise sharing a name should
+   not share a photo — but a row naming a machine you have photographed should
+   show that photo rather than an empty slot. */
+function equipmentPhotoKeysFor(e){
+  if(!e || !equipLog.length) return [];
+  var keys = [], seen = {};
+  function add(entry){
+    if(!entry || !entry.name) return;
+    var k = equipPhotoKey(entry.name);
+    if(!seen[k]){ seen[k] = 1; keys.push(k); }
+  }
+  add(findEquipmentLoose(e.machine));
+  add(findEquipmentLoose(e.name));
+  /* Named as neither — match the exercise against what each machine says it is
+     used for, the same way the "if busy" swap list does. Unique matches only. */
+  if(!keys.length){
+    var n = normEquipName(e.name), byUse = [];
+    equipLog.forEach(function(eq){
+      (eq.exercises||'').split(/[;,]/).forEach(function(x){
+        var xn = normEquipName(x);      /* "Chest-Supported Row" vs "chest supported row" */
+        if(xn.length >= 5 && n.indexOf(xn) !== -1 && byUse.indexOf(eq) === -1) byUse.push(eq);
+      });
+    });
+    if(byUse.length === 1) add(byUse[0]);
+  }
+  return keys;
 }
 /* Equipment that trains at least one of the same muscles, nearest match first. */
 function alternativesFor(name, limit){
@@ -4978,6 +5048,58 @@ function sessionLine(){
   var over = rows.filter(function(r){ return r.clock.over; });
   var list = rows.map(function(r){ return r.key+' '+r.clock.total; }).join(', ');
   return list + (over.length ? ' — OVER on '+over.map(function(r){ return r.key; }).join(', ') : ' (all fit)');
+}
+/* Why a given plan row shows the photo it shows — or shows none. A row can
+   carry its own photo, borrow the one on the machine it names, or find nothing;
+   the third case is worth being able to read off rather than guess at, since
+   the fix differs (photograph the exercise, photograph the machine, or correct
+   a machine name that does not match the inventory). */
+function reportExercisePhotos(){
+  var out = [], own = 0, borrowed = 0, none = 0;
+  out.push('EXERCISE PHOTOS — what each plan row resolves to');
+  out.push(equipLog.length + ' machines in the inventory, ' + exPhotos.length + ' photos stored');
+  out.push('');
+  var fromIdx = Math.max(0, dayIndexFromDate(PLAN.programChangeover || PLAN.programStart));
+  var seen = {};
+  (PLAN.weekPlan||[]).forEach(function(week, w){
+    (week||[]).forEach(function(k, d){
+      if(!k || seen[k] || w*7 + d < fromIdx) return;
+      seen[k] = true;
+      var tpl = PLAN.templates[k];
+      if(!tpl || !tpl.ex) return;
+      out.push(tpl.label);
+      tpl.ex.forEach(function(e){
+        var pad = e.name + '                            '.slice(0, Math.max(1, 26 - e.name.length));
+        if(exPhotoUrl(e.name)){ own++; out.push('  ' + pad + 'own photo'); return; }
+        var keys = equipmentPhotoKeysFor(e), hit = null;
+        keys.some(function(key){ if(exPhotoUrl(key)){ hit = key; return true; } return false; });
+        if(hit){
+          borrowed++;
+          out.push('  ' + pad + 'machine · ' + hit.replace('equip::',''));
+        } else if(keys.length){
+          none++;
+          out.push('  ' + pad + 'NONE · matches ' +
+                   keys.map(function(key){ return '"'+key.replace('equip::','')+'"'; }).join(' / ') +
+                   ', but no photo on it');
+        } else {
+          none++;
+          out.push('  ' + pad + 'NONE · nothing in the inventory matches "' + (e.machine || e.name) + '"');
+        }
+      });
+      out.push('');
+    });
+  });
+  out.push((own+borrowed+none) + ' rows: ' + own + ' own photo, ' + borrowed +
+           ' borrowed from a machine, ' + none + ' with nothing.');
+  out.push('');
+  out.push('A row finds its machine by name, or by that machine\'s "Used for" list');
+  out.push('naming the exercise. So:');
+  out.push('  NONE, machine matched → photograph that machine on the Equipment tab.');
+  out.push('  NONE, no match        → add the exercise to the right machine\'s "Used for"');
+  out.push('                          field on the Equipment tab. That is usually quicker');
+  out.push('                          than renaming anything, and it fixes the "if busy"');
+  out.push('                          swap suggestions at the same time.');
+  planDiagOut(out.join('\n'));
 }
 function reportSessionLengths(){
   var cap = sessionCapMin(), out = [], over = 0;

@@ -141,6 +141,26 @@
   .timekey span{display:inline-flex;align-items:center;gap:4px;}
   .timekey b{width:8px;height:8px;border-radius:2px;display:inline-block;}
 
+  /* Session sheet — the day's plan, made editable. Denser than the Today card:
+     you are standing at a machine with one hand free. */
+  .sh-row{border-top:1px solid var(--line);padding:11px 0;}
+  .sh-row:first-child{border-top:none;padding-top:2px;}
+  .sh-row.done{opacity:.72;}
+  .sh-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+  .sh-name{font-weight:600;font-size:15px;line-height:1.25;}
+  .sh-plan{font-family:var(--f-mono);font-size:11.5px;color:var(--blue);white-space:nowrap;flex:none;}
+  .sh-cue{font-size:11.5px;color:var(--ink-dim);margin-top:4px;line-height:1.45;}
+  .sh-fields{display:grid;grid-template-columns:1.15fr .8fr 1fr 1fr auto;gap:6px;align-items:end;margin-top:7px;}
+  .sh-fields label{font-size:9px;letter-spacing:.06em;margin-bottom:2px;}
+  .sh-fields input,.sh-fields select{padding:8px 6px;font-size:15px;}
+  .sh-machine{margin-top:7px;}
+  .sh-machine select{padding:7px 8px;font-size:12.5px;}
+  .sh-save{padding:8px 10px;font-size:12px;white-space:nowrap;border-radius:6px;border:1px solid var(--blue);
+    background:var(--blue);color:#0a0d10;font-weight:600;font-family:var(--f-body);cursor:pointer;}
+  .sh-save.done{background:none;color:var(--green);border-color:var(--green);}
+  .sh-save:disabled{opacity:.45;}
+  .sh-flag{font-size:11px;color:var(--amber);margin-top:4px;}
+
   p.lead{font-size:13px;color:var(--ink-dim);line-height:1.5;margin:0 0 12px;}
   .note-strip{
     border-left:3px solid var(--amber);background:rgba(232,163,61,.08);
@@ -377,6 +397,14 @@
 </div>
 
 <div class="view" id="view-log">
+
+  <div class="card" id="sessionSheetCard">
+    <div class="card-h"><h2>Session sheet</h2>
+      <input type="date" id="sheetDate" onchange="renderSessionSheet()"
+             style="font-size:12px;padding:5px 8px;width:auto">
+    </div>
+    <div id="sheetBody"></div>
+  </div>
 
   <div class="card">
     <div class="card-h"><h2>Paste from Claude</h2></div>
@@ -678,7 +706,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-09-4';
+var BUILD = '2026-09-09-5';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -1357,11 +1385,11 @@ var DEFAULT_PLAN = {
        own right. weight:null renders as "calibrate" — the signal to treat the
        first session on it as a genuine ramp-up test rather than a guess. */
     lowerA:{label:'Lower A — quads & calves', prep:'prepLower', cool:'coolLower', ex:[
-      {name:'Leg Press', machine:'Cybex', sets:5, reps:'10–15', weight:'160kg', cap:'160kg', rir:'1–2',
+      {name:'Leg Press', machine:'Cybex (white)', sets:5, reps:'10–15', weight:'160kg', cap:'160kg', rir:'1–2',
        tempo:'3-1-1', rest:'2–3 min',
-       note:'Wider rep range than the rest because the load cannot move: 160kg is this machine\u2019s ceiling, not a training cap — it has nothing left to add. Keep progressing on reps and pause until 5×10 is comfortable at RIR 1–2, then move to the 45° below and calibrate it as a new exercise. That is the progression route, not a fallback.',
+       note:'The WHITE Cybex, not the black one — confirmed 9 Sep. It is the white machine that caps at 160kg, and the two load differently, so the working history only means anything against one of them. Wider rep range than the rest because the load cannot move: 160kg is this machine\u2019s ceiling, not a training cap — it has nothing left to add. Keep progressing on reps and pause until 5×10 is comfortable at RIR 1–2, then move to the 45° below and calibrate it as a new exercise. That is the progression route, not a fallback.',
        alts:[{machine:'Leg Press 45° (black)', sets:5, reps:'10–15', weight:null, rir:'1–2', tempo:'3-1-1', rest:'2–3 min',
-              note:'Where this movement goes once the Cybex tops out — and the swap if it is busy. Fixed groove, loads differently: calibrate it, do not carry 160kg across.'}]},
+              note:'Where this movement goes once the white Cybex tops out — and the swap if it is busy. Fixed groove, loads differently: calibrate it, do not carry 160kg across.'}]},
       {name:'Leg Extension', machine:'Prime', sets:3, reps:'10–12', weight:'130kg', rir:'1–2',
        tempo:'2-1-2', rest:'90s', note:'Squeeze at the top.',
        alts:[{machine:'Leg Extension, silver plate-loaded', sets:3, reps:'10–12', weight:null, rir:'1–2', tempo:'2-1-2', rest:'90s'}]},
@@ -1804,7 +1832,9 @@ function showView(name){
   document.getElementById('view-'+name).classList.add('active');
   document.querySelector('.tab[data-view="'+name+'"]').classList.add('active');
   if(name==='today'){ renderToday(); }
-  if(name==='log'){ renderHistory(); }
+  /* Re-render on entry rather than only at startup: the sheet is keyed to a
+     date and to the log, both of which move while the tab is out of sight. */
+  if(name==='log'){ renderSessionSheet(); renderHistory(); }
   if(name==='progress'){ renderProgress(); }
   if(name==='tools'){ renderTools(); }
   if(name==='drinks'){ renderAlcoholChart(); }
@@ -3755,6 +3785,335 @@ async function deleteFood(i){
   renderHistory(); renderToday(); refreshProgress();
 }
 
+/* ================= SESSION SHEET =================
+   Logging a session used to mean the single-lift form, once per exercise:
+   pick the movement out of a list of every movement in the program, retype the
+   weight the plan already knows, repeat seven times. This is the same log, laid
+   out as the day you are actually doing — the plan for that date, with the
+   prescription filled in and every part of it editable, because what happens in
+   the gym is rarely exactly what was written down.
+
+   One deliberate omission: reps is never pre-filled. Weight and sets are what
+   the plan says to load and do, and typing them again teaches nobody anything —
+   but reps is the number the progression rule reads, and a machine-filled rep
+   count that nobody checked would raise your working weight on the strength of
+   a session that never happened. So the range shows as a placeholder and the
+   number is yours. A row with no reps in it does not save. */
+var SHEET = {date:null, rows:[]};
+
+/* Everything this exercise could be performed on: the machine the plan names,
+   its written alternates, and anything in the inventory whose "Used for" list
+   claims the movement. Each option carries a full prescription, because a
+   different machine is a different exercise — that is why swapping one changes
+   the sets, reps and weight alongside it rather than just relabelling the row. */
+function sheetMachineOptions(e){
+  var opts = [{label: e.machine || 'As planned', variant: e, kind:'plan'}];
+  (e.alts||[]).forEach(function(a){
+    /* An alternate inherits anything it does not restate — it is written as a
+       delta against the primary, not as a standalone record. */
+    opts.push({label: a.machine, kind:'alt', variant:{
+      name: e.name, machine: a.machine,
+      sets: a.sets != null ? a.sets : e.sets,
+      reps: a.reps != null ? a.reps : e.reps,
+      weight: a.weight !== undefined ? a.weight : e.weight,
+      unit: a.unit || e.unit, cap: a.cap, perSide: a.perSide,
+      rir: a.rir || e.rir, tempo: a.tempo || e.tempo, rest: a.rest || e.rest
+    }});
+  });
+  /* The inventory knows about machines the plan never listed. Offer them with
+     no weight — a machine the plan has not costed is one to calibrate, not one
+     to carry a number onto. */
+  var named = {};
+  opts.forEach(function(o){ named[normEquipName(o.label)] = 1; });
+  equipmentByUse(e.name).forEach(function(eq){
+    if(named[normEquipName(eq.name)]) return;
+    named[normEquipName(eq.name)] = 1;
+    opts.push({label: eq.name, kind:'inventory', variant:{
+      name: e.name, machine: eq.name, sets: e.sets, reps: e.reps,
+      weight: null, rir: e.rir, tempo: e.tempo, rest: e.rest
+    }});
+  });
+  return opts;
+}
+/* A machine other than the one the plan prescribes is tracked in its own right,
+   or the progression ladder would average two machines that load differently —
+   the plan says as much about the 45° press: "do not carry 160kg across". The
+   primary keeps the bare exercise name so no existing history is orphaned. */
+function variantExerciseName(opt, e){
+  return opt.kind === 'plan' ? e.name : e.name + ' — ' + opt.label;
+}
+function sheetTemplateFor(dateStr){
+  var idx = dayIndexFromDate(dateStr);
+  var key = templateForIndex(idx);
+  return {key:key, tpl: key ? PLAN.templates[key] : null, idx:idx};
+}
+/* What is already logged for this exercise on this date, so the sheet opens
+   showing the session as it stands rather than as if nothing had happened. */
+function loggedRowFor(dateStr, exerciseName){
+  for(var i=0;i<liftLog.length;i++){
+    if(liftLog[i].date === dateStr && liftLog[i].exercise === exerciseName) return liftLog[i];
+  }
+  return null;
+}
+function renderSessionSheet(){
+  var body = document.getElementById('sheetBody');
+  if(!body) return;
+  var dateEl = document.getElementById('sheetDate');
+  if(!dateEl.value) dateEl.value = todayStr();
+  var date = dateEl.value;
+  SHEET = {date:date, rows:[]};
+  body.innerHTML = '';
+
+  var st = sheetTemplateFor(date);
+  var head = document.createElement('p');
+  head.className = 'lead';
+  head.style.margin = '0 0 10px';
+  if(!st.tpl){
+    head.textContent = fmtDate(date) + ' — outside the program.';
+    body.appendChild(head);
+    return;
+  }
+  head.innerHTML = '<b style="color:var(--ink)">' + fmtDate(date) + '</b> · ' + st.tpl.label;
+  body.appendChild(head);
+
+  if(!st.tpl.ex || !st.tpl.ex.length){
+    var none = document.createElement('div');
+    none.className = 'empty';
+    none.textContent = st.tpl.cardio
+      ? 'Cardio day — nothing to log here. Runs are not lifts; use Steps or a note.'
+      : 'Nothing to lift on this day.';
+    body.appendChild(none);
+    return;
+  }
+
+  st.tpl.ex.forEach(function(e, i){ body.appendChild(buildSheetRow(e, i, date)); });
+
+  var all = document.createElement('button');
+  all.className = 'btn full';
+  all.style.marginTop = '12px';
+  all.id = 'sheetSaveAll';
+  all.textContent = 'Save every row with reps in it';
+  all.onclick = saveSheetAll;
+  body.appendChild(all);
+
+  var hint = document.createElement('p');
+  hint.className = 'lead';
+  hint.style.margin = '8px 0 0';
+  hint.textContent = 'Weight and sets are pre-filled from the plan and from what you last lifted — ' +
+    'change anything that differed. Reps are left blank on purpose: it is the number that moves your ' +
+    'working weight, so it should be one you actually counted.';
+  body.appendChild(hint);
+}
+function buildSheetRow(e, i, date){
+  var opts = sheetMachineOptions(e);
+  var row = document.createElement('div');
+  row.className = 'sh-row';
+  row.id = 'shrow-' + i;
+  /* Open on the machine the session was actually done on. Without this, a row
+     logged against an alternate comes back showing the primary as untouched,
+     which invites logging the same exercise twice. */
+  var sel = 0;
+  for(var oi=0; oi<opts.length; oi++){
+    if(loggedRowFor(date, variantExerciseName(opts[oi], e))){ sel = oi; break; }
+  }
+  SHEET.rows.push({ex:e, opts:opts, sel:sel});
+
+  var head = document.createElement('div');
+  head.className = 'sh-head';
+  head.innerHTML = '<div class="sh-name"></div><div class="sh-plan" id="shplan-'+i+'"></div>';
+  head.querySelector('.sh-name').textContent = e.name;
+  row.appendChild(head);
+
+  if(opts.length > 1){
+    var mach = document.createElement('div');
+    mach.className = 'sh-machine field';
+    mach.style.marginBottom = '0';
+    var sel = document.createElement('select');
+    sel.id = 'shmach-' + i;
+    opts.forEach(function(o, oi){
+      var op = document.createElement('option');
+      op.value = String(oi);
+      op.textContent = o.label + (o.kind==='plan' ? '' : o.kind==='alt' ? '  (planned alternate)' : '  (from inventory)');
+      sel.appendChild(op);
+    });
+    sel.value = String(SHEET.rows[i].sel);
+    sel.onchange = function(){ onSheetMachineChange(i); };
+    mach.appendChild(sel);
+    row.appendChild(mach);
+  }
+
+  var fields = document.createElement('div');
+  fields.className = 'sh-fields';
+  fields.innerHTML =
+    '<div><label>Weight</label><input type="number" step="0.5" inputmode="decimal" id="shw-'+i+'"></div>' +
+    '<div><label>Unit</label><select id="shu-'+i+'"><option value="kg">kg</option><option value="lb">lb</option></select></div>' +
+    '<div><label>Reps</label><input type="number" inputmode="numeric" id="shr-'+i+'"></div>' +
+    '<div><label>Sets</label><input type="number" inputmode="numeric" id="shs-'+i+'"></div>' +
+    '<button class="sh-save" id="shb-'+i+'">Save</button>';
+  row.appendChild(fields);
+  fields.querySelector('#shb-'+i).onclick = function(){ saveSheetRow(i); };
+
+  var cue = document.createElement('div');
+  cue.className = 'sh-cue';
+  cue.id = 'shcue-' + i;
+  row.appendChild(cue);
+
+  /* Fill after the elements exist, so the same code path serves both the first
+     paint and a later machine change. */
+  setTimeout(function(){ fillSheetRow(i, date); }, 0);
+  return row;
+}
+/* Weight comes from the working target, which is the log's number once there is
+   one and the plan's until then — the same figure the Today card prescribes,
+   phase reduction included, so the sheet and the card never disagree. */
+function fillSheetRow(i, date){
+  var r = SHEET.rows[i];
+  if(!r) return;
+  var v = r.opts[r.sel].variant;
+  var exName = variantExerciseName(r.opts[r.sel], r.ex);
+  var logged = loggedRowFor(date || SHEET.date, exName);
+
+  var t = workingTarget(v);
+  var target = t.weightStr;
+  var scaled = target ? phaseAdjustedWeight(target) : null;
+  var shown = scaled || target;
+  var parsed = shown ? parseWeight(shown) : null;
+
+  var w = document.getElementById('shw-'+i);
+  var u = document.getElementById('shu-'+i);
+  var reps = document.getElementById('shr-'+i);
+  var sets = document.getElementById('shs-'+i);
+  var btn = document.getElementById('shb-'+i);
+  var plan = document.getElementById('shplan-'+i);
+  var cue = document.getElementById('shcue-'+i);
+  var row = document.getElementById('shrow-'+i);
+  if(!w) return;
+
+  if(logged){
+    w.value = logged.weight;
+    u.value = liftUnitOf(logged);
+    reps.value = logged.reps;
+    sets.value = logged.sets;
+  } else {
+    w.value = parsed ? parsed.value : '';
+    u.value = parsed ? parsed.unit : (v.unit === 'lb' ? 'lb' : 'kg');
+    reps.value = '';
+    sets.value = v.sets != null ? v.sets : '';
+  }
+  reps.placeholder = String(v.reps || '');
+  w.placeholder = parsed ? '' : 'calibrate';
+
+  /* Once a row is logged, the chip shows what was logged rather than the target.
+     The target would have moved by then — workingTarget reads today's own entry
+     as the last session — and a row you have finished showing next week's
+     number is a good way to load the wrong thing on the second exercise. */
+  if(logged){
+    plan.textContent = 'logged ' + logged.sets + ' × ' + logged.reps + ' @ ' +
+                       logged.weight + liftUnitOf(logged);
+  } else {
+    plan.textContent = (v.sets||'?') + ' × ' + (v.reps||'?') +
+                       (shown ? ' @ ' + shown : ' @ calibrate') + (v.perSide ? ' /side' : '');
+  }
+  btn.textContent = logged ? 'Update' : 'Save';
+  btn.classList.toggle('done', !!logged);
+  row.classList.toggle('done', !!logged);
+
+  var bits = [];
+  if(r.opts[r.sel].kind !== 'plan'){
+    bits.push('<span style="color:var(--amber)">Logged as “' + histEsc(exName) + '”</span> — a different ' +
+              'machine loads differently, so it keeps its own history rather than moving the ladder on ' +
+              histEsc(r.ex.name) + '.');
+  }
+  if(v.perSide) bits.push('Log the weight per side.');
+  var last = t.last;
+  /* "Last time" must mean a previous session, not the one being written — on a
+     saved row workingTarget's last entry is today's. */
+  if(last && last.date !== (date || SHEET.date)){
+    bits.push('Last time: ' + last.sets + ' × ' + last.reps + ' @ ' + last.weight + liftUnitOf(last) +
+              ' on ' + fmtDate(last.date) + '.');
+  } else if(!parsed && !logged){
+    bits.push('Nothing logged on this yet — ramp up and record what you actually settle on.');
+  }
+  cue.innerHTML = bits.join(' ');
+}
+function onSheetMachineChange(i){
+  var r = SHEET.rows[i];
+  if(!r) return;
+  r.sel = parseInt(document.getElementById('shmach-'+i).value, 10) || 0;
+  fillSheetRow(i, SHEET.date);
+}
+/* Saving replaces any entry already held for this date and exercise rather than
+   appending a second one: the sheet describes a session, and a session happened
+   once. The manual "Log a lift" form still appends, which is what you want when
+   adding something the plan never asked for. */
+async function saveSheetRow(i, opts){
+  opts = opts || {};
+  var r = SHEET.rows[i];
+  if(!r) return false;
+  var reps = parseInt(document.getElementById('shr-'+i).value, 10);
+  if(!reps){
+    if(!opts.quiet) flashSheetRow(i, 'Enter the reps you actually did.');
+    return false;
+  }
+  var entry = {
+    date: SHEET.date,
+    exercise: variantExerciseName(r.opts[r.sel], r.ex),
+    weight: parseFloat(document.getElementById('shw-'+i).value) || 0,
+    reps: reps,
+    sets: parseInt(document.getElementById('shs-'+i).value, 10) || 0
+  };
+  if(document.getElementById('shu-'+i).value === 'lb') entry.unit = 'lb';
+  liftLog = liftLog.filter(function(x){ return !(x.date===entry.date && x.exercise===entry.exercise); });
+  liftLog.push(entry);
+  liftLog.sort(function(a,b){ return a.date.localeCompare(b.date); });
+  if(!opts.defer) await commitSheet(i);
+  return true;
+}
+async function commitSheet(i){
+  await saveArr('lift-log', liftLog);
+  if(typeof i === 'number') fillSheetRow(i, SHEET.date);
+  renderHistory(); populateLiftChartSelect(); refreshProgress(); renderToday();
+}
+async function saveSheetAll(){
+  var btn = document.getElementById('sheetSaveAll');
+  var saved = 0;
+  for(var i=0;i<SHEET.rows.length;i++){
+    if(await saveSheetRow(i, {quiet:true, defer:true})) saved++;
+  }
+  if(!saved){
+    flashSheetAll('Nothing to save yet — put the reps in first.');
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'Saving…';
+  await commitSheet();
+  SHEET.rows.forEach(function(_, i){ fillSheetRow(i, SHEET.date); });
+  btn.disabled = false;
+  btn.textContent = 'Saved ' + saved + ' exercise' + (saved===1?'':'s');
+  setTimeout(function(){
+    var b = document.getElementById('sheetSaveAll');
+    if(b) b.textContent = 'Save every row with reps in it';
+  }, 2500);
+}
+function flashSheetRow(i, msg){
+  var row = document.getElementById('shrow-'+i);
+  if(!row) return;
+  var flag = row.querySelector('.sh-flag');
+  if(!flag){
+    flag = document.createElement('div');
+    flag.className = 'sh-flag';
+    row.appendChild(flag);
+  }
+  flag.textContent = msg;
+  setTimeout(function(){ if(flag.parentNode) flag.parentNode.removeChild(flag); }, 2500);
+}
+function flashSheetAll(msg){
+  var btn = document.getElementById('sheetSaveAll');
+  if(!btn) return;
+  var was = btn.textContent;
+  btn.textContent = msg;
+  setTimeout(function(){ if(btn) btn.textContent = was; }, 2200);
+}
+
 /* ================= LIFT UNITS =================
    Bodyweight and food stay metric; a lift carries the unit its machine is
    actually marked in. The GYM 80 calf stack is in lb, and converting it in your
@@ -3807,12 +4166,12 @@ async function addLift(){
   document.getElementById('liftWeight').value='';
   document.getElementById('liftReps').value='';
   document.getElementById('liftSets').value='';
-  renderHistory(); populateLiftChartSelect(); refreshProgress();
+  renderHistory(); populateLiftChartSelect(); refreshProgress(); renderSessionSheet();
 }
 async function deleteLift(i){
   liftLog.splice(i,1);
   await saveArr('lift-log', liftLog);
-  renderHistory(); populateLiftChartSelect(); refreshProgress();
+  renderHistory(); populateLiftChartSelect(); refreshProgress(); renderSessionSheet();
 }
 
 async function addNote(){
@@ -5607,6 +5966,7 @@ async function startApp(){
   document.getElementById('alcDate').value = todayStr();
   document.getElementById('foodDate').value = todayStr();
   document.getElementById('stepDate').value = todayStr();
+  document.getElementById('sheetDate').value = todayStr();
   document.getElementById('foodMeal').innerHTML = mealSlotOptions(defaultMealForNow());
   renderEquipment();
 
@@ -5617,6 +5977,7 @@ async function startApp(){
   renderAlcTable();
   renderHistory();
   renderMealLibrary();
+  renderSessionSheet();
   populateLiftExerciseSelect();
   document.getElementById('trendRange').onchange = renderCalorieChart;
   document.getElementById('buildStamp').textContent = BUILD;

@@ -677,7 +677,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-09-1';
+var BUILD = '2026-09-09-2';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -783,16 +783,20 @@ var DEFAULT_PLAN = {
       "peakDate": "2026-09-08",
       "cutRateKgPerWeek": 0.24
   },
-  planVersion: '2026-09-09-hypertrophy-r6-stretch',
+  planVersion: '2026-09-09-hypertrophy-r7-stretch-65',
   /* The first day the new program applies. Anything before it is training that
      already happened and must be taken from the stored plan, not from here. */
   programChangeover: '2026-09-09',
-  planNote: '4-day Upper/Lower hypertrophy split, re-cut 9 Sep to fit a 60-minute session with the stretching inside it rather than bolted on the end. Every training day runs prep → lifting → stretch, and the app costs all three in minutes against the cap. The stretching is aimed at a desk-worker lower back and a shoulder that is recovering well and worth keeping that way. Paying for it cost ten accessory sets across the week (one each off the standing and seated calf raises, the dumbbell press, the cable fly, the hip thrust, the kneeling curl, the split squat, the farmer’s hold, the chest-supported row and the rear delt fly), the Lower B crunch, and the Prone Y-Raise, which moved into the Upper prep block rather than leaving. Every one was chosen for having cover elsewhere in the week; no primary lift lost a set, and the Leg Press, Incline Press, Lat Pulldown, Lateral Raise, Pallof, face pulls and external rotations are all untouched. If a machine is busy and the clock is going, pair two 60-second accessories back to back before you cut the stretching. Phase A pre-op push to 18 Sep → op Sat 19 Sep → rest to 3 Oct → return ramp from 5 Oct → normal progression from 19 Oct.',
+  planNote: '4-day Upper/Lower hypertrophy split with stretching inside the session rather than bolted on the end. Every training day runs prep → lifting → stretch, and the app costs all three in minutes against a 65-minute cap. The stretching is aimed at a desk-worker lower back and a shoulder that is recovering well and worth keeping that way. The cap moved from 60 to 65 on 9 Sep, and those five minutes bought back almost all the volume the stretching had cost: Lower A, Upper A and Upper B carry their full prior prescription, and only the Prone Y-Raise sits somewhere new — in the Upper prep block, where it warms the shoulder rather than closing a long session. Lower B is the exception and stays trimmed by four sets and the crunch: at 26 sets and three per-side movements it ran 70 minutes before a single stretch was added, so it was over any sane cap on its own merits. If a machine is busy and the clock is going, pair two 60-second accessories back to back, then drop a cable fly or rear delt set — cut the stretching last. Phase A pre-op push to 18 Sep → op Sat 19 Sep → rest to 3 Oct → return ramp from 5 Oct → normal progression from 19 Oct.',
   /* The session cap is a constraint on the program, not a note about it: every
      template is costed against it, and Tools → "Check session lengths" is what
-     proves a change still fits. Adding sets without checking is how a 60-minute
-     session quietly becomes 75. */
-  sessionCapMin: 60,
+     proves a change still fits. Adding sets without checking is how a 65-minute
+     session quietly becomes 80.
+     Raised from 60 to 65 on 9 Sep. Five more minutes bought back nearly all the
+     volume the stretching had cost — the accessory sets run 2–3 minutes each,
+     so the trade is far better at this end than trimming the stretching would
+     have been (dropping the holds to a token five minutes saves five). */
+  sessionCapMin: 65,
   /* ---- Stretching (added 9 Sep) ----
      Two standing problems drive these: a lower back that stiffens from sitting
      at a desk, and a shoulder that is recovering and worth keeping that way.
@@ -1364,10 +1368,10 @@ var DEFAULT_PLAN = {
        tempo:'2-1-2', rest:'90s', note:'Squeeze at the top.',
        alts:[{machine:'Prone Leg Curl, Cybex Prestige', sets:3, reps:'10–12', weight:null, rir:'1–2', tempo:'2-1-2', rest:'90s'},
              {machine:'Prone Leg Curl, Hammer Strength (plate-loaded)', sets:3, reps:'10–12', weight:null, rir:'1–2', tempo:'2-1-2', rest:'90s'}]},
-      {name:'Standing Calf Raise', machine:'GYM 80', sets:3, reps:'15–20',
+      {name:'Standing Calf Raise', machine:'GYM 80', sets:4, reps:'15–20',
        weight:'120lb', unit:'lb', rir:'0–1', tempo:'2-1-2', rest:'60s',
-       note:'Full stretch at the bottom. The stack is marked in lb, so log it in lb — the Log tab switches units for you when you pick this exercise. No converting in your head. Cut from 4 sets to 3 on 9 Sep to pay for the stretching; the seated raise on Lower B still gives calves six sets a week.',
-       alts:[{machine:'Standing Calf Raise, Muscleworks', sets:3, reps:'15–20', weight:null, rir:'0–1', tempo:'2-1-2', rest:'60s',
+       note:'Full stretch at the bottom. The stack is marked in lb, so log it in lb — the Log tab switches units for you when you pick this exercise. No converting in your head.',
+       alts:[{machine:'Standing Calf Raise, Muscleworks', sets:4, reps:'15–20', weight:null, rir:'0–1', tempo:'2-1-2', rest:'60s',
               note:'Load is NOT interchangeable with the GYM 80 — recalibrate if you switch.'}]},
       {name:'Abdominal Crunch', machine:'Cybex Eagle NX', sets:3, reps:'15–20', weight:null, rir:'0–1',
        tempo:'2-1-2', rest:'60s', note:'Squeeze and hold 1s at the top.',
@@ -1385,15 +1389,14 @@ var DEFAULT_PLAN = {
       {name:'Incline Press', machine:'Incline Chest Press, Hammer Strength', sets:3, reps:'10–12',
        weight:null, perSide:true, rir:'1–2', tempo:'2-0-1', rest:'2 min',
        note:'Only upper-chest-bias machine available. Expect a lower weight than the flat press. No alternate for this angle — if it is busy, swap the whole slot for a second flat-press variant rather than forcing a substitute.'},
-      {name:'DB Neutral-Grip Press', machine:'Dumbbell, neutral grip', sets:2, reps:'10–12',
-       weight:'24kg/hand', rir:'1–2', tempo:'2-1-1', rest:'90s',
-       note:'Free weight — always available. Third set dropped 9 Sep to fit the stretching: chest still gets eleven sets across the machine press, the incline and the fly, which is plenty at this frequency.'},
+      {name:'DB Neutral-Grip Press', machine:'Dumbbell, neutral grip', sets:3, reps:'10–12',
+       weight:'24kg/hand', rir:'1–2', tempo:'2-1-1', rest:'90s', note:'Free weight — always available.'},
       {name:'Lateral Raise', machine:'Dumbbell', sets:3, reps:'15–20', weight:null, rir:'0–1',
        tempo:'2-1-2', rest:'60s', note:'No swinging. Closes the shoulder-width gap — side delts were previously zero.',
        alts:[{machine:'Cable lateral raise, Adjustable Cable Station (Cybex)', sets:3, reps:'15–20', weight:null, rir:'0–1', tempo:'2-1-2', rest:'60s'}]},
-      {name:'Low-Incline Cable Fly', machine:'Adjustable Cable Station, Cybex', sets:2, reps:'12–15',
+      {name:'Low-Incline Cable Fly', machine:'Adjustable Cable Station, Cybex', sets:3, reps:'12–15',
        weight:'15kg', rir:'1–2', tempo:'2-1-2', rest:'60s',
-       note:'Big stretch. Only cable station covering this — if busy, add sets to Incline Press instead. Trimmed to 2 sets on 9 Sep; it is the accessory the day can most afford to lose.'},
+       note:'Big stretch. Only cable station covering this — if busy, add sets to Incline Press instead. This is the accessory the day can most afford to lose if the clock is going.'},
       {name:'Triceps Pushdown', machine:'Adjustable Cable Station, Cybex (rope or straight bar)',
        sets:3, reps:'12–15', weight:null, rir:'0–1', tempo:'2-0-1', rest:'60s',
        note:'No second cable station — if busy this is the one to skip, rather than force a poor substitute. The presses already carry real triceps volume.'},
@@ -1405,17 +1408,17 @@ var DEFAULT_PLAN = {
          as the last two sets of a session already running long. */
     ]},
     lowerB:{label:'Lower B — posterior chain, core & calves', prep:'prepLower', cool:'coolLower', ex:[
-      {name:'Hip Thrust', machine:'Gluteator 2.0, Rogers Athletic', sets:4, reps:'8–10', weight:'~75kg to start',
+      {name:'Hip Thrust', machine:'Gluteator 2.0, Rogers Athletic', sets:5, reps:'8–10', weight:'~75kg to start',
        rir:'1–2', tempo:'2-1-1', rest:'2 min',
        note:'Purpose-built station, switching primary here. RECALIBRATE — your 105kg was set on a different setup, so start around 70% of it and work up. Squeeze glutes hard at the top.',
-       alts:[{machine:'Multi Hip, Booty Builder', sets:4, reps:'8–10', weight:null, perSide:true, rir:'1–2', tempo:'2-1-1', rest:'2 min',
+       alts:[{machine:'Multi Hip, Booty Builder', sets:5, reps:'8–10', weight:null, perSide:true, rir:'1–2', tempo:'2-1-1', rest:'2 min',
               note:'Unilateral station.'}]},
-      {name:'Kneeling Leg Curl', machine:'Hammer Strength MTS', sets:3, reps:'10–12', weight:'60kg',
+      {name:'Kneeling Leg Curl', machine:'Hammer Strength MTS', sets:4, reps:'10–12', weight:'60kg',
        cap:'75kg', perSide:true, rir:'1–2', tempo:'2-1-2', rest:'90s',
-       note:'Only kneeling curl in the gym — if busy, add a Prone Leg Curl set from Monday instead. Hamstrings still get six sets a week with Monday’s prone curl.'},
+       note:'Only kneeling curl in the gym — if busy, add a Prone Leg Curl set from Monday instead.'},
       {name:'DB Split Squat', machine:'Dumbbell', sets:3, reps:'10–12/side', weight:'16kg/hand',
        rir:'1–2', tempo:'2-1-1', rest:'90s',
-       note:'Cut to 3 sets on 9 Sep — a per-side exercise costs twice the clock of a bilateral one, so it was the most expensive set in the session.',
+       note:'Held at 3 sets. A per-side exercise costs twice the clock of a bilateral one, so this is the most expensive set in the session — and this session is the one day of the four that still needs the room.',
        alts:[{machine:'Iso-Lateral Leg Press, Hammer Strength', sets:3, reps:'10–12/side', weight:null, perSide:true,
               rir:'1–2', tempo:'2-1-1', rest:'90s', note:'Single-leg, spine-safe cover for this movement. Start light.'}]},
       {name:'Pallof Press', machine:'Adjustable Cable Station, Cybex', sets:3, reps:'12–15/side',
@@ -1423,19 +1426,20 @@ var DEFAULT_PLAN = {
        note:'Anti-rotation core, and the one that earns its place for a lower back: it trains the trunk to resist movement rather than to flex.'},
       {name:'Single-Arm Farmer’s Hold', machine:'Dumbbell or kettlebell', sets:2, reps:'20–30s/side',
        weight:'38kg', rir:'near-failure grip', tempo:'hold', rest:'60s'},
-      /* Abdominal Crunch dropped from Lower B on 9 Sep. Direct flexion stays on
-         Monday; Pallof and the farmer's hold cover the trunk here, and they are
-         the anti-movement work a stiff lower back actually wants. */
+      /* Abdominal Crunch dropped from Lower B on 9 Sep and still out at the
+         65-minute cap: adding it back is nearly eight minutes, more than any
+         other single change available here. Direct flexion stays on Monday;
+         Pallof and the farmer's hold cover the trunk here, and they are the
+         anti-movement work a stiff lower back actually wants. */
       {name:'Seated Calf Raise', machine:'Arsenal Strength Reloaded (AR-SC / 9034)', sets:3, reps:'15–20',
        weight:null, rir:'0–1', tempo:'2-1-2', rest:'60s',
-       note:'Soleus-biased, complements Monday’s gastroc-biased standing raise. Full stretch at the bottom. About 9kg of built-in lever resistance before any plate goes on, so this number understates true load — keep it consistent session to session rather than comparing it to Monday.'}
+       note:'Soleus-biased, complements Monday’s gastroc-biased standing raise. Full stretch at the bottom. About 9kg of built-in lever resistance before any plate goes on, so this number understates true load — keep it consistent session to session rather than comparing it to Monday. Held at 3 sets while Monday’s standing raise runs 4 — seven calf sets a week between them.'}
     ]},
     upperB:{label:'Upper B — back, side delts & arms', prep:'prepUpper', cool:'coolUpper', ex:[
-      {name:'Chest-Supported Row', machine:'Cybex Eagle NX', sets:4, reps:'8–10', weight:'40kg',
-       rir:'1–2', tempo:'2-1-1', rest:'2 min',
-       note:'Squeeze the shoulder blades. Fifth set dropped 9 Sep — with the pulldown and the high row it is still eleven sets of back work.',
-       alts:[{machine:'Iso-Lateral D.Y. Row, Hammer Strength', sets:4, reps:'8–10', weight:null, perSide:true, rir:'1–2', tempo:'2-1-1', rest:'2 min'},
-             {machine:'Iso-Lateral Row, Hammer Strength (silver frame)', sets:4, reps:'8–10', weight:null, perSide:true, rir:'1–2', tempo:'2-1-1', rest:'2 min'}]},
+      {name:'Chest-Supported Row', machine:'Cybex Eagle NX', sets:5, reps:'8–10', weight:'40kg',
+       rir:'1–2', tempo:'2-1-1', rest:'2 min', note:'Squeeze the shoulder blades.',
+       alts:[{machine:'Iso-Lateral D.Y. Row, Hammer Strength', sets:5, reps:'8–10', weight:null, perSide:true, rir:'1–2', tempo:'2-1-1', rest:'2 min'},
+             {machine:'Iso-Lateral Row, Hammer Strength (silver frame)', sets:5, reps:'8–10', weight:null, perSide:true, rir:'1–2', tempo:'2-1-1', rest:'2 min'}]},
       {name:'Lat Pulldown', machine:'Plate-loaded, independent handles', sets:4, reps:'10–12', weight:'70kg',
        perSide:true, rir:'1–2', tempo:'2-1-1', rest:'90s', note:'Elbows lead.',
        alts:[{machine:'Lat Pulldown, Arsenal Strength', sets:4, reps:'10–12', weight:null, perSide:true, rir:'1–2', tempo:'2-1-1', rest:'90s'},
@@ -1445,10 +1449,10 @@ var DEFAULT_PLAN = {
       {name:'High Row', machine:'Iso-Lateral High Row, Hammer Strength', sets:3, reps:'10–12', weight:null,
        perSide:true, rir:'1–2', tempo:'2-1-1', rest:'90s',
        note:'Sits between the pulldown and the row — a genuinely different angle.'},
-      {name:'Rear Delt Fly', machine:'Adjustable Cable Station, Cybex', sets:2, reps:'12–15', weight:'12kg',
+      {name:'Rear Delt Fly', machine:'Adjustable Cable Station, Cybex', sets:3, reps:'12–15', weight:'12kg',
        rir:'1–2', tempo:'2-1-2', rest:'60s',
-       note:'Trimmed to 2 sets on 9 Sep — the rows, the high row and Thursday’s face pulls all pay into the rear delt, so this was the cheapest set in the session to give up.',
-       alts:[{machine:'Dedicated rear delt machine, if free', sets:2, reps:'12–15', weight:null, rir:'1–2', tempo:'2-1-2', rest:'60s'}]},
+       note:'The rows, the high row and Tuesday’s face pulls all pay into the rear delt, so this is the cheapest set in the session to give up if the clock is going.',
+       alts:[{machine:'Dedicated rear delt machine, if free', sets:3, reps:'12–15', weight:null, rir:'1–2', tempo:'2-1-2', rest:'60s'}]},
       {name:'Machine Arm Curl', machine:'Machine Arm Curl', sets:3, reps:'8–12', weight:'85.5kg',
        rir:'1–2', tempo:'2-0-2', rest:'60s',
        alts:[{machine:'Cable curl, Adjustable Cable Station (Cybex)', sets:3, reps:'8–12', weight:null, rir:'1–2', tempo:'2-0-2', rest:'60s'}]},
@@ -2933,7 +2937,7 @@ function renderPlanUpdateBanner(){
   strip.innerHTML =
     '<b>A newer program is available.</b><br>You are running ' + histEsc(have) +
     '; the app ships <b>' + histEsc(latest) + '</b> — the 4-day Upper/Lower split with ' +
-    'stretching built into every session and the whole thing cut to fit ' + sessionCapMin() + ' minutes. ' +
+    'stretching built into every session and every day costed against a ' + sessionCapMin() + '-minute cap. ' +
     'Loading it replaces the sessions, sets, weights and progression phases. ' +
     'Your training logs, bodyweight, photos and machine inventory are untouched.' +
     '<button class="btn full" style="margin-top:8px" onclick="loadLatestProgram()">Load the new program</button>';

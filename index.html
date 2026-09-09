@@ -121,6 +121,26 @@
     display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--ink);
     letter-spacing:.05em;text-transform:uppercase;text-align:center;padding:2px;}
 
+  /* Stretching rows are deliberately lighter than .exrow: they are not lifts,
+     they are not logged, and they should not compete with the working sets for
+     attention on the Today card. */
+  .block-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin:15px 0 6px;}
+  .block-h .t{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);font-weight:600;}
+  .block-h .m{font-family:var(--f-mono);font-size:11px;color:var(--blue);white-space:nowrap;}
+  .strow{display:flex;gap:10px;align-items:baseline;border-top:1px solid var(--line);padding:7px 0;}
+  .strow:first-child{border-top:none;}
+  .strow .st-text{flex:1;min-width:0;}
+  .stname{font-size:14px;font-weight:600;line-height:1.3;}
+  .stnote{font-size:12px;color:var(--ink-dim);margin-top:3px;line-height:1.45;}
+  .sthold{font-family:var(--f-mono);font-size:12.5px;color:var(--blue);white-space:nowrap;flex:none;}
+  /* One bar, one session: prep / lifting / stretching against the 60-minute cap. */
+  .timebar{display:flex;height:7px;border-radius:4px;overflow:hidden;background:var(--panel-2);
+    border:1px solid var(--line);margin:2px 0 6px;}
+  .timebar i{display:block;height:100%;}
+  .timekey{display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--ink-dim);}
+  .timekey span{display:inline-flex;align-items:center;gap:4px;}
+  .timekey b{width:8px;height:8px;border-radius:2px;display:inline-block;}
+
   p.lead{font-size:13px;color:var(--ink-dim);line-height:1.5;margin:0 0 12px;}
   .note-strip{
     border-left:3px solid var(--amber);background:rgba(232,163,61,.08);
@@ -598,6 +618,7 @@ steps | 8400"></textarea>
   <div class="card">
     <p class="lead" style="margin:0 0 8px">Build <span id="buildStamp"></span></p>
     <p class="lead" id="diagLine" style="margin:0 0 8px;font-family:var(--f-mono);font-size:11px"></p>
+    <button class="btn ghost full" style="margin-bottom:8px" onclick="reportSessionLengths()">Check session lengths</button>
     <button class="btn ghost full" style="margin-bottom:8px" onclick="runPlanDiagnostics()">Check plan in cloud</button>
     <button class="btn full" style="margin-bottom:8px" onclick="pushPlanToCloud()">Push this device's plan to my account</button>
     <button class="btn ghost full" style="margin-bottom:8px" onclick="restoreLocalPlan()">Restore the plan saved on this device</button>
@@ -656,7 +677,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-08-8';
+var BUILD = '2026-09-09-1';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -762,11 +783,99 @@ var DEFAULT_PLAN = {
       "peakDate": "2026-09-08",
       "cutRateKgPerWeek": 0.24
   },
-  planVersion: '2026-09-09-hypertrophy-r5',
+  planVersion: '2026-09-09-hypertrophy-r6-stretch',
   /* The first day the new program applies. Anything before it is training that
      already happened and must be taken from the stored plan, not from here. */
   programChangeover: '2026-09-09',
-  planNote: '4-day Upper/Lower hypertrophy split, designed 9 Sep. Phase A pre-op push to 18 Sep → op Sat 19 Sep → rest to 3 Oct → return ramp from 5 Oct → normal progression from 19 Oct.',
+  planNote: '4-day Upper/Lower hypertrophy split, re-cut 9 Sep to fit a 60-minute session with the stretching inside it rather than bolted on the end. Every training day runs prep → lifting → stretch, and the app costs all three in minutes against the cap. The stretching is aimed at a desk-worker lower back and a shoulder that is recovering well and worth keeping that way. Paying for it cost ten accessory sets across the week (one each off the standing and seated calf raises, the dumbbell press, the cable fly, the hip thrust, the kneeling curl, the split squat, the farmer’s hold, the chest-supported row and the rear delt fly), the Lower B crunch, and the Prone Y-Raise, which moved into the Upper prep block rather than leaving. Every one was chosen for having cover elsewhere in the week; no primary lift lost a set, and the Leg Press, Incline Press, Lat Pulldown, Lateral Raise, Pallof, face pulls and external rotations are all untouched. If a machine is busy and the clock is going, pair two 60-second accessories back to back before you cut the stretching. Phase A pre-op push to 18 Sep → op Sat 19 Sep → rest to 3 Oct → return ramp from 5 Oct → normal progression from 19 Oct.',
+  /* The session cap is a constraint on the program, not a note about it: every
+     template is costed against it, and Tools → "Check session lengths" is what
+     proves a change still fits. Adding sets without checking is how a 60-minute
+     session quietly becomes 75. */
+  sessionCapMin: 60,
+  /* ---- Stretching (added 9 Sep) ----
+     Two standing problems drive these: a lower back that stiffens from sitting
+     at a desk, and a shoulder that is recovering and worth keeping that way.
+     Prep goes before the lifting — it is preparation, not a stretch session —
+     and the holds go after, when the tissue is warm and a long hold no longer
+     costs anything on the working sets. Every item carries its own duration in
+     seconds so the session clock is computed from the routine rather than
+     guessed at. Nothing here is loaded, so none of it is logged as a lift. */
+  stretchRoutines: {
+    prepLower: {label:'Prep — hips & spine', kind:'prep',
+      note:'Before the first working set, on top of your ramp-up sets. Movement, not long holds — a static stretch straight into a heavy leg press does neither any good.',
+      items:[
+        {name:'Cat–Camel', hold:'10 slow reps', secs:45,
+         note:'Move the spine one segment at a time. This is also the honest read on how the back is today — take it before you decide what to load.'},
+        {name:'90/90 Hip Switch', hold:'8/side', secs:60,
+         note:'Sit on the floor, both knees bent, rotate side to side. Opens the hips that eight hours in a chair closed.'},
+        {name:'Half-Kneeling Hip Flexor Rock', hold:'30s/side', secs:60,
+         note:'Back knee down, squeeze that glute, rock forward an inch. Short hip flexors tip the pelvis and hand the load to the lower back — this is the desk-job stretch that matters most.'},
+        {name:'Glute Bridge', hold:'12 reps', secs:45,
+         note:'Wakes the glutes so the hip thrust and split squat are run by them and not by the spinal erectors.'},
+        {name:'Bodyweight Squat', hold:'10 reps', secs:30, note:'To comfortable depth. Groove the pattern, no load.'}
+      ]},
+    prepUpper: {label:'Prep — thoracic & cuff', kind:'prep',
+      note:'Before the first working set, on top of your ramp-up sets. The cuff work that used to sit at the end of the session lives here now: it warms the shoulder up instead of being the thing you skip when time runs out.',
+      items:[
+        {name:'Cat–Camel', hold:'10 slow reps', secs:45, note:'The back gets its check-in on upper days too.'},
+        {name:'Thoracic Extension over a bench', hold:'8 slow reps', secs:45,
+         note:'Mid-back over the pad, open the chest. A stiff thoracic spine makes the shoulder do work that is not its own — the single best thing you can give a pressing day.'},
+        {name:'Band Pull-Apart', hold:'15 reps', secs:30, note:'Light band, straight arms, squeeze the blades.'},
+        {name:'Band Wall Slide', hold:'10 reps', secs:40,
+         note:'Forearms on the wall, slide up without shrugging or letting the ribs flare.'},
+        {name:'Band External Rotation', hold:'15/side', secs:50,
+         note:'Elbow pinned to your side the whole rep. Light — this is a warm-up for the cuff, not a set.'},
+        {name:'Prone Y-Raise', hold:'10 reps', secs:30,
+         note:'Moved here from the Upper A exercise list on 9 Sep. It was always maintenance rather than a growth driver, and it does more good warm than it did cold at the end.'}
+      ]},
+    coolLower: {label:'Stretch — lower back', kind:'cool',
+      note:'After the last set, warm. Breathe out into each hold and stay there — no bouncing, no forcing. If any of it puts pain down a leg, stop and log it.',
+      items:[
+        {name:'Supine Double Knee-to-Chest', hold:'2 × 30s', secs:60,
+         note:'On your back, both knees hugged in, low back flat to the floor. Decompresses everything the day loaded.'},
+        {name:'Supine Figure-4 Glute Stretch', hold:'30s/side', secs:60,
+         note:'Ankle across the opposite knee, pull the thigh in. Tight glutes are a very common source of a stiff lower back.'},
+        {name:'Half-Kneeling Hip Flexor Stretch', hold:'30s/side', secs:60,
+         note:'Same position as the prep, held. Glute squeezed and ribs down, or you stretch the lower back instead of the hip flexor.'},
+        {name:'Supine Hamstring Stretch', hold:'30s/side', secs:60,
+         note:'Strap or towel round the foot, other leg flat. Short hamstrings pull the pelvis under and round the lower back.'},
+        {name:'Supine Spinal Twist', hold:'30s/side', secs:60,
+         note:'Knees dropped to one side, shoulders staying down. Gentle rotation — never a wrench.'},
+        {name:'Child’s Pose with Side Reach', hold:'30s/side', secs:60,
+         note:'Reach both hands to one side to get the lats and the side of the trunk as well as the spine.'}
+      ]},
+    coolUpper: {label:'Stretch — shoulder & back', kind:'cool',
+      note:'After the last set, warm. The shoulder is recovering and doing well — the job here is to keep the range you have got, not to chase more. Everything is a gentle end-range hold, and nothing should reproduce the old pinch. Back it off if it does, and log the pain score.',
+      items:[
+        {name:'Doorway Pec Stretch', hold:'30s low, 30s mid', secs:60,
+         note:'Elbow at or below shoulder height first, then level with it. Never above — that is the angle the shoulder objects to. Step through until you feel the chest, not the joint.'},
+        {name:'Cross-Body Shoulder Stretch', hold:'30s/side', secs:60,
+         note:'Arm across the chest, pull at the upper arm and not at the elbow. Posterior capsule — the part that pressing tightens.'},
+        {name:'Lat Stretch', hold:'30s/side', secs:60,
+         note:'Hold a rack or bench, hips back, let the ribcage sink. Tight lats limit overhead range and make the shoulder work harder for it.'},
+        {name:'Thread-the-Needle', hold:'30s/side', secs:60,
+         note:'On all fours, one arm threaded under the other. Thoracic rotation plus the back of the shoulder in one.'},
+        {name:'Supine Spinal Twist', hold:'30s/side', secs:60,
+         note:'The lower back still gets its share on upper days — this is the one that carries it.'},
+        {name:'Supine Double Knee-to-Chest', hold:'2 × 30s', secs:60, note:'Finish flat, low back long.'}
+      ]},
+    deskReset: {label:'Stretch — full desk reset', kind:'cool',
+      note:'The long version, for days the gym is not eating the clock. Same stretches as the training days with longer holds, plus the shoulder work — this is the one that does the most for a back that sits down all week.',
+      items:[
+        {name:'Cat–Camel', hold:'10 slow reps', secs:45, note:'Start by moving before you start holding.'},
+        {name:'Supine Double Knee-to-Chest', hold:'2 × 30s', secs:60},
+        {name:'Supine Figure-4 Glute Stretch', hold:'45s/side', secs:90},
+        {name:'Half-Kneeling Hip Flexor Stretch', hold:'45s/side', secs:90,
+         note:'The long hold is the point here — this is the one the desk keeps shortening.'},
+        {name:'Supine Hamstring Stretch', hold:'45s/side', secs:90},
+        {name:'Supine Spinal Twist', hold:'45s/side', secs:90},
+        {name:'Child’s Pose with Side Reach', hold:'30s/side', secs:60},
+        {name:'Thread-the-Needle', hold:'30s/side', secs:60},
+        {name:'Doorway Pec Stretch', hold:'30s low, 30s mid', secs:60,
+         note:'Elbow at or below shoulder height. Gentle.'}
+      ]}
+  },
   weekNames: ['Reset — Week 1','Reset — Week 2','Changeover — new program from Wed 9 Sep',
               'Phase A — Pre-op push','Phase B — Post-op rest 1','Phase B — Post-op rest 2',
               'Phase C1 — Return ramp, week 1','Phase C2 — Return ramp, week 2',
@@ -1242,7 +1351,7 @@ var DEFAULT_PLAN = {
        alternate: a different machine is a different exercise, tracked in its
        own right. weight:null renders as "calibrate" — the signal to treat the
        first session on it as a genuine ramp-up test rather than a guess. */
-    lowerA:{label:'Lower A — quads & calves', ex:[
+    lowerA:{label:'Lower A — quads & calves', prep:'prepLower', cool:'coolLower', ex:[
       {name:'Leg Press', machine:'Cybex', sets:5, reps:'10–15', weight:'160kg', cap:'160kg', rir:'1–2',
        tempo:'3-1-1', rest:'2–3 min',
        note:'Wider rep range than the rest because the load cannot move: 160kg is this machine\u2019s ceiling, not a training cap — it has nothing left to add. Keep progressing on reps and pause until 5×10 is comfortable at RIR 1–2, then move to the 45° below and calibrate it as a new exercise. That is the progression route, not a fallback.',
@@ -1255,16 +1364,16 @@ var DEFAULT_PLAN = {
        tempo:'2-1-2', rest:'90s', note:'Squeeze at the top.',
        alts:[{machine:'Prone Leg Curl, Cybex Prestige', sets:3, reps:'10–12', weight:null, rir:'1–2', tempo:'2-1-2', rest:'90s'},
              {machine:'Prone Leg Curl, Hammer Strength (plate-loaded)', sets:3, reps:'10–12', weight:null, rir:'1–2', tempo:'2-1-2', rest:'90s'}]},
-      {name:'Standing Calf Raise', machine:'GYM 80', sets:4, reps:'15–20',
+      {name:'Standing Calf Raise', machine:'GYM 80', sets:3, reps:'15–20',
        weight:'120lb', unit:'lb', rir:'0–1', tempo:'2-1-2', rest:'60s',
-       note:'Full stretch at the bottom. The stack is marked in lb, so log it in lb — the Log tab switches units for you when you pick this exercise. No converting in your head.',
-       alts:[{machine:'Standing Calf Raise, Muscleworks', sets:4, reps:'15–20', weight:null, rir:'0–1', tempo:'2-1-2', rest:'60s',
+       note:'Full stretch at the bottom. The stack is marked in lb, so log it in lb — the Log tab switches units for you when you pick this exercise. No converting in your head. Cut from 4 sets to 3 on 9 Sep to pay for the stretching; the seated raise on Lower B still gives calves six sets a week.',
+       alts:[{machine:'Standing Calf Raise, Muscleworks', sets:3, reps:'15–20', weight:null, rir:'0–1', tempo:'2-1-2', rest:'60s',
               note:'Load is NOT interchangeable with the GYM 80 — recalibrate if you switch.'}]},
       {name:'Abdominal Crunch', machine:'Cybex Eagle NX', sets:3, reps:'15–20', weight:null, rir:'0–1',
        tempo:'2-1-2', rest:'60s', note:'Squeeze and hold 1s at the top.',
        alts:[{machine:'Abdominal Crunch, plate-loaded', sets:3, reps:'15–20', weight:null, rir:'0–1', tempo:'2-1-2', rest:'60s'}]}
     ]},
-    upperA:{label:'Upper A — chest & shoulders', ex:[
+    upperA:{label:'Upper A — chest & shoulders', prep:'prepUpper', cool:'coolUpper', ex:[
       {name:'Bench Press Machine', machine:'Iso-Lateral Horizontal Bench Press, Hammer Strength',
        sets:4, reps:'6–8', weight:'95kg', perSide:true, rir:'1–2', tempo:'2-0-1', rest:'2–3 min',
        note:'Proven shoulder-safe, tested clean to 120kg.',
@@ -1276,53 +1385,57 @@ var DEFAULT_PLAN = {
       {name:'Incline Press', machine:'Incline Chest Press, Hammer Strength', sets:3, reps:'10–12',
        weight:null, perSide:true, rir:'1–2', tempo:'2-0-1', rest:'2 min',
        note:'Only upper-chest-bias machine available. Expect a lower weight than the flat press. No alternate for this angle — if it is busy, swap the whole slot for a second flat-press variant rather than forcing a substitute.'},
-      {name:'DB Neutral-Grip Press', machine:'Dumbbell, neutral grip', sets:3, reps:'10–12',
-       weight:'24kg/hand', rir:'1–2', tempo:'2-1-1', rest:'90s', note:'Free weight — always available.'},
+      {name:'DB Neutral-Grip Press', machine:'Dumbbell, neutral grip', sets:2, reps:'10–12',
+       weight:'24kg/hand', rir:'1–2', tempo:'2-1-1', rest:'90s',
+       note:'Free weight — always available. Third set dropped 9 Sep to fit the stretching: chest still gets eleven sets across the machine press, the incline and the fly, which is plenty at this frequency.'},
       {name:'Lateral Raise', machine:'Dumbbell', sets:3, reps:'15–20', weight:null, rir:'0–1',
        tempo:'2-1-2', rest:'60s', note:'No swinging. Closes the shoulder-width gap — side delts were previously zero.',
        alts:[{machine:'Cable lateral raise, Adjustable Cable Station (Cybex)', sets:3, reps:'15–20', weight:null, rir:'0–1', tempo:'2-1-2', rest:'60s'}]},
-      {name:'Low-Incline Cable Fly', machine:'Adjustable Cable Station, Cybex', sets:3, reps:'12–15',
+      {name:'Low-Incline Cable Fly', machine:'Adjustable Cable Station, Cybex', sets:2, reps:'12–15',
        weight:'15kg', rir:'1–2', tempo:'2-1-2', rest:'60s',
-       note:'Big stretch. Only cable station covering this — if busy, add sets to Incline Press instead.'},
+       note:'Big stretch. Only cable station covering this — if busy, add sets to Incline Press instead. Trimmed to 2 sets on 9 Sep; it is the accessory the day can most afford to lose.'},
       {name:'Triceps Pushdown', machine:'Adjustable Cable Station, Cybex (rope or straight bar)',
        sets:3, reps:'12–15', weight:null, rir:'0–1', tempo:'2-0-1', rest:'60s',
        note:'No second cable station — if busy this is the one to skip, rather than force a poor substitute. The presses already carry real triceps volume.'},
       {name:'Face Pull', machine:'Adjustable Cable Station, Cybex', sets:3, reps:'15–20', weight:'25kg',
        rir:'1–2', tempo:'controlled, pause at face', rest:'60s',
-       note:'Maintenance, not rehab — this stays in even once the shoulder feels good.'},
-      {name:'Prone Y-Raise', machine:'Incline bench, light DB or bodyweight', sets:2, reps:'10',
-       weight:null, rir:'2–3', tempo:'slow, controlled', rest:'45s',
-       note:'Light. Maintenance, not a growth driver.'}
+       note:'Maintenance, not rehab — this stays in even once the shoulder feels good.'}
+      /* Prone Y-Raise moved into the Upper prep block on 9 Sep — it was light
+         maintenance work, and it does more warming the shoulder up than it did
+         as the last two sets of a session already running long. */
     ]},
-    lowerB:{label:'Lower B — posterior chain, abs & calves', ex:[
-      {name:'Hip Thrust', machine:'Gluteator 2.0, Rogers Athletic', sets:5, reps:'8–10', weight:'~75kg to start',
+    lowerB:{label:'Lower B — posterior chain, core & calves', prep:'prepLower', cool:'coolLower', ex:[
+      {name:'Hip Thrust', machine:'Gluteator 2.0, Rogers Athletic', sets:4, reps:'8–10', weight:'~75kg to start',
        rir:'1–2', tempo:'2-1-1', rest:'2 min',
        note:'Purpose-built station, switching primary here. RECALIBRATE — your 105kg was set on a different setup, so start around 70% of it and work up. Squeeze glutes hard at the top.',
-       alts:[{machine:'Multi Hip, Booty Builder', sets:5, reps:'8–10', weight:null, perSide:true, rir:'1–2', tempo:'2-1-1', rest:'2 min',
+       alts:[{machine:'Multi Hip, Booty Builder', sets:4, reps:'8–10', weight:null, perSide:true, rir:'1–2', tempo:'2-1-1', rest:'2 min',
               note:'Unilateral station.'}]},
-      {name:'Kneeling Leg Curl', machine:'Hammer Strength MTS', sets:4, reps:'10–12', weight:'60kg',
+      {name:'Kneeling Leg Curl', machine:'Hammer Strength MTS', sets:3, reps:'10–12', weight:'60kg',
        cap:'75kg', perSide:true, rir:'1–2', tempo:'2-1-2', rest:'90s',
-       note:'Only kneeling curl in the gym — if busy, add a Prone Leg Curl set from Monday instead.'},
-      {name:'DB Split Squat', machine:'Dumbbell', sets:4, reps:'10–12/side', weight:'16kg/hand',
+       note:'Only kneeling curl in the gym — if busy, add a Prone Leg Curl set from Monday instead. Hamstrings still get six sets a week with Monday’s prone curl.'},
+      {name:'DB Split Squat', machine:'Dumbbell', sets:3, reps:'10–12/side', weight:'16kg/hand',
        rir:'1–2', tempo:'2-1-1', rest:'90s',
-       alts:[{machine:'Iso-Lateral Leg Press, Hammer Strength', sets:4, reps:'10–12/side', weight:null, perSide:true,
+       note:'Cut to 3 sets on 9 Sep — a per-side exercise costs twice the clock of a bilateral one, so it was the most expensive set in the session.',
+       alts:[{machine:'Iso-Lateral Leg Press, Hammer Strength', sets:3, reps:'10–12/side', weight:null, perSide:true,
               rir:'1–2', tempo:'2-1-1', rest:'90s', note:'Single-leg, spine-safe cover for this movement. Start light.'}]},
       {name:'Pallof Press', machine:'Adjustable Cable Station, Cybex', sets:3, reps:'12–15/side',
-       weight:'11.3kg', rir:'1–2', tempo:'pause 1s at extension', rest:'60s'},
-      {name:'Single-Arm Farmer’s Hold', machine:'Dumbbell or kettlebell', sets:3, reps:'20–30s/side',
+       weight:'11.3kg', rir:'1–2', tempo:'pause 1s at extension', rest:'60s',
+       note:'Anti-rotation core, and the one that earns its place for a lower back: it trains the trunk to resist movement rather than to flex.'},
+      {name:'Single-Arm Farmer’s Hold', machine:'Dumbbell or kettlebell', sets:2, reps:'20–30s/side',
        weight:'38kg', rir:'near-failure grip', tempo:'hold', rest:'60s'},
-      {name:'Abdominal Crunch', machine:'Plate-loaded', sets:3, reps:'15–20', weight:null, rir:'0–1',
-       tempo:'2-1-2', rest:'60s', note:'A different machine to Monday’s, same movement — genuine 2x/week frequency.',
-       alts:[{machine:'Abdominal Crunch, Cybex Eagle NX', sets:3, reps:'15–20', weight:null, rir:'0–1', tempo:'2-1-2', rest:'60s'}]},
-      {name:'Seated Calf Raise', machine:'Arsenal Strength Reloaded (AR-SC / 9034)', sets:4, reps:'15–20',
+      /* Abdominal Crunch dropped from Lower B on 9 Sep. Direct flexion stays on
+         Monday; Pallof and the farmer's hold cover the trunk here, and they are
+         the anti-movement work a stiff lower back actually wants. */
+      {name:'Seated Calf Raise', machine:'Arsenal Strength Reloaded (AR-SC / 9034)', sets:3, reps:'15–20',
        weight:null, rir:'0–1', tempo:'2-1-2', rest:'60s',
        note:'Soleus-biased, complements Monday’s gastroc-biased standing raise. Full stretch at the bottom. About 9kg of built-in lever resistance before any plate goes on, so this number understates true load — keep it consistent session to session rather than comparing it to Monday.'}
     ]},
-    upperB:{label:'Upper B — back, side delts & arms', ex:[
-      {name:'Chest-Supported Row', machine:'Cybex Eagle NX', sets:5, reps:'8–10', weight:'40kg',
-       rir:'1–2', tempo:'2-1-1', rest:'2 min', note:'Squeeze the shoulder blades.',
-       alts:[{machine:'Iso-Lateral D.Y. Row, Hammer Strength', sets:5, reps:'8–10', weight:null, perSide:true, rir:'1–2', tempo:'2-1-1', rest:'2 min'},
-             {machine:'Iso-Lateral Row, Hammer Strength (silver frame)', sets:5, reps:'8–10', weight:null, perSide:true, rir:'1–2', tempo:'2-1-1', rest:'2 min'}]},
+    upperB:{label:'Upper B — back, side delts & arms', prep:'prepUpper', cool:'coolUpper', ex:[
+      {name:'Chest-Supported Row', machine:'Cybex Eagle NX', sets:4, reps:'8–10', weight:'40kg',
+       rir:'1–2', tempo:'2-1-1', rest:'2 min',
+       note:'Squeeze the shoulder blades. Fifth set dropped 9 Sep — with the pulldown and the high row it is still eleven sets of back work.',
+       alts:[{machine:'Iso-Lateral D.Y. Row, Hammer Strength', sets:4, reps:'8–10', weight:null, perSide:true, rir:'1–2', tempo:'2-1-1', rest:'2 min'},
+             {machine:'Iso-Lateral Row, Hammer Strength (silver frame)', sets:4, reps:'8–10', weight:null, perSide:true, rir:'1–2', tempo:'2-1-1', rest:'2 min'}]},
       {name:'Lat Pulldown', machine:'Plate-loaded, independent handles', sets:4, reps:'10–12', weight:'70kg',
        perSide:true, rir:'1–2', tempo:'2-1-1', rest:'90s', note:'Elbows lead.',
        alts:[{machine:'Lat Pulldown, Arsenal Strength', sets:4, reps:'10–12', weight:null, perSide:true, rir:'1–2', tempo:'2-1-1', rest:'90s'},
@@ -1332,9 +1445,10 @@ var DEFAULT_PLAN = {
       {name:'High Row', machine:'Iso-Lateral High Row, Hammer Strength', sets:3, reps:'10–12', weight:null,
        perSide:true, rir:'1–2', tempo:'2-1-1', rest:'90s',
        note:'Sits between the pulldown and the row — a genuinely different angle.'},
-      {name:'Rear Delt Fly', machine:'Adjustable Cable Station, Cybex', sets:3, reps:'12–15', weight:'12kg',
+      {name:'Rear Delt Fly', machine:'Adjustable Cable Station, Cybex', sets:2, reps:'12–15', weight:'12kg',
        rir:'1–2', tempo:'2-1-2', rest:'60s',
-       alts:[{machine:'Dedicated rear delt machine, if free', sets:3, reps:'12–15', weight:null, rir:'1–2', tempo:'2-1-2', rest:'60s'}]},
+       note:'Trimmed to 2 sets on 9 Sep — the rows, the high row and Thursday’s face pulls all pay into the rear delt, so this was the cheapest set in the session to give up.',
+       alts:[{machine:'Dedicated rear delt machine, if free', sets:2, reps:'12–15', weight:null, rir:'1–2', tempo:'2-1-2', rest:'60s'}]},
       {name:'Machine Arm Curl', machine:'Machine Arm Curl', sets:3, reps:'8–12', weight:'85.5kg',
        rir:'1–2', tempo:'2-0-2', rest:'60s',
        alts:[{machine:'Cable curl, Adjustable Cable Station (Cybex)', sets:3, reps:'8–12', weight:null, rir:'1–2', tempo:'2-0-2', rest:'60s'}]},
@@ -1345,11 +1459,17 @@ var DEFAULT_PLAN = {
        weight:'5kg', rir:'2–3', tempo:'slow, controlled', rest:'45s',
        note:'Maintenance. Stays in even once the shoulder feels good.'}
     ]},
-    cardioJog:{label:'Cardio — Easy Jog', cardio:{name:'Jog', dist:'3km', note:'Conversational pace, no watch-chasing.'}},
-    cardioRun:{label:'Cardio — Run', cardio:{name:'Run', dist:'5km', note:'Easy–moderate pace.'}},
-    restFull:{label:'Rest', rest:true},
+    /* Cardio days are where the long stretch routine goes: the run costs half
+       what a lifting session does, so the clock can carry the full version. */
+    cardioJog:{label:'Cardio — Easy Jog', cool:'deskReset',
+               cardio:{name:'Jog', dist:'3km', note:'Conversational pace, no watch-chasing.'}},
+    cardioRun:{label:'Cardio — Run', cool:'deskReset',
+               cardio:{name:'Run', dist:'5km', note:'Easy–moderate pace.'}},
+    /* A rest day is the easiest place in the week to find ten minutes for the
+       back, so the routine is offered here — the card marks it optional. */
+    restFull:{label:'Rest', rest:true, cool:'deskReset'},
     opDay:{label:'Operation day', op:true, note:'No training. Follow hospital pre/post-op instructions exactly.'},
-    postOpWalk:{label:'Post-op recovery', postop:true, note:'No lifting, no jogging/running unless your surgeon has cleared it. Default: short, easy walking only if comfortable.'}
+    postOpWalk:{label:'Post-op recovery', postop:true, note:'No lifting, no jogging/running unless your surgeon has cleared it. Default: short, easy walking only if comfortable. Stretching waits for the same clearance — a hold that pulls on a healing site is not a gentle option, it is just a slower one.'}
   },
   dietPhaseOrder: ['reset','build','rest'],
   dietPhases: {
@@ -1838,6 +1958,184 @@ function renderHeader(){
   document.getElementById('toTarget').textContent = latest? (Math.abs(latest-PLAN.targetKg)).toFixed(1)+'kg' : '—';
 }
 
+/* ================= SESSION CLOCK =================
+   A session has a budget — 60 minutes, warm-up to last stretch — and stretching
+   has to come out of that budget rather than be bolted onto the end of it. So
+   the app costs a session the way it actually runs: time under load, the rest
+   the plan prescribes between sets, a transition to the next machine, the
+   ramp-up sets on the first lift, and the prep and stretch blocks at either
+   end. These are estimates and are labelled as such, but they are computed
+   from the prescription, so trimming a set or adding a stretch moves the
+   number instead of leaving a stale one written in a note. */
+var SESSION = {
+  transitionSec: 90,   /* walk over, set the pin, load plates, wait for it */
+  rampSec: 180,        /* warm-up sets on the first lift of the day */
+  minSetSec: 25,       /* a heavy triple still takes about this long */
+  defaultTempoSec: 4,  /* when the tempo is prose rather than "2-1-2" */
+  defaultRestSec: 75,
+  cardioPaceMinPerKm: 6.5
+};
+/* "2–3 min" → 150, "90s" → 90, "20–30s" → 25. A range takes its midpoint. */
+function parseDurationSec(str, fallback){
+  if(str==null) return fallback;
+  var s = String(str).toLowerCase().replace(/[–—]/g,'-');
+  var nums = s.match(/\d+(?:\.\d+)?/g);
+  if(!nums || !nums.length) return fallback;
+  var vals = nums.map(parseFloat);
+  var mid = vals.reduce(function(a,b){ return a+b; }, 0) / vals.length;
+  return /min/.test(s) ? mid*60 : mid;
+}
+/* Only a bare "3-1-1" is a tempo; "pause 1s at extension" is prose and its
+   stray digit must not be read as a one-second rep. */
+function tempoSecPerRep(tempo){
+  var t = String(tempo||'').trim();
+  if(/^\d+(?:\.\d+)?(?:\s*-\s*\d+(?:\.\d+)?)+$/.test(t)){
+    var sum = t.split('-').reduce(function(a,b){ return a + (parseFloat(b)||0); }, 0);
+    if(sum > 0) return sum;
+  }
+  return SESSION.defaultTempoSec;
+}
+/* Reps come in three shapes — a count ("10–15"), a count per side ("10–12/side")
+   and a time ("20–30s/side") — and all three have to turn into seconds under
+   load. Per side means twice the clock, which is what makes a unilateral set
+   the most expensive thing in a session. */
+function setSeconds(e){
+  var reps = String(e.reps==null ? '' : e.reps);
+  var perSide = /\/\s*side/i.test(reps);
+  var bare = reps.replace(/\/\s*side/i, '');
+  var secs;
+  if(/\d\s*s(ec)?\b/i.test(bare)){
+    secs = parseDurationSec(bare, 30);
+  } else {
+    var nums = bare.match(/\d+(?:\.\d+)?/g);
+    var count = nums ? nums.map(parseFloat).reduce(function(a,b){ return a+b; },0)/nums.length : 10;
+    secs = count * tempoSecPerRep(e.tempo);
+  }
+  if(perSide) secs *= 2;
+  return Math.max(SESSION.minSetSec, secs);
+}
+/* Sets, the rests between them (not after the last one), and getting to the
+   next station. */
+function exerciseSeconds(e){
+  var sets = Math.max(1, e.sets||1);
+  var rest = parseDurationSec(e.rest, SESSION.defaultRestSec);
+  return sets*setSeconds(e) + (sets-1)*rest + SESSION.transitionSec;
+}
+function routineSeconds(routine){
+  if(!routine || !routine.items) return 0;
+  return routine.items.reduce(function(a, it){ return a + (it.secs||30); }, 0);
+}
+/* A plan stored before 9 Sep has no prep/cool key on its templates, and
+   mergeWithDefaults only fills in top-level keys — so derive the routine from
+   the day when the template does not name one. Stretching then shows up on an
+   existing account straight away, rather than waiting for the program update
+   to be loaded. */
+function stretchRoutineKey(tpl, kind, tkey){
+  if(!tpl) return null;
+  if(tpl[kind]) return tpl[kind];
+  if(tpl.op || tpl.postop) return null;          /* clearance first, always */
+  if(tpl.rest || tpl.cardio) return kind==='cool' ? 'deskReset' : null;
+  var label = String(tpl.label||'') + ' ' + String(tkey||'');
+  var upper = /upper|push|pull/i.test(label);
+  if(kind==='prep') return upper ? 'prepUpper' : 'prepLower';
+  return upper ? 'coolUpper' : 'coolLower';
+}
+function stretchRoutine(tpl, kind, tkey){
+  var key = stretchRoutineKey(tpl, kind, tkey);
+  if(!key) return null;
+  var lib = (PLAN && PLAN.stretchRoutines) || DEFAULT_PLAN.stretchRoutines || {};
+  return lib[key] || null;
+}
+function sessionCapMin(){ return (PLAN && PLAN.sessionCapMin) || DEFAULT_PLAN.sessionCapMin || 60; }
+function sessionClock(tpl, tkey){
+  var out = {prep:0, lift:0, cardio:0, cool:0, total:0, cap:sessionCapMin(), over:false};
+  if(!tpl || tpl.op) return out;
+  var prepR = stretchRoutine(tpl, 'prep', tkey), coolR = stretchRoutine(tpl, 'cool', tkey);
+  var prepSec = routineSeconds(prepR), coolSec = routineSeconds(coolR), liftSec = 0, cardioSec = 0;
+  if(tpl.ex && tpl.ex.length){
+    tpl.ex.forEach(function(e){ liftSec += exerciseSeconds(e); });
+    liftSec += SESSION.rampSec;
+  }
+  if(tpl.cardio){
+    var km = parseKm(tpl.cardio.dist);
+    cardioSec = km * SESSION.cardioPaceMinPerKm * 60;
+  }
+  if(tpl.postop){ prepSec = 0; coolSec = 0; }
+  out.prep = Math.round(prepSec/60);
+  out.lift = Math.round(liftSec/60);
+  out.cardio = Math.round(cardioSec/60);
+  out.cool = Math.round(coolSec/60);
+  out.total = out.prep + out.lift + out.cardio + out.cool;
+  out.over = out.total > out.cap;
+  return out;
+}
+function sessionClockHtml(c){
+  if(!c.total) return '';
+  var scale = Math.max(c.total, c.cap);
+  function seg(min, colour){
+    return min ? '<i style="width:'+(min/scale*100).toFixed(1)+'%;background:'+colour+'"></i>' : '';
+  }
+  function key(min, colour, label){
+    return min ? '<span><b style="background:'+colour+'"></b>'+label+' '+min+'′</span>' : '';
+  }
+  var tone = c.over ? 'var(--red)' : 'var(--green)';
+  return '<div class="block-h" style="margin-top:0">'+
+           '<span class="t">Session clock</span>'+
+           '<span class="m" style="color:'+tone+'">≈ '+c.total+' min / '+c.cap+' cap</span>'+
+         '</div>'+
+         '<div class="timebar">'+
+           seg(c.prep,'var(--amber)')+seg(c.lift,'var(--blue)')+
+           seg(c.cardio,'var(--blue)')+seg(c.cool,'var(--green)')+
+         '</div>'+
+         '<div class="timekey">'+
+           key(c.prep,'var(--amber)','prep')+
+           key(c.lift,'var(--blue)','lifting')+
+           key(c.cardio,'var(--blue)','running')+
+           key(c.cool,'var(--green)','stretch')+
+           '<span style="color:var(--ink-dim)">estimate</span>'+
+         '</div>'+
+         (c.over ? '<div class="note-strip red" style="margin:8px 0 0">This session runs past the '+
+                   c.cap+'-minute cap. Drop a set from the last accessory rather than the stretching.</div>' : '');
+}
+/* Stretch rows are built as elements, never appended as innerHTML: the exercise
+   rows above them are real DOM nodes carrying image handlers, and reassigning
+   innerHTML would rebuild and break them. */
+function renderStretchBlock(routine, containerEl){
+  if(!routine || !routine.items || !routine.items.length) return;
+  var head = document.createElement('div');
+  head.className = 'block-h';
+  var t = document.createElement('span'); t.className='t'; t.textContent = routine.label || 'Stretch';
+  var m = document.createElement('span'); m.className='m';
+  m.textContent = Math.round(routineSeconds(routine)/60) + ' min';
+  head.appendChild(t); head.appendChild(m);
+  containerEl.appendChild(head);
+  if(routine.note){
+    var n = document.createElement('div');
+    n.className = 'exnote';
+    n.style.margin = '0 0 6px';
+    n.textContent = routine.note;
+    containerEl.appendChild(n);
+  }
+  routine.items.forEach(function(it){
+    var row = document.createElement('div');
+    row.className = 'strow';
+    var text = document.createElement('div');
+    text.className = 'st-text';
+    var nm = document.createElement('div');
+    nm.className = 'stname'; nm.textContent = it.name;
+    text.appendChild(nm);
+    if(it.note){
+      var note = document.createElement('div');
+      note.className = 'stnote'; note.textContent = it.note;
+      text.appendChild(note);
+    }
+    var hold = document.createElement('div');
+    hold.className = 'sthold'; hold.textContent = it.hold || '';
+    row.appendChild(text); row.appendChild(hold);
+    containerEl.appendChild(row);
+  });
+}
+
 /* ================= TODAY VIEW ================= */
 /* ================= EXERCISE PHOTOS =================
    Gym-machine photos live in /images, named after the exercise: the name
@@ -2042,8 +2340,17 @@ function addExerciseThumb(row, name, explicit, allowUpload, opts){
   img.src = candidates[0];
 }
 
-function renderExerciseBlock(tpl, containerEl, allowUpload){
-  if(tpl.rest){ containerEl.innerHTML += '<div class="empty">Full rest day. No training.</div>'; return; }
+function renderExerciseBlock(tpl, containerEl, allowUpload, tkey){
+  var prepRoutine = stretchRoutine(tpl, 'prep', tkey);
+  var coolRoutine = stretchRoutine(tpl, 'cool', tkey);
+  /* Written before anything is appended as an element — see renderStretchBlock. */
+  containerEl.innerHTML += sessionClockHtml(sessionClock(tpl, tkey));
+  if(tpl.rest){
+    containerEl.innerHTML += '<div class="empty">Full rest day. No training.'+
+      (coolRoutine? ' The stretch below is optional.' : '')+'</div>';
+    renderStretchBlock(coolRoutine, containerEl);
+    return;
+  }
   if(tpl.op){ containerEl.innerHTML += '<div class="note-strip red">'+tpl.note+'</div>'; return; }
   if(tpl.postop){ containerEl.innerHTML += '<div class="note-strip" style="border-left-color:var(--amber)">'+tpl.note+'</div>'; return; }
   function exRow(name, metaHtml, noteHtml, explicitImg, imgName, skipDerivedSwaps){
@@ -2078,12 +2385,21 @@ function renderExerciseBlock(tpl, containerEl, allowUpload){
   if(tpl.cardio){
     /* The heading carries the distance; the photo is keyed off the bare name. */
     exRow(tpl.cardio.name+' — '+tpl.cardio.dist, '', tpl.cardio.note, tpl.cardio.img, tpl.cardio.name);
+    renderStretchBlock(coolRoutine, containerEl);
     return;
+  }
+  renderStretchBlock(prepRoutine, containerEl);
+  if(prepRoutine){
+    var lifts = document.createElement('div');
+    lifts.className = 'block-h';
+    lifts.innerHTML = '<span class="t">Lifting</span>';
+    containerEl.appendChild(lifts);
   }
   tpl.ex.forEach(function(e){
     exRow(e.name, prescriptionMeta(e), prescriptionNote(e, allowUpload), e.img, null,
           !!(e.alts && e.alts.length));
   });
+  renderStretchBlock(coolRoutine, containerEl);
 }
 /* "5 × 10 @ 160kg" — or "@ calibrate" where no weight is known yet, which is
    the signal to ramp up and find one rather than guess heavy. Under Phase C the
@@ -2474,11 +2790,13 @@ function latestWeightKg(){
    independent of pace. Walking is about half that. */
 function cardioBurn(km, kg, walking){ return km * kg * (walking ? 0.5 : 1.0); }
 /* MET formula: kcal/min = MET * 3.5 * kg / 200. Resistance training sits around
-   5 METs; a set plus its rest runs about 3 minutes, plus a warm-up. */
-function liftBurn(sets, kg){
-  var minutes = sets*3 + 8;
-  return 5.0 * 3.5 * kg / 200 * minutes;
-}
+   5 METs. Stretching is barely above resting and is left out of this entirely —
+   it costs time, not calories. */
+function liftBurnMinutes(minutes, kg){ return 5.0 * 3.5 * kg / 200 * minutes; }
+/* Where only the number of sets is known — a logged session — a set plus its
+   rest runs about 3 minutes, plus a warm-up. A planned session is costed
+   properly by the session clock instead. */
+function liftBurn(sets, kg){ return liftBurnMinutes(sets*3 + 8, kg); }
 function stepBurn(steps, kg){ return steps * 0.0005 * kg; }
 /* Mifflin-St Jeor resting metabolic rate — what the body spends doing nothing.
    Needs height, age and sex, which live on the plan and are edited on Tools. */
@@ -2511,12 +2829,19 @@ function estimateTrainingBurn(dateStr, tpl){
             basis: km+'km at '+kg.toFixed(1)+'kg'};
   }
   var logged = liftLog.filter(function(e){ return e.date===dateStr; });
-  var sets = 0;
-  if(logged.length){ logged.forEach(function(e){ sets += e.sets||0; }); }
-  else { (tpl.ex||[]).forEach(function(e){ sets += e.sets||0; }); }
-  if(!sets) return {kcal:0, basis:'no sets recorded'};
-  return {kcal: liftBurn(sets, kg),
-          basis: sets+' sets'+(logged.length?' logged':' planned')+', ~'+(sets*3+8)+' min'};
+  if(logged.length){
+    var sets = 0;
+    logged.forEach(function(e){ sets += e.sets||0; });
+    if(!sets) return {kcal:0, basis:'no sets recorded'};
+    return {kcal: liftBurn(sets, kg), basis: sets+' sets logged, ~'+(sets*3+8)+' min'};
+  }
+  /* Nothing logged yet, so cost the prescription — and use the same clock the
+     session card shows, or the two would disagree on how long the day is. */
+  var planned = 0;
+  (tpl.ex||[]).forEach(function(e){ planned += e.sets||0; });
+  if(!planned) return {kcal:0, basis:'no sets recorded'};
+  var mins = sessionClock(tpl).lift;
+  return {kcal: liftBurnMinutes(mins, kg), basis: planned+' sets planned, ~'+mins+' min lifting'};
 }
 function estimateDayBurn(dateStr, tpl){
   var kg = latestWeightKg();
@@ -2549,7 +2874,7 @@ function renderToday(){
     card.appendChild(h);
     /* Which progression rule is running today, before the exercises it governs. */
     card.innerHTML += phaseStripHtml(t);
-    renderExerciseBlock(tpl, card, true);
+    renderExerciseBlock(tpl, card, true, tkey);
   }
 
   var dcard = document.getElementById('todayDietCard');
@@ -2607,7 +2932,8 @@ function renderPlanUpdateBanner(){
   strip.style.display = 'block';
   strip.innerHTML =
     '<b>A newer program is available.</b><br>You are running ' + histEsc(have) +
-    '; the app ships <b>' + histEsc(latest) + '</b> — the 4-day Upper/Lower split. ' +
+    '; the app ships <b>' + histEsc(latest) + '</b> — the 4-day Upper/Lower split with ' +
+    'stretching built into every session and the whole thing cut to fit ' + sessionCapMin() + ' minutes. ' +
     'Loading it replaces the sessions, sets, weights and progression phases. ' +
     'Your training logs, bodyweight, photos and machine inventory are untouched.' +
     '<button class="btn full" style="margin-top:8px" onclick="loadLatestProgram()">Load the new program</button>';
@@ -2741,7 +3067,7 @@ function renderPlan(){
         '</div>'+
         '<div class="day-body" id="'+bodyId+'"></div>';
       list.appendChild(dayCard);
-      renderExerciseBlock(tpl, document.getElementById(bodyId));
+      renderExerciseBlock(tpl, document.getElementById(bodyId), false, tkey);
     }
   }
 }
@@ -4616,6 +4942,67 @@ function planSignature(p){
     return (t && t.ex) ? t.ex.map(function(e){ return e.name; }).join(', ') : '(no templates)';
   }catch(e){ return '(unreadable)'; }
 }
+/* Every template in the plan you are actually running, costed against the cap.
+   The point of it is to catch the session that quietly grew past 60 minutes
+   after a set was added in the plan editor — the constraint is only real if
+   something checks it. */
+/* Every template the program still prescribes, costed. The weeks before the
+   changeover are a record of training that already happened — costing them
+   against a cap written afterwards would only report failures nothing can
+   fix — so they are left out. */
+function sessionClocksInPlay(){
+  var fromIdx = Math.max(0, dayIndexFromDate(PLAN.programChangeover || PLAN.programStart));
+  var seen = {}, rows = [];
+  (PLAN.weekPlan||[]).forEach(function(week, w){
+    (week||[]).forEach(function(k, d){
+      if(!k || seen[k]) return;
+      if(w*7 + d < fromIdx) return;
+      seen[k] = true;
+      var tpl = PLAN.templates[k];
+      if(!tpl) return;
+      var c = sessionClock(tpl, k);
+      if(c.total) rows.push({key:k, clock:c});
+    });
+  });
+  return rows;
+}
+/* One line for the check-in summary, so a conversation about the program knows
+   what the sessions cost before it suggests adding to them. */
+function sessionLine(){
+  var rows = sessionClocksInPlay().filter(function(r){ return r.clock.lift; });
+  if(!rows.length) return 'no lifting days scheduled';
+  var over = rows.filter(function(r){ return r.clock.over; });
+  var list = rows.map(function(r){ return r.key+' '+r.clock.total; }).join(', ');
+  return list + (over.length ? ' — OVER on '+over.map(function(r){ return r.key; }).join(', ') : ' (all fit)');
+}
+function reportSessionLengths(){
+  var cap = sessionCapMin(), out = [], over = 0;
+  out.push('SESSION LENGTHS — cap ' + cap + ' min');
+  out.push('plan ' + (PLAN.planVersion || 'unstamped'));
+  out.push('days from ' + (PLAN.programChangeover || PLAN.programStart) + ' on; earlier weeks are history');
+  out.push('');
+  sessionClocksInPlay().forEach(function(row){
+    var k = row.key, c = row.clock, parts = [];
+    if(c.prep)   parts.push('prep '+c.prep);
+    if(c.lift)   parts.push('lift '+c.lift);
+    if(c.cardio) parts.push('run '+c.cardio);
+    if(c.cool)   parts.push('stretch '+c.cool);
+    if(c.over) over++;
+    var pad = k + '                  '.slice(0, Math.max(1, 18-k.length));
+    out.push('  ' + pad + (c.total<10?' ':'') + c.total + ' min' +
+             (c.over ? '  OVER by '+(c.total-cap) : '          ') +
+             '  (' + parts.join(', ') + ')');
+  });
+  out.push('');
+  out.push(over ? over + ' session'+(over===1?'':'s')+' over the cap — trim an accessory set, not the stretching.'
+                : 'Every session fits inside ' + cap + ' minutes, stretching included.');
+  out.push('');
+  out.push('Estimates: time under load from reps and tempo, the prescribed rest');
+  out.push('between sets, ' + SESSION.transitionSec + 's per machine change, ' +
+           SESSION.rampSec + 's of ramp-up sets,');
+  out.push('and the prep and stretch blocks at their written durations.');
+  planDiagOut(out.join('\n'));
+}
 function planDiagOut(text){
   var el = document.getElementById('planDiagOut');
   el.textContent = text;
@@ -4986,6 +5373,7 @@ function generateSummary(){
   L.push('  Missed/partial    '+(tr7.missed.length? tr7.missed.join(', ') : 'none'));
   L.push('  Lift progression:');
   L.push(progression || '    no lifts logged yet');
+  L.push('  Session cap       '+sessionCapMin()+' min including prep and stretching — '+sessionLine());
   L.push('');
   L.push('MOVEMENT & ESTIMATED BURN   (rough — bodyweight and volume only, no HR)');
   L.push('  Avg steps         '+(st7.length? num(mean(st7))+' over '+st7.length+' logged days' : 'not logged'));

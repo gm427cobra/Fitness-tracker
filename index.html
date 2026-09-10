@@ -172,7 +172,23 @@
   .sh-name{font-weight:600;font-size:15px;line-height:1.25;}
   .sh-plan{font-family:var(--f-mono);font-size:11.5px;color:var(--blue);white-space:nowrap;flex:none;}
   .sh-cue{font-size:11.5px;color:var(--ink-dim);margin-top:4px;line-height:1.45;}
-  .sh-fields{display:grid;grid-template-columns:1.15fr .8fr 1fr 1fr auto;gap:6px;align-items:end;margin-top:7px;}
+  .sh-fields{display:grid;grid-template-columns:1.2fr .85fr auto;gap:6px;align-items:end;margin-top:7px;}
+  .sh-setrow{margin-top:8px;}
+  .sh-setrow .lbl{display:flex;justify-content:space-between;align-items:baseline;gap:8px;
+    font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:4px;}
+  .sh-setrow .lbl em{font-style:normal;text-transform:none;letter-spacing:0;font-size:11px;}
+  .sh-sets{display:flex;flex-wrap:wrap;gap:4px;}
+  /* Five boxes plus both buttons have to fit one line on a phone, or a set
+     wraps onto a row of its own and stops looking like a set. */
+  .sh-set{width:44px;flex:none;padding:8px 2px;font-size:15px;text-align:center;}
+  /* The placeholder is the bottom of the rep range — a hint, not a value, so it
+     must not read as one at a glance. */
+  .sh-set::placeholder{color:var(--ink-dim);opacity:.4;}
+  /* A set at the top of its range is the thing the ladder is waiting for, so
+     say so while the weight is still on the machine. */
+  .sh-set.top{border-color:var(--green);color:var(--green);}
+  .sh-setbtn{width:30px;flex:none;padding:8px 0;background:none;border:1px dashed var(--line);
+    border-radius:6px;color:var(--ink-dim);font-size:15px;line-height:1;cursor:pointer;font-family:var(--f-body);}
   .sh-fields label{font-size:9px;letter-spacing:.06em;margin-bottom:2px;}
   .sh-fields input,.sh-fields select{padding:8px 6px;font-size:15px;}
   .sh-machine{margin-top:7px;}
@@ -477,7 +493,7 @@
     <p class="lead">Paste a block and check it before it saves. No length limit, unlike a link.</p>
     <textarea id="pasteBox" rows="6" placeholder="2026-08-29
 food | Oats 40g (dry) | 150 | 5 | 24 | 3
-lift | Leg Press | 160 | 10 | 4
+lift | Leg Press | 160 | 10,10,9,8
 steps | 8400"></textarea>
     <button class="btn full" style="margin-top:8px" onclick="previewPaste()">Check what this will add</button>
     <div id="pasteOut" style="display:none;margin-top:10px"></div>
@@ -784,7 +800,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-10-1';
+var BUILD = '2026-09-10-2';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -2610,6 +2626,39 @@ function prescriptionMeta(e){
   if(e.perSide) out += ' <span style="color:var(--ink-dim)">· log per side</span>';
   return out;
 }
+/* ================= SETS AS A LIST =================
+   A session is a list of sets, not one number. 10,10,9,8 and 8,8,8,8 log
+   identically under a single rep count, and they are not the same session:
+   the first is a set from progressing, the second has already earned it.
+
+   So an entry carries setReps, and keeps reps and sets alongside as a summary
+   — which means every entry logged before this, and every reader written
+   before this, still works untouched. reps is the MINIMUM of the list rather
+   than the mean or the best set, and that is the whole point: the progression
+   rule asks for every set at the top of the range, so the lowest set is the
+   one that decides. Recording 10,10,9,8 now yields reps 8 by arithmetic
+   instead of by the honesty of whoever typed it in. */
+function setRepsOf(e){
+  if(e && e.setReps && e.setReps.length) return e.setReps.slice();
+  if(!e) return [];
+  var n = Math.max(0, e.sets||0), out = [];
+  for(var i=0;i<n;i++) out.push(e.reps||0);
+  return out;
+}
+function summariseSetReps(list){
+  var clean = (list||[]).map(function(v){ return parseInt(v,10); })
+                        .filter(function(v){ return v > 0; });
+  return {setReps: clean, sets: clean.length,
+          reps: clean.length ? Math.min.apply(null, clean) : 0};
+}
+/* "4 × 8" when every set matched, "10, 10, 9, 8" when they did not. */
+function repsLabel(e){
+  var list = setRepsOf(e);
+  if(!list.length) return '—';
+  var same = list.every(function(v){ return v === list[0]; });
+  return same ? list.length + ' × ' + list[0] : list.join(', ');
+}
+
 /* ================= WORKING TARGET =================
    The plan's weight is where an exercise starts; after the first session the
    log is what it weighs. This computes the next target from what was actually
@@ -2706,7 +2755,7 @@ function progressionCue(e){
   if(!last){
     return '<span style="color:var(--ink-dim)">Nothing logged for this yet — the first session sets the starting point.</span>';
   }
-  var did = last.sets + ' × ' + last.reps + ' @ ' + last.weight + ' ' + liftUnitOf(last) +
+  var did = repsLabel(last) + ' @ ' + last.weight + ' ' + liftUnitOf(last) +
             ' on ' + fmtDate(last.date);
   if(t.state === 'progressed'){
     return '<span style="color:var(--green)">Target raised from ' + t.from + '</span> — ' + did +
@@ -4069,9 +4118,10 @@ function renderSessionSheet(){
   var hint = document.createElement('p');
   hint.className = 'lead';
   hint.style.margin = '8px 0 0';
-  hint.textContent = 'Weight and sets are pre-filled from the plan and from what you last lifted — ' +
-    'change anything that differed. Reps are left blank on purpose: it is the number that moves your ' +
-    'working weight, so it should be one you actually counted.';
+  hint.textContent = 'Weight comes from the plan and from what you last lifted — change it if it differed. ' +
+    'One rep box per prescribed set: fill in what each set actually gave you, and use + or − if you did ' +
+    'more or fewer. The lowest set is what moves your working weight, so the boxes are left blank on ' +
+    'purpose — these should be numbers you counted.';
   body.appendChild(hint);
 }
 function buildSheetRow(e, i, date){
@@ -4086,7 +4136,7 @@ function buildSheetRow(e, i, date){
   for(var oi=0; oi<opts.length; oi++){
     if(loggedRowFor(date, variantExerciseName(opts[oi], e))){ sel = oi; break; }
   }
-  SHEET.rows.push({ex:e, opts:opts, sel:sel});
+  SHEET.rows.push({ex:e, opts:opts, sel:sel, setVals:[]});
 
   var head = document.createElement('div');
   head.className = 'sh-head';
@@ -4108,11 +4158,17 @@ function buildSheetRow(e, i, date){
   fields.innerHTML =
     '<div><label>Weight</label><input type="number" step="0.5" inputmode="decimal" id="shw-'+i+'"></div>' +
     '<div><label>Unit</label><select id="shu-'+i+'"><option value="kg">kg</option><option value="lb">lb</option></select></div>' +
-    '<div><label>Reps</label><input type="number" inputmode="numeric" id="shr-'+i+'"></div>' +
-    '<div><label>Sets</label><input type="number" inputmode="numeric" id="shs-'+i+'"></div>' +
     '<button class="sh-save" id="shb-'+i+'">Save</button>';
   row.appendChild(fields);
   fields.querySelector('#shb-'+i).onclick = function(){ saveSheetRow(i); };
+
+  /* One box per set. The set count is not a number you type any more — it is
+     how many boxes you filled in, which is the same thing and one less field. */
+  var setRow = document.createElement('div');
+  setRow.className = 'sh-setrow';
+  setRow.innerHTML = '<div class="lbl"><span>Reps per set</span><em id="shsl-'+i+'"></em></div>' +
+                     '<div class="sh-sets" id="shsets-'+i+'"></div>';
+  row.appendChild(setRow);
 
   var cue = document.createElement('div');
   cue.className = 'sh-cue';
@@ -4142,8 +4198,6 @@ function fillSheetRow(i, date){
 
   var w = document.getElementById('shw-'+i);
   var u = document.getElementById('shu-'+i);
-  var reps = document.getElementById('shr-'+i);
-  var sets = document.getElementById('shs-'+i);
   var btn = document.getElementById('shb-'+i);
   var plan = document.getElementById('shplan-'+i);
   var cue = document.getElementById('shcue-'+i);
@@ -4153,16 +4207,17 @@ function fillSheetRow(i, date){
   if(logged){
     w.value = logged.weight;
     u.value = liftUnitOf(logged);
-    reps.value = logged.reps;
-    sets.value = logged.sets;
+    r.setVals = setRepsOf(logged);
   } else {
     w.value = parsed ? parsed.value : '';
     u.value = parsed ? parsed.unit : (v.unit === 'lb' ? 'lb' : 'kg');
-    reps.value = '';
-    sets.value = v.sets != null ? v.sets : '';
+    /* One empty box per prescribed set — the shape of the session, waiting to
+       be filled in. Still never pre-filled: see the note on SHEET. */
+    r.setVals = [];
+    for(var si=0; si < (v.sets || 1); si++) r.setVals.push(null);
   }
-  reps.placeholder = String(v.reps || '');
   w.placeholder = parsed ? '' : 'calibrate';
+  sheetSetBoxes(i);
 
   var machBtn = document.getElementById('shmach-'+i);
   if(machBtn){
@@ -4183,8 +4238,7 @@ function fillSheetRow(i, date){
      as the last session — and a row you have finished showing next week's
      number is a good way to load the wrong thing on the second exercise. */
   if(logged){
-    plan.textContent = 'logged ' + logged.sets + ' × ' + logged.reps + ' @ ' +
-                       logged.weight + liftUnitOf(logged);
+    plan.textContent = 'logged ' + repsLabel(logged) + ' @ ' + logged.weight + liftUnitOf(logged);
   } else {
     plan.textContent = (v.sets||'?') + ' × ' + (v.reps||'?') +
                        (shown ? ' @ ' + shown : ' @ calibrate') + (v.perSide ? ' /side' : '');
@@ -4204,7 +4258,7 @@ function fillSheetRow(i, date){
   /* "Last time" must mean a previous session, not the one being written — on a
      saved row workingTarget's last entry is today's. */
   if(last && last.date !== (date || SHEET.date)){
-    bits.push('Last time: ' + last.sets + ' × ' + last.reps + ' @ ' + last.weight + liftUnitOf(last) +
+    bits.push('Last time: ' + repsLabel(last) + ' @ ' + last.weight + liftUnitOf(last) +
               ' on ' + fmtDate(last.date) + '.');
   } else if(!parsed && !logged){
     bits.push('Nothing logged on this yet — ramp up and record what you actually settle on.');
@@ -4379,6 +4433,66 @@ function addInventoryOption(rowIdx, eq){
   }});
   return r.opts.length - 1;
 }
+/* Boxes are rendered from SHEET state rather than read back off the DOM, so
+   adding a set or switching machine never loses what is already typed. */
+function sheetSetBoxes(i){
+  var r = SHEET.rows[i];
+  var wrap = document.getElementById('shsets-'+i);
+  if(!r || !wrap) return;
+  var ends = repRangeEnds(r.opts[r.sel].variant.reps);
+  wrap.innerHTML = '';
+  r.setVals.forEach(function(v, si){
+    var inp = document.createElement('input');
+    inp.type = 'number';
+    inp.inputMode = 'numeric';
+    inp.className = 'sh-set';
+    inp.value = (v === null || v === undefined) ? '' : v;
+    inp.placeholder = ends ? String(ends.bottom) : '';
+    inp.setAttribute('aria-label', 'Set ' + (si+1) + ' reps');
+    if(ends && v >= ends.top) inp.classList.add('top');
+    inp.oninput = function(){
+      r.setVals[si] = inp.value === '' ? null : parseInt(inp.value, 10);
+      if(ends) inp.classList.toggle('top', parseInt(inp.value,10) >= ends.top);
+      sheetSetSummary(i);
+    };
+    wrap.appendChild(inp);
+  });
+  var add = document.createElement('button');
+  add.type = 'button'; add.className = 'sh-setbtn'; add.textContent = '+';
+  add.title = 'Add a set';
+  add.onclick = function(){ r.setVals.push(null); sheetSetBoxes(i); };
+  wrap.appendChild(add);
+  if(r.setVals.length > 1){
+    var rm = document.createElement('button');
+    rm.type = 'button'; rm.className = 'sh-setbtn'; rm.textContent = '−';
+    rm.title = 'Drop the last set';
+    rm.onclick = function(){ r.setVals.pop(); sheetSetBoxes(i); };
+    wrap.appendChild(rm);
+  }
+  sheetSetSummary(i);
+}
+/* Says, while the weight is still on the machine, whether this session earns
+   the next jump — which is the one thing the numbers are for. */
+function sheetSetSummary(i){
+  var r = SHEET.rows[i];
+  var el = document.getElementById('shsl-'+i);
+  if(!r || !el) return;
+  var v = r.opts[r.sel].variant;
+  var s = summariseSetReps(r.setVals);
+  var ends = repRangeEnds(v.reps);
+  if(!s.sets){ el.textContent = ''; el.style.color = ''; return; }
+  var need = v.sets || 0;
+  if(ends && s.reps >= ends.top && s.sets >= need){
+    el.textContent = 'all ' + s.sets + ' at ' + ends.top + '+ — the weight goes up next time';
+    el.style.color = 'var(--green)';
+    return;
+  }
+  el.style.color = '';
+  var bits = s.sets + ' set' + (s.sets===1?'':'s') + ', lowest ' + s.reps;
+  if(ends && s.sets < need) bits += ' · needs ' + need;
+  else if(ends && s.reps < ends.top) bits += ' · needs ' + ends.top + ' on every set';
+  el.textContent = bits;
+}
 function chooseMachine(rowIdx, optIdx){
   var r = SHEET.rows[rowIdx];
   if(!r) return;
@@ -4394,17 +4508,20 @@ async function saveSheetRow(i, opts){
   opts = opts || {};
   var r = SHEET.rows[i];
   if(!r) return false;
-  var reps = parseInt(document.getElementById('shr-'+i).value, 10);
-  if(!reps){
-    if(!opts.quiet) flashSheetRow(i, 'Enter the reps you actually did.');
+  var s = summariseSetReps(r.setVals);
+  if(!s.sets){
+    if(!opts.quiet) flashSheetRow(i, 'Put the reps in, set by set.');
     return false;
   }
   var entry = {
     date: SHEET.date,
     exercise: variantExerciseName(r.opts[r.sel], r.ex),
     weight: parseFloat(document.getElementById('shw-'+i).value) || 0,
-    reps: reps,
-    sets: parseInt(document.getElementById('shs-'+i).value, 10) || 0
+    /* reps and sets are the summary the rest of the app reads; setReps is what
+       actually happened. See the note above setRepsOf. */
+    reps: s.reps,
+    sets: s.sets,
+    setReps: s.setReps
   };
   if(document.getElementById('shu-'+i).value === 'lb') entry.unit = 'lb';
   liftLog = liftLog.filter(function(x){ return !(x.date===entry.date && x.exercise===entry.exercise); });
@@ -4651,15 +4768,15 @@ var HIST_DEFS = {
   },
   lift: {
     label:'Lifts',
-    head:['Date','Exercise','Kg','R×S',''],
+    head:['Date','Exercise','Kg','Reps',''],
     cells:function(r){
       return ['<td>'+fmtDate(r.e.date)+'</td>',
               '<td class="name">'+histEsc(r.e.exercise)+'</td>',
               '<td>'+r.e.weight+' '+liftUnitOf(r.e)+'</td>',
-              '<td>'+r.e.reps+'×'+r.e.sets+'</td>'];
+              '<td>'+histEsc(repsLabel(r.e))+'</td>'];
     },
     what:function(r){ return '<span class="name">'+histEsc(r.e.exercise)+'</span>'; },
-    val:function(r){ return r.e.weight+' '+liftUnitOf(r.e)+'<span class="hist-sub">'+r.e.reps+'×'+r.e.sets+'</span>'; },
+    val:function(r){ return r.e.weight+' '+liftUnitOf(r.e)+'<span class="hist-sub">'+histEsc(repsLabel(r.e))+'</span>'; },
     del:function(r){ return 'deleteLift('+r.i+')'; }
   },
   alc: {
@@ -4841,6 +4958,9 @@ async function applyImportItems(items, defaultDate){
       default:
         var le = {date:d, exercise:it.exercise||'Exercise', weight:+it.weight||0,
                   reps:+it.reps||0, sets:+it.sets||0};
+        if(it.setReps && it.setReps.length) le.setReps = it.setReps;
+        /* A single rep count with no set count is one set, not zero. */
+        if(!le.sets && le.reps) le.sets = 1;
         if(String(it.unit||'').toLowerCase()==='lb') le.unit = 'lb';
         liftLog.push(le);
         touched.lift=true;
@@ -4867,7 +4987,7 @@ var NUMERIC_IMPORT_FIELDS = {kcal:1, protein:1, carbs:1, fat:1, weight:1, reps:1
                              kg:1, units:1, steps:1};
 var IMPORT_FIELDS = {
   food:    ['name','kcal','protein','carbs','fat','meal?'],
-  lift:    ['exercise','weight','reps','sets','unit?'],
+  lift:    ['exercise','weight','reps','sets?','unit?'],
   weight:  ['kg'],
   alcohol: ['name','units','kcal?'],
   steps:   ['steps'],
@@ -4918,6 +5038,15 @@ function parseImportBlock(text, fallbackDate){
         return;
       }
       if(name==='pain'){ it.pain = (v===''||v==='-'||v==null)? null : parseFloat(v); return; }
+      /* "10,10,9,8" is a real session; "10" is the same thing said four times.
+         Both parse, and both end up with reps as the lowest set. */
+      if(name==='reps' && /[,\/]/.test(String(v))){
+        var parts2 = String(v).split(/[,\/]/).map(function(x){ return parseInt(x.trim(),10); });
+        if(parts2.some(isNaN)){ bad = 'Line '+(i+1)+': reps "'+v+'" should be numbers separated by commas.'; return; }
+        var sum2 = summariseSetReps(parts2);
+        it.setReps = sum2.setReps; it.reps = sum2.reps; it.sets = sum2.sets;
+        return;
+      }
       /* Listing the numeric fields rather than the text ones: a new text field
          used to fall through to the number branch and be rejected outright. */
       if(!NUMERIC_IMPORT_FIELDS[name]){ it[name] = v; return; }
@@ -4986,7 +5115,9 @@ function qaItemDetail(it){
     case 'steps':  return (+it.steps||0).toLocaleString()+' steps';
     case 'note':   return 'pain '+(it.pain==null?'n/a':it.pain+'/10')+' — '+(it.text||'');
     case 'equipment': return 'gym equipment · '+(it.muscles||'no muscles given');
-    default:       return (+it.weight||0)+'kg × '+(+it.reps||0)+' × '+(+it.sets||0)+' set'+((+it.sets)>1?'s':'');
+    default:       return (+it.weight||0)+'kg × '+
+                     (it.setReps && it.setReps.length ? it.setReps.join(', ')
+                                                      : (+it.reps||0)+' × '+(+it.sets||0)+' set'+((+it.sets)>1?'s':''));
   }
 }
 function checkQuickAdd(){
@@ -5956,7 +6087,7 @@ function buildImportSpec(){
   var example = [
     {type:'food', name:'Oats 40g (dry)', kcal:150, protein:5, carbs:24, fat:3, meal:'Breakfast'},
     {type:'food', name:'Chicken breast 200g', kcal:330, protein:62, carbs:0, fat:7, meal:'Lunch'},
-    {type:'lift', exercise:'Leg Press', weight:160, reps:10, sets:4},
+    {type:'lift', exercise:'Leg Press', weight:160, setReps:[10,10,9,8]},
     {type:'weight', kg:94.8},
     {type:'alcohol', name:'Guinness pint', units:2.3, kcal:210},
     {type:'steps', steps:8400},
@@ -6030,12 +6161,18 @@ function buildImportSpec(){
 '    2026-08-29',
 '    food | Oats 40g (dry) | 150 | 5 | 24 | 3 | Breakfast',
 '    food | Milk, semi-skimmed, 500ml | 235 | 17 | 24 | 9 | Breakfast',
-'    lift | Leg Press | 160 | 10 | 4',
+'    lift | Leg Press | 160 | 10,10,9,8',
+'    lift | Leg Extension | 130 | 12 | 3',
 '    weight | 94.8',
 '    alcohol | Guinness pint | 2.3 | 210',
 '    steps | 8400',
 '    note | 3 | Shoulder fine on floor press.',
 '    equipment | Cybex Eagle NX Arm Curl | biceps; elbow flexion | Machine Arm Curl | Stack maxes at 103kg',
+'',
+'  A lift\'s reps can be one number with a set count ("12 | 3" = three sets of',
+'  twelve), or the sets themselves separated by commas ("10,10,9,8"), which is',
+'  preferred where the sets differed — the app takes the LOWEST set as the one',
+'  that decides whether the working weight goes up.',
 '',
 '  Commas are safe inside names because the separator is a pipe. Lines',
 '  starting with # are ignored. The same JSON array used by the link is also',
@@ -6173,7 +6310,7 @@ function generateSummary(){
     var last = convertLift(b.weight, liftUnitOf(b), u);
     var first = convertLift(a.weight, liftUnitOf(a), u);
     var delta = last - first;
-    return '  '+pad(name,26)+' '+num(last,1)+u+' x'+b.reps+' x'+b.sets+
+    return '  '+pad(name,26)+' '+num(last,1)+u+' '+repsLabel(b)+
            '  (from '+num(first,1)+u+' on '+a.date+', '+(delta>=0?'+':'')+num(delta,1)+u+' over '+rows.length+' sessions, last '+b.date+')';
   }).join('\n');
 

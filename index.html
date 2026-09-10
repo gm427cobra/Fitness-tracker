@@ -183,6 +183,49 @@
   .sh-save:disabled{opacity:.45;}
   .sh-flag{font-size:11px;color:var(--amber);margin-top:4px;}
 
+  /* The machine button that replaced the <select>. A native dropdown cannot
+     show a picture, and a list of forty-four names you cannot picture is no
+     use at the rack — so this opens a real list instead. */
+  .sh-mach{display:flex;align-items:center;gap:9px;width:100%;margin-top:7px;padding:7px 9px;
+    background:var(--panel-2);border:1px solid var(--line);border-radius:6px;color:var(--ink);
+    font-family:var(--f-body);font-size:12.5px;text-align:left;cursor:pointer;}
+  .sh-mach .nm{flex:1;min-width:0;line-height:1.3;}
+  .sh-mach .chev{flex:none;color:var(--ink-dim);font-size:11px;}
+  .mach-thumb{width:38px;height:38px;flex:none;border-radius:5px;object-fit:cover;
+    border:1px solid var(--line);background:var(--panel);}
+  .mach-thumb.empty{display:flex;align-items:center;justify-content:center;
+    border-style:dashed;color:var(--ink-dim);font-size:8px;letter-spacing:.04em;text-transform:uppercase;}
+
+  .picker{position:fixed;inset:0;z-index:95;background:rgba(0,0,0,.72);display:none;}
+  .picker.open{display:block;}
+  .picker-panel{position:absolute;left:0;right:0;bottom:0;top:6vh;background:var(--panel);
+    border-top:1px solid var(--line);border-radius:12px 12px 0 0;display:flex;flex-direction:column;}
+  .picker-head{display:flex;align-items:center;gap:10px;padding:13px 14px 9px;border-bottom:1px solid var(--line);}
+  .picker-title{flex:1;min-width:0;font-size:13px;font-weight:600;line-height:1.3;}
+  .picker-title span{display:block;font-size:11px;color:var(--ink-dim);font-weight:400;margin-top:2px;}
+  .picker-x{flex:none;background:none;border:1px solid var(--line);border-radius:6px;color:var(--ink);
+    font-size:15px;line-height:1;padding:7px 11px;cursor:pointer;font-family:var(--f-body);}
+  .picker-search{margin:10px 14px 0;width:calc(100% - 28px);}
+  .picker-list{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    padding:6px 14px calc(18px + env(safe-area-inset-bottom));}
+  .picker-sec{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);
+    font-weight:600;margin:14px 0 4px;}
+  .mach-row{display:flex;align-items:center;gap:10px;width:100%;padding:9px 4px;background:none;
+    border:none;border-top:1px solid var(--line);color:var(--ink);text-align:left;cursor:pointer;
+    font-family:var(--f-body);}
+  .mach-row .body{flex:1;min-width:0;}
+  .mach-row .nm{font-size:13.5px;font-weight:600;line-height:1.3;}
+  .mach-row .meta{font-family:var(--f-mono);font-size:11px;color:var(--blue);margin-top:2px;}
+  .mach-row .sub{font-size:11px;color:var(--ink-dim);margin-top:2px;line-height:1.4;}
+  .mach-row.on{background:rgba(79,182,201,.10);}
+  /* Bigger in the list than on the row button: in here you are trying to tell
+     two machines apart, and a thumbnail you cannot read defeats the point. */
+  .picker-list .mach-thumb{width:50px;height:50px;cursor:zoom-in;}
+  .mach-row .tick{flex:none;color:var(--blue);font-size:14px;}
+  .mach-cam{flex:none;border:1px solid var(--line);border-radius:6px;background:none;color:var(--ink-dim);
+    font-size:9px;letter-spacing:.04em;text-transform:uppercase;padding:6px 7px;cursor:pointer;
+    font-family:var(--f-body);}
+
   p.lead{font-size:13px;color:var(--ink-dim);line-height:1.5;margin:0 0 12px;}
   .note-strip{
     border-left:3px solid var(--amber);background:rgba(232,163,61,.08);
@@ -714,6 +757,18 @@ steps | 8400"></textarea>
 
 </div><!-- /appRoot -->
 
+<div class="picker" id="machPicker" onclick="if(event.target===this) closeMachinePicker()">
+  <div class="picker-panel">
+    <div class="picker-head">
+      <div class="picker-title" id="machPickerTitle"></div>
+      <button class="picker-x" onclick="closeMachinePicker()">✕</button>
+    </div>
+    <input type="text" class="picker-search" id="machPickerSearch" placeholder="Search every machine…"
+           oninput="renderMachinePicker()" autocomplete="off">
+    <div class="picker-list" id="machPickerList"></div>
+  </div>
+</div>
+
 <div class="lightbox" id="imgLightbox" onclick="closeLightbox()">
   <img id="lightboxImg" alt="">
   <div class="lightbox-cap" id="lightboxCap"></div>
@@ -729,7 +784,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-09-6';
+var BUILD = '2026-09-10-1';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -2304,7 +2359,7 @@ function closeLightbox(){
   document.getElementById('lightboxImg').removeAttribute('src');
   document.getElementById('lightboxActions').innerHTML = '';
 }
-document.addEventListener('keydown', function(ev){ if(ev.key==='Escape') closeLightbox(); });
+document.addEventListener('keydown', function(ev){ if(ev.key==='Escape'){ closeLightbox(); closeMachinePicker(); } });
 
 /* ---- photos uploaded from the phone, held in Firebase Storage ---- */
 function exPhotoUrl(name){
@@ -2398,6 +2453,10 @@ function cssEscape(v){ return String(v).replace(/["\\]/g, '\\$&'); }
 function rerenderExerciseViews(){
   renderToday();
   renderEquipment();
+  /* A photo taken from the machine picker has to reach the picker it was taken
+     from, and the sheet row underneath it. */
+  if(typeof renderSessionSheet === 'function' && document.getElementById('sheetBody')) renderSessionSheet();
+  if(typeof PICKER !== 'undefined' && PICKER && PICKER.row != null) renderMachinePicker();
   var plan = document.getElementById('view-plan');
   if(plan && plan.classList.contains('active')) renderPlan();
 }
@@ -3308,7 +3367,10 @@ function stripQualifiers(s){ return String(s||'').replace(/\([^)]*\)/g, ' '); }
 function findEquipmentLoose(name){
   var exact = findEquipment(name);
   if(exact) return exact;
-  var n = normEquipName(stripQualifiers(name));
+  /* Full name first, qualifier-stripped second — see narrowByMachine. */
+  return looseNameHit(normEquipName(name)) || looseNameHit(normEquipName(stripQualifiers(name)));
+}
+function looseNameHit(n){
   if(n.length < 6) return null;                 /* too short to match on safely */
   var hits = equipLog.filter(function(e){
     var en = normEquipName(e.name);
@@ -3330,12 +3392,18 @@ function findEquipmentLoose(name){
    not share a photo — but a row naming a machine you have photographed should
    show that photo rather than an empty slot. */
 function equipmentPhotoKeysFor(e){
+  return equipmentEntriesFor(e).map(function(eq){ return equipPhotoKey(eq.name); });
+}
+/* The one place that answers "which machine in the inventory is this exercise
+   performed on". Photos, the machine button and the picker all read it, so they
+   cannot disagree about which machine a row is on. */
+function equipmentEntriesFor(e){
   if(!e || !equipLog.length) return [];
   var keys = [], seen = {};
   function add(entry){
     if(!entry || !entry.name) return;
-    var k = equipPhotoKey(entry.name);
-    if(!seen[k]){ seen[k] = 1; keys.push(k); }
+    var k = entry.name;
+    if(!seen[k]){ seen[k] = 1; keys.push(entry); }
   }
   add(findEquipmentLoose(e.machine));
   add(findEquipmentLoose(e.name));
@@ -3368,10 +3436,19 @@ function equipmentByUse(exName){
   return out;
 }
 function narrowByMachine(list, machine){
-  var m = normEquipName(stripQualifiers(machine));
-  if(m.length < 4) return list;
-  var hits = list.filter(function(eq){ return normEquipName(eq.name).indexOf(m) !== -1; });
-  return hits.length ? hits : list;
+  var full = normEquipName(machine);
+  if(full.length >= 4){
+    var exact = list.filter(function(eq){ return normEquipName(eq.name).indexOf(full) !== -1; });
+    if(exact.length) return exact;
+  }
+  /* Only now drop the bracketed part. "(rope or straight bar)" is an attachment
+     note and has to go for the station to match — but "(white)" is the whole
+     point of the name, the thing that tells two Cybex leg presses apart, so
+     stripping it first would throw away the answer being looked for. */
+  var bare = normEquipName(stripQualifiers(machine));
+  if(bare.length < 4 || bare === full) return list;
+  var loose = list.filter(function(eq){ return normEquipName(eq.name).indexOf(bare) !== -1; });
+  return loose.length ? loose : list;
 }
 /* Equipment that trains at least one of the same muscles, nearest match first. */
 function alternativesFor(name, limit){
@@ -3891,11 +3968,14 @@ var SHEET = {date:null, rows:[]};
    different machine is a different exercise — that is why swapping one changes
    the sets, reps and weight alongside it rather than just relabelling the row. */
 function sheetMachineOptions(e){
-  var opts = [{label: e.machine || 'As planned', variant: e, kind:'plan'}];
+  var planEq = equipmentEntriesFor(e)[0];
+  var opts = [{label: e.machine || 'As planned', variant: e, kind:'plan',
+               eqName: planEq ? planEq.name : null}];
   (e.alts||[]).forEach(function(a){
     /* An alternate inherits anything it does not restate — it is written as a
        delta against the primary, not as a standalone record. */
-    opts.push({label: a.machine, kind:'alt', variant:{
+    var altEq = equipmentEntriesFor({name: e.name, machine: a.machine})[0];
+    opts.push({label: a.machine, kind:'alt', eqName: altEq ? altEq.name : null, variant:{
       name: e.name, machine: a.machine,
       sets: a.sets != null ? a.sets : e.sets,
       reps: a.reps != null ? a.reps : e.reps,
@@ -3908,11 +3988,17 @@ function sheetMachineOptions(e){
      no weight — a machine the plan has not costed is one to calibrate, not one
      to carry a number onto. */
   var named = {};
-  opts.forEach(function(o){ named[normEquipName(o.label)] = 1; });
+  opts.forEach(function(o){
+    named[normEquipName(o.label)] = 1;
+    /* An option that resolved to an inventory machine must not also appear as
+       that machine — the plan's "Cybex (white)" and the inventory's "Leg Press
+       — Cybex (white)" are one machine under two names. */
+    if(o.eqName) named[normEquipName(o.eqName)] = 1;
+  });
   equipmentByUse(e.name).forEach(function(eq){
     if(named[normEquipName(eq.name)]) return;
     named[normEquipName(eq.name)] = 1;
-    opts.push({label: eq.name, kind:'inventory', variant:{
+    opts.push({label: eq.name, kind:'inventory', eqName: eq.name, variant:{
       name: e.name, machine: eq.name, sets: e.sets, reps: e.reps,
       weight: null, rir: e.rir, tempo: e.tempo, rest: e.rest
     }});
@@ -4008,23 +4094,14 @@ function buildSheetRow(e, i, date){
   head.querySelector('.sh-name').textContent = e.name;
   row.appendChild(head);
 
-  if(opts.length > 1){
-    var mach = document.createElement('div');
-    mach.className = 'sh-machine field';
-    mach.style.marginBottom = '0';
-    var sel = document.createElement('select');
-    sel.id = 'shmach-' + i;
-    opts.forEach(function(o, oi){
-      var op = document.createElement('option');
-      op.value = String(oi);
-      op.textContent = o.label + (o.kind==='plan' ? '' : o.kind==='alt' ? '  (planned alternate)' : '  (from inventory)');
-      sel.appendChild(op);
-    });
-    sel.value = String(SHEET.rows[i].sel);
-    sel.onchange = function(){ onSheetMachineChange(i); };
-    mach.appendChild(sel);
-    row.appendChild(mach);
-  }
+  /* Always offered, even where the plan names only one machine: the point is
+     as much to see which machine it means as to change it. */
+  var mach = document.createElement('button');
+  mach.type = 'button';
+  mach.className = 'sh-mach';
+  mach.id = 'shmach-' + i;
+  mach.onclick = function(){ openMachinePicker(i); };
+  row.appendChild(mach);
 
   var fields = document.createElement('div');
   fields.className = 'sh-fields';
@@ -4087,6 +4164,20 @@ function fillSheetRow(i, date){
   reps.placeholder = String(v.reps || '');
   w.placeholder = parsed ? '' : 'calibrate';
 
+  var machBtn = document.getElementById('shmach-'+i);
+  if(machBtn){
+    machBtn.innerHTML = '';
+    machBtn.appendChild(machineThumb(machinePhotoFor(r.opts[r.sel], r.ex), r.opts[r.sel].label));
+    var nm = document.createElement('span');
+    nm.className = 'nm';
+    nm.textContent = r.opts[r.sel].label || 'Pick a machine';
+    machBtn.appendChild(nm);
+    var chev = document.createElement('span');
+    chev.className = 'chev';
+    chev.textContent = 'change ▾';
+    machBtn.appendChild(chev);
+  }
+
   /* Once a row is logged, the chip shows what was logged rather than the target.
      The target would have moved by then — workingTarget reads today's own entry
      as the last session — and a row you have finished showing next week's
@@ -4120,11 +4211,180 @@ function fillSheetRow(i, date){
   }
   cue.innerHTML = bits.join(' ');
 }
-function onSheetMachineChange(i){
-  var r = SHEET.rows[i];
+/* ---- machine picker ----
+   A native <select> cannot show a picture, and forty-four machine names you
+   cannot picture are no help when you are standing in front of one trying to
+   work out whether it is the black Cybex or the white one. So the row opens a
+   real list: photo, name, and what the prescription becomes on it. */
+var PICKER = {row:null};
+function machinePhotoFor(opt, ex){
+  if(opt && opt.eqName){
+    var byMachine = exPhotoUrl(equipPhotoKey(opt.eqName));
+    if(byMachine) return byMachine;
+  }
+  /* The plan's own machine may not be in the inventory at all — fall back to a
+     photo taken against the exercise itself, which is what the Today card shows. */
+  if(opt && opt.kind === 'plan' && ex){
+    var own = exPhotoUrl(ex.name);
+    if(own) return own;
+    var keys = equipmentPhotoKeysFor(ex);
+    for(var i=0;i<keys.length;i++){ var v = exPhotoUrl(keys[i]); if(v) return v; }
+  }
+  return null;
+}
+function machineThumb(src, alt){
+  if(src){
+    var img = document.createElement('img');
+    img.className = 'mach-thumb';
+    img.src = src;
+    img.alt = alt || '';
+    return img;
+  }
+  var box = document.createElement('div');
+  box.className = 'mach-thumb empty';
+  box.textContent = 'no photo';
+  return box;
+}
+function openMachinePicker(rowIdx){
+  var r = SHEET.rows[rowIdx];
   if(!r) return;
-  r.sel = parseInt(document.getElementById('shmach-'+i).value, 10) || 0;
-  fillSheetRow(i, SHEET.date);
+  PICKER.row = rowIdx;
+  document.getElementById('machPickerTitle').innerHTML =
+    histEsc(r.ex.name) + '<span>Which machine did you use?</span>';
+  document.getElementById('machPickerSearch').value = '';
+  document.getElementById('machPicker').classList.add('open');
+  renderMachinePicker();
+}
+function closeMachinePicker(){
+  document.getElementById('machPicker').classList.remove('open');
+  PICKER.row = null;
+}
+function renderMachinePicker(){
+  var i = PICKER.row;
+  if(i === null || i === undefined) return;
+  var r = SHEET.rows[i];
+  var list = document.getElementById('machPickerList');
+  var q = normEquipName(document.getElementById('machPickerSearch').value);
+  list.innerHTML = '';
+
+  function addRow(parent, opts){
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mach-row' + (opts.selected ? ' on' : '');
+    var thumb = machineThumb(opts.src, opts.name);
+    /* Straight to the lightbox for a proper look, without picking the row —
+       the whole reason for opening this list may be that you cannot tell which
+       machine it is from a 50-pixel square. */
+    if(opts.src) thumb.onclick = function(ev){ ev.stopPropagation(); openLightbox(opts.src, opts.name); };
+    btn.appendChild(thumb);
+    var body = document.createElement('div');
+    body.className = 'body';
+    var nm = document.createElement('div');
+    nm.className = 'nm'; nm.textContent = opts.name;
+    body.appendChild(nm);
+    if(opts.meta){
+      var m = document.createElement('div');
+      m.className = 'meta'; m.textContent = opts.meta;
+      body.appendChild(m);
+    }
+    if(opts.sub){
+      var sb = document.createElement('div');
+      sb.className = 'sub'; sb.textContent = opts.sub;
+      body.appendChild(sb);
+    }
+    btn.appendChild(body);
+    if(opts.selected){
+      var tick = document.createElement('span');
+      tick.className = 'tick'; tick.textContent = '✓';
+      btn.appendChild(tick);
+    }
+    btn.onclick = opts.onPick;
+    parent.appendChild(btn);
+    /* No photo on a machine is exactly the moment you most want to take one —
+       you are standing at it. Same store the Equipment tab writes to. */
+    if(!opts.src && opts.eqName){
+      var cam = document.createElement('button');
+      cam.type = 'button';
+      cam.className = 'mach-cam';
+      cam.textContent = 'Photo';
+      cam.onclick = function(ev){ ev.stopPropagation(); pickExercisePhoto(equipPhotoKey(opts.eqName)); };
+      btn.appendChild(cam);
+    }
+  }
+
+  function matches(name){ return !q || normEquipName(name).indexOf(q) !== -1; }
+
+  var suggested = r.opts.filter(function(o){ return matches(o.label); });
+  if(suggested.length){
+    var h1 = document.createElement('div');
+    h1.className = 'picker-sec';
+    h1.textContent = 'For this exercise';
+    list.appendChild(h1);
+    r.opts.forEach(function(o, oi){
+      if(!matches(o.label)) return;
+      var v = o.variant;
+      addRow(list, {
+        name: o.label,
+        eqName: o.eqName,
+        src: machinePhotoFor(o, r.ex),
+        meta: (v.sets||'?') + ' × ' + (v.reps||'?') + ' @ ' + (v.weight || 'calibrate'),
+        sub: o.kind === 'plan' ? 'What the plan prescribes'
+           : o.kind === 'alt'  ? 'Planned alternate — its own weights'
+           : 'From your inventory — calibrate it',
+        selected: oi === r.sel,
+        onPick: function(){ chooseMachine(i, oi); }
+      });
+    });
+  }
+
+  /* Everything else you own. The inventory is the point of this list: the plan
+     names three machines and the gym has forty-four. */
+  var listed = {};
+  r.opts.forEach(function(o){ if(o.eqName) listed[o.eqName] = 1; });
+  var rest = equipLog.filter(function(eq){ return !listed[eq.name] && matches(eq.name); })
+                     .sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
+  if(rest.length){
+    var h2 = document.createElement('div');
+    h2.className = 'picker-sec';
+    h2.textContent = 'Everything else in the gym (' + rest.length + ')';
+    list.appendChild(h2);
+    rest.forEach(function(eq){
+      addRow(list, {
+        name: eq.name,
+        eqName: eq.name,
+        src: exPhotoUrl(equipPhotoKey(eq.name)),
+        sub: eq.muscles || '',
+        selected: false,
+        onPick: function(){ chooseMachine(i, addInventoryOption(i, eq)); }
+      });
+    });
+  }
+  if(!list.children.length){
+    var none = document.createElement('div');
+    none.className = 'empty';
+    none.textContent = equipLog.length ? 'No machine matches that.'
+                                       : 'No machines in your inventory yet — add them on the Equipment tab.';
+    list.appendChild(none);
+  }
+}
+/* A machine the plan never mentioned becomes a real option on this row, with no
+   weight: nothing has been calibrated on it, and carrying a number across from
+   a different machine is the error the whole variant scheme exists to stop. */
+function addInventoryOption(rowIdx, eq){
+  var r = SHEET.rows[rowIdx];
+  for(var i=0;i<r.opts.length;i++){ if(r.opts[i].eqName === eq.name) return i; }
+  r.opts.push({label: eq.name, kind:'inventory', eqName: eq.name, variant:{
+    name: r.ex.name, machine: eq.name, sets: r.ex.sets, reps: r.ex.reps,
+    weight: null, rir: r.ex.rir, tempo: r.ex.tempo, rest: r.ex.rest
+  }});
+  return r.opts.length - 1;
+}
+function chooseMachine(rowIdx, optIdx){
+  var r = SHEET.rows[rowIdx];
+  if(!r) return;
+  r.sel = optIdx;
+  closeMachinePicker();
+  fillSheetRow(rowIdx, SHEET.date);
 }
 /* Saving replaces any entry already held for this date and exercise rather than
    appending a second one: the sheet describes a session, and a session happened

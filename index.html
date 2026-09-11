@@ -800,7 +800,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-11-2';
+var BUILD = '2026-09-11-3';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -906,7 +906,7 @@ var DEFAULT_PLAN = {
       "peakDate": "2026-09-08",
       "cutRateKgPerWeek": 0.24
   },
-  planVersion: '2026-09-11-hypertrophy-r8-reardelt',
+  planVersion: '2026-09-11-hypertrophy-r9-dumbbells',
   /* The first day the new program applies. Anything before it is training that
      already happened and must be taken from the stored plan, not from here. */
   programChangeover: '2026-09-09',
@@ -1584,7 +1584,10 @@ var DEFAULT_PLAN = {
        alts:[{machine:'Cable curl, Adjustable Cable Station (Cybex)', sets:3, reps:'8–12', weight:null, rir:'1–2', tempo:'2-0-2', rest:'60s'}]},
       {name:'Incline DB Curl', machine:'Incline bench, dumbbells', sets:2, reps:'10–12', weight:null,
        rir:'0–1', tempo:'slow, full stretch at the bottom', rest:'45s',
-       note:'Second curl angle — gives biceps genuine 2x/week frequency.'},
+       note:'Second curl angle — gives biceps genuine 2x/week frequency. The incline is the whole point: arms behind the torso puts the long head on stretch, which the machine curl never does.',
+       alts:[{machine:'Dumbbells — rack', sets:2, reps:'10–12', weight:null, rir:'0–1',
+              tempo:'slow, controlled', rest:'45s',
+              note:'Standing, when the incline benches are taken. No stretch at the bottom, so it is a genuinely easier exercise rather than the same one somewhere else — expect a rep or two more at the same weight, and it keeps its own numbers. Take the incline whenever a bench is free.'}]},
       {name:'External Rotation', machine:'Adjustable Cable Station, Cybex, or light DB', sets:3, reps:'15',
        weight:'5kg', rir:'2–3', tempo:'slow, controlled', rest:'45s',
        note:'Maintenance. Stays in even once the shoulder feels good.'}

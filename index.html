@@ -800,7 +800,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-10-2';
+var BUILD = '2026-09-11-1';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -3417,7 +3417,34 @@ function findEquipmentLoose(name){
   var exact = findEquipment(name);
   if(exact) return exact;
   /* Full name first, qualifier-stripped second — see narrowByMachine. */
-  return looseNameHit(normEquipName(name)) || looseNameHit(normEquipName(stripQualifiers(name)));
+  return looseNameHit(normEquipName(name)) ||
+         looseNameHit(normEquipName(stripQualifiers(name))) ||
+         tokenNameHit(name);
+}
+/* Containment needs the words in the same order, and the plan and the shop
+   floor do not agree on that: the plan says "Lat Pulldown, silver frame
+   (plate-loaded lever)" where the inventory says "Lat Pulldown — plate-loaded,
+   silver frame". Same machine, same words, shuffled. So compare the words as a
+   set once ordered matching has failed.
+
+   Kept deliberately strict, because this is the loosest match in the file:
+   at least three meaningful words, nearly all of the shorter name's words
+   present in the longer, and exactly one machine fitting. Two-word names like
+   "Cybex (white)" are refused outright — a brand and a colour are not enough
+   to identify a machine, and the used-for path handles those properly. */
+function nameTokens(s){
+  return normEquipName(stripQualifiers(s)).split(' ').filter(function(t){ return t.length > 1; });
+}
+function tokenNameHit(name){
+  var want = nameTokens(name);
+  if(want.length < 3) return null;
+  var hits = equipLog.filter(function(e){
+    var have = nameTokens(e.name);
+    if(have.length < 3) return false;
+    var shared = want.filter(function(t){ return have.indexOf(t) !== -1; }).length;
+    return shared / Math.min(want.length, have.length) >= 0.8;
+  });
+  return hits.length === 1 ? hits[0] : null;
 }
 function looseNameHit(n){
   if(n.length < 6) return null;                 /* too short to match on safely */
@@ -4286,7 +4313,7 @@ function machinePhotoFor(opt, ex){
   }
   return null;
 }
-function machineThumb(src, alt){
+function machineThumb(src, alt, inInventory){
   if(src){
     var img = document.createElement('img');
     img.className = 'mach-thumb';
@@ -4296,7 +4323,7 @@ function machineThumb(src, alt){
   }
   var box = document.createElement('div');
   box.className = 'mach-thumb empty';
-  box.textContent = 'no photo';
+  box.textContent = inInventory === false ? 'not in inventory' : 'no photo';
   return box;
 }
 function openMachinePicker(rowIdx){
@@ -4325,7 +4352,7 @@ function renderMachinePicker(){
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'mach-row' + (opts.selected ? ' on' : '');
-    var thumb = machineThumb(opts.src, opts.name);
+    var thumb = machineThumb(opts.src, opts.name, opts.eqName ? true : false);
     /* Straight to the lightbox for a proper look, without picking the row —
        the whole reason for opening this list may be that you cannot tell which
        machine it is from a 50-pixel square. */
@@ -4382,9 +4409,12 @@ function renderMachinePicker(){
         eqName: o.eqName,
         src: machinePhotoFor(o, r.ex),
         meta: (v.sets||'?') + ' × ' + (v.reps||'?') + ' @ ' + (v.weight || 'calibrate'),
-        sub: o.kind === 'plan' ? 'What the plan prescribes'
-           : o.kind === 'alt'  ? 'Planned alternate — its own weights'
-           : 'From your inventory — calibrate it',
+        /* "No photo" and "no such machine" look identical otherwise, and they
+           call for completely different things — take a picture, or correct a
+           name the plan made up. */
+        sub: o.kind === 'inventory' ? 'From your inventory — calibrate it'
+           : (o.kind === 'plan' ? 'What the plan prescribes' : 'Planned alternate — its own weights') +
+             (o.eqName ? '' : ' · not matched to anything in your inventory'),
         selected: oi === r.sel,
         onPick: function(){ chooseMachine(i, oi); }
       });

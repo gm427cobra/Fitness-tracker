@@ -800,7 +800,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-11-1';
+var BUILD = '2026-09-11-2';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -906,7 +906,7 @@ var DEFAULT_PLAN = {
       "peakDate": "2026-09-08",
       "cutRateKgPerWeek": 0.24
   },
-  planVersion: '2026-09-09-hypertrophy-r7-stretch-65',
+  planVersion: '2026-09-11-hypertrophy-r8-reardelt',
   /* The first day the new program applies. Anything before it is training that
      already happened and must be taken from the stored plan, not from here. */
   programChangeover: '2026-09-09',
@@ -1572,10 +1572,13 @@ var DEFAULT_PLAN = {
       {name:'High Row', machine:'Iso-Lateral High Row, Hammer Strength', sets:3, reps:'10–12', weight:null,
        perSide:true, rir:'1–2', tempo:'2-1-1', rest:'90s',
        note:'Sits between the pulldown and the row — a genuinely different angle.'},
-      {name:'Rear Delt Fly', machine:'Adjustable Cable Station, Cybex', sets:3, reps:'12–15', weight:'12kg',
-       rir:'1–2', tempo:'2-1-2', rest:'60s',
-       note:'The rows, the high row and Tuesday’s face pulls all pay into the rear delt, so this is the cheapest set in the session to give up if the clock is going.',
-       alts:[{machine:'Dedicated rear delt machine, if free', sets:3, reps:'12–15', weight:null, rir:'1–2', tempo:'2-1-2', rest:'60s'}]},
+      {name:'Rear Delt Fly', machine:'Rear Delt / Pec Fly — black frame', sets:3, reps:'12–15',
+       weight:null, historyFrom:'2026-09-11', rir:'1–2', tempo:'2-1-2', rest:'60s',
+       note:'Moved to the dedicated machine 11 Sep: a braced pad and a fixed line of pull beat a cable station for this, and there is no drift to fight at the end of a set. Chest to the pad, pull back, squeeze, control the return. CALIBRATE IT — the 12kg in your history is a cable-station number and means nothing on this frame, so ramp up and log what you settle on. The rows, the high row and Tuesday’s face pulls all pay into the rear delt, so this is still the cheapest set in the session to give up if the clock is going.',
+       alts:[{machine:'Rear Delt / Pec Fly — white frame', sets:3, reps:'12–15', weight:null, rir:'1–2', tempo:'2-1-2', rest:'60s',
+              note:'The other one of the pair. Slightly different machine, so its own numbers — calibrate it in its own right rather than carrying the black frame’s across.'},
+             {machine:'Adjustable Cable Station, Cybex', sets:3, reps:'12–15', weight:'12kg', rir:'1–2', tempo:'2-1-2', rest:'60s',
+              note:'Where this used to live, and where the 12kg came from. Still a fine fallback when both fly machines are busy.'}]},
       {name:'Machine Arm Curl', machine:'Machine Arm Curl', sets:3, reps:'8–12', weight:'85.5kg',
        rir:'1–2', tempo:'2-0-2', rest:'60s',
        alts:[{machine:'Cable curl, Adjustable Cable Station (Cybex)', sets:3, reps:'8–12', weight:null, rir:'1–2', tempo:'2-0-2', rest:'60s'}]},
@@ -2683,20 +2686,26 @@ function loadStep(p){
 function workingTarget(e){
   var base = parseWeight(e.weight);
   var out = {state:'none', weightStr:null, aim:null, last:null};
-  if(e.weight === null || !base) return out;
-  out.weightStr = e.weight; out.state = 'plan';
   var ends = repRangeEnds(e.reps);
-  var last = lastLoggedSession(e.name);
-  if(!last || !ends) return out;
+  var last = lastLoggedSession(e.name, e.historyFrom);
+  /* "calibrate" means the FIRST session sets the starting point — so once there
+     is one, the log is the number. Returning early on a null plan weight meant
+     the seven exercises the plan never costed said "calibrate" forever, however
+     many sessions went in against them. */
+  if(!base && !last) return out;
+  if(base){ out.weightStr = e.weight; out.state = 'plan'; }
+  if(!last) return out;
   out.last = last;
   /* Work in the unit it was logged in, so a pound machine never gets a kilo
      target. "/hand" survives because it still qualifies the number; a note
      like "to start" does not, once there is a real session to work from. */
   var unit = liftUnitOf(last);
   var p = {prefix:'', value:last.weight, unit:unit,
-           suffix: /\/hand/.test(base.suffix) ? '/hand' : ''};
+           suffix: (base && /\/hand/.test(base.suffix)) ? '/hand' : ''};
   out.weightStr = formatWeight(p, last.weight);
   out.state = 'hold';
+  /* No rep range is no ladder — hold what was lifted and leave it there. */
+  if(!ends) return out;
   if(!(last.reps >= ends.top && last.sets >= e.sets)) return out;
   /* The load only climbs in a phase that runs the rule. Through the return
      ramp it is the phase percentage that sets the weight, so the working
@@ -2731,8 +2740,13 @@ function repRangeEnds(reps){
   var m = String(reps||'').match(/^(\d+)\s*[–-]\s*(\d+)/);
   return m ? {bottom:parseInt(m[1],10), top:parseInt(m[2],10)} : null;
 }
-function lastLoggedSession(name){
-  var rows = liftLog.filter(function(e){ return e.exercise === name; });
+/* historyFrom cuts the tail off: when an exercise moves to a different machine
+   the old numbers are a different machine's numbers, and letting them set the
+   working weight is the one error this whole variant scheme exists to stop. */
+function lastLoggedSession(name, historyFrom){
+  var rows = liftLog.filter(function(e){
+    return e.exercise === name && (!historyFrom || e.date >= historyFrom);
+  });
   if(!rows.length) return null;
   rows.sort(function(a,b){ return a.date.localeCompare(b.date); });
   return rows[rows.length-1];
@@ -4047,18 +4061,23 @@ function sheetMachineOptions(e){
   var planEq = equipmentEntriesFor(e)[0];
   var opts = [{label: e.machine || 'As planned', variant: e, kind:'plan',
                eqName: planEq ? planEq.name : null}];
+  /* A variant's own history, not the primary's. Without this the alternate
+     inherits whatever was last lifted on the machine the plan prescribes —
+     which is how the Seated Chest Press, written at 120kg, came to show a
+     97.5kg target carried over from the Hammer Strength iso-lateral. */
+  function ownHistory(opt){ opt.variant.name = variantExerciseName(opt, e); return opt; }
   (e.alts||[]).forEach(function(a){
     /* An alternate inherits anything it does not restate — it is written as a
        delta against the primary, not as a standalone record. */
     var altEq = equipmentEntriesFor({name: e.name, machine: a.machine})[0];
-    opts.push({label: a.machine, kind:'alt', eqName: altEq ? altEq.name : null, variant:{
+    opts.push(ownHistory({label: a.machine, kind:'alt', eqName: altEq ? altEq.name : null, variant:{
       name: e.name, machine: a.machine,
       sets: a.sets != null ? a.sets : e.sets,
       reps: a.reps != null ? a.reps : e.reps,
       weight: a.weight !== undefined ? a.weight : e.weight,
       unit: a.unit || e.unit, cap: a.cap, perSide: a.perSide,
       rir: a.rir || e.rir, tempo: a.tempo || e.tempo, rest: a.rest || e.rest
-    }});
+    }}));
   });
   /* The inventory knows about machines the plan never listed. Offer them with
      no weight — a machine the plan has not costed is one to calibrate, not one
@@ -4074,10 +4093,10 @@ function sheetMachineOptions(e){
   equipmentByUse(e.name).forEach(function(eq){
     if(named[normEquipName(eq.name)]) return;
     named[normEquipName(eq.name)] = 1;
-    opts.push({label: eq.name, kind:'inventory', eqName: eq.name, variant:{
+    opts.push(ownHistory({label: eq.name, kind:'inventory', eqName: eq.name, variant:{
       name: e.name, machine: eq.name, sets: e.sets, reps: e.reps,
       weight: null, rir: e.rir, tempo: e.tempo, rest: e.rest
-    }});
+    }}));
   });
   return opts;
 }
@@ -4457,10 +4476,12 @@ function renderMachinePicker(){
 function addInventoryOption(rowIdx, eq){
   var r = SHEET.rows[rowIdx];
   for(var i=0;i<r.opts.length;i++){ if(r.opts[i].eqName === eq.name) return i; }
-  r.opts.push({label: eq.name, kind:'inventory', eqName: eq.name, variant:{
+  var opt = {label: eq.name, kind:'inventory', eqName: eq.name, variant:{
     name: r.ex.name, machine: eq.name, sets: r.ex.sets, reps: r.ex.reps,
     weight: null, rir: r.ex.rir, tempo: r.ex.tempo, rest: r.ex.rest
-  }});
+  }};
+  opt.variant.name = variantExerciseName(opt, r.ex);   /* its own history */
+  r.opts.push(opt);
   return r.opts.length - 1;
 }
 /* Boxes are rendered from SHEET state rather than read back off the DOM, so

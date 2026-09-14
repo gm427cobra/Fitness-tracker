@@ -242,6 +242,27 @@
     font-size:9px;letter-spacing:.04em;text-transform:uppercase;padding:6px 7px;cursor:pointer;
     font-family:var(--f-body);}
 
+  /* The three things you follow set to set, sized to be read at arm's length
+     with a dumbbell in the other hand. */
+  .ex-exec{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px;}
+  .ex-exec > div{border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:rgba(0,0,0,.18);}
+  .ex-exec .l{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);}
+  .ex-exec .n{font-size:16px;font-weight:600;margin-top:2px;line-height:1.15;}
+  .ex-side{font-size:11.5px;color:var(--amber);margin-top:6px;}
+
+  .ex-hist{margin-top:9px;border-top:1px dashed var(--line);padding-top:7px;}
+  .ex-hist-h{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:4px;}
+  .ex-hist-row{display:flex;align-items:baseline;gap:8px;font-family:var(--f-mono);
+    font-size:12.5px;color:var(--ink-dim);padding:2px 0;}
+  /* The most recent session is the one you are trying to beat. */
+  .ex-hist-row.now{color:var(--ink);font-size:13.5px;}
+  .ex-hist-row .d{flex:none;width:54px;}
+  .ex-hist-row .r{flex:1;min-width:0;}
+  .ex-hist-row .r .hit{color:var(--green);font-weight:600;}
+  .ex-hist-row .w{flex:none;color:var(--blue);}
+  .ex-hist-none{font-size:12px;color:var(--ink-dim);line-height:1.45;}
+  .ex-hist-v{font-size:12.5px;margin-top:5px;line-height:1.45;}
+
   p.lead{font-size:13px;color:var(--ink-dim);line-height:1.5;margin:0 0 12px;}
   .note-strip{
     border-left:3px solid var(--amber);background:rgba(232,163,61,.08);
@@ -800,7 +821,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-11-3';
+var BUILD = '2026-09-14-1';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -2086,6 +2107,12 @@ function fmtDate(dateStr){
   var d=new Date(dateStr+'T00:00:00');
   return d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
 }
+/* "16 Oct" — the history block wants a date it can set a fixed column for, and
+   the weekday earns nothing there. */
+function fmtDateShort(dateStr){
+  var d=new Date(dateStr+'T00:00:00');
+  return d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+}
 function fmtDateLong(dateStr){
   var d=new Date(dateStr+'T00:00:00');
   return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
@@ -2333,6 +2360,11 @@ function renderStretchBlock(routine, containerEl){
 }
 
 /* ================= TODAY VIEW ================= */
+/* The machine picked on the Today card, per exercise, so it survives the
+   five-minute refresh and a trip to another tab. Contexts are cached alongside
+   so an open picker keeps pointing at the row that opened it. */
+var TODAY_PICKS = {};
+var TODAY_CTX = {};
 /* ================= EXERCISE PHOTOS =================
    Gym-machine photos live in /images, named after the exercise: the name
    lowercased with runs of non-alphanumerics collapsed to a hyphen, e.g.
@@ -2478,7 +2510,7 @@ function rerenderExerciseViews(){
   /* A photo taken from the machine picker has to reach the picker it was taken
      from, and the sheet row underneath it. */
   if(typeof renderSessionSheet === 'function' && document.getElementById('sheetBody')) renderSessionSheet();
-  if(typeof PICKER !== 'undefined' && PICKER && PICKER.row != null) renderMachinePicker();
+  if(typeof PICKER !== 'undefined' && PICKER && PICKER.ctx) renderMachinePicker();
   var plan = document.getElementById('view-plan');
   if(plan && plan.classList.contains('active')) renderPlan();
 }
@@ -2564,39 +2596,24 @@ function renderExerciseBlock(tpl, containerEl, allowUpload, tkey){
   }
   if(tpl.op){ containerEl.innerHTML += '<div class="note-strip red">'+tpl.note+'</div>'; return; }
   if(tpl.postop){ containerEl.innerHTML += '<div class="note-strip" style="border-left-color:var(--amber)">'+tpl.note+'</div>'; return; }
-  function exRow(name, metaHtml, noteHtml, explicitImg, imgName, skipDerivedSwaps, ex){
+  /* Cardio keeps the old shape — one line and a note, nothing to progress. */
+  function cardioRow(name, noteHtml, explicitImg, imgName){
     var div=document.createElement('div');
     div.className='exrow';
     var main=document.createElement('div');
     main.className='ex-main';
     var text=document.createElement('div');
     text.className='ex-text';
-    text.innerHTML =
-      '<div class="exname">'+name+'</div>'+
-      (metaHtml? '<div class="exmeta">'+metaHtml+'</div>':'')+
-      (noteHtml? '<div class="exnote">'+noteHtml+'</div>':'');
+    text.innerHTML = '<div class="exname">'+name+'</div>'+
+                     (noteHtml? '<div class="exnote">'+noteHtml+'</div>':'');
     main.appendChild(text);
     div.appendChild(main);
     containerEl.appendChild(div);
-    /* Only on Today: the Plan tab lists 40 days and a swap line on every row
-       there would be noise. */
-    if(allowUpload && !skipDerivedSwaps){
-      var alts = alternativesFor(imgName || name, 3);
-      if(alts.length){
-        var swap = document.createElement('div');
-        swap.className = 'exnote';
-        swap.style.marginTop = '5px';
-        swap.innerHTML = '<span style="color:var(--amber)">If busy:</span> ' +
-          alts.map(function(a){ return a.name; }).join(' \u00b7 ');
-        text.appendChild(swap);
-      }
-    }
-    addExerciseThumb(main, imgName || name, explicitImg, allowUpload,
-                     {altKeys: equipmentPhotoKeysFor(ex)});
+    addExerciseThumb(main, imgName || name, explicitImg, allowUpload);
   }
   if(tpl.cardio){
     /* The heading carries the distance; the photo is keyed off the bare name. */
-    exRow(tpl.cardio.name+' — '+tpl.cardio.dist, '', tpl.cardio.note, tpl.cardio.img, tpl.cardio.name);
+    cardioRow(tpl.cardio.name+' — '+tpl.cardio.dist, tpl.cardio.note, tpl.cardio.img, tpl.cardio.name);
     renderStretchBlock(coolRoutine, containerEl);
     return;
   }
@@ -2607,11 +2624,153 @@ function renderExerciseBlock(tpl, containerEl, allowUpload, tkey){
     lifts.innerHTML = '<span class="t">Lifting</span>';
     containerEl.appendChild(lifts);
   }
-  tpl.ex.forEach(function(e){
-    exRow(e.name, prescriptionMeta(e), prescriptionNote(e, allowUpload), e.img, null,
-          !!(e.alts && e.alts.length), e);
-  });
+  tpl.ex.forEach(function(e){ containerEl.appendChild(buildLiftRow(e, allowUpload)); });
   renderStretchBlock(coolRoutine, containerEl);
+}
+/* What this card is for, at the rack: what am I doing, how do I do it, and is
+   it moving. The written notes and the prose progression cue are gone — they
+   were read once and then scrolled past every session after. The last three
+   sessions answer "progressing or flat" faster than a sentence about it can. */
+function buildLiftRow(e, interactive){
+  var div = document.createElement('div');
+  div.className = 'exrow';
+
+  /* On Today the machine is selectable, and everything below it follows the
+     selection. On the Plan tab it is just the name of the prescribed machine. */
+  var ctx = null;
+  if(interactive){
+    ctx = TODAY_CTX[e.name];
+    if(!ctx || ctx.ex !== e){
+      var opts = sheetMachineOptions(e);
+      var sel = 0, remembered = TODAY_PICKS[e.name];
+      if(remembered){
+        for(var oi=0; oi<opts.length; oi++){ if(opts[oi].label === remembered){ sel = oi; break; } }
+      }
+      ctx = TODAY_CTX[e.name] = {ex:e, opts:opts, sel:sel, onChange:function(){
+        TODAY_PICKS[e.name] = ctx.opts[ctx.sel].label;
+        renderToday();
+      }};
+    }
+  }
+  var v = ctx ? ctx.opts[ctx.sel].variant : e;
+  var machineLabel = ctx ? ctx.opts[ctx.sel].label : e.machine;
+
+  var head = document.createElement('div');
+  head.className = 'ex-main';
+  var text = document.createElement('div');
+  text.className = 'ex-text';
+  text.innerHTML = '<div class="exname"></div><div class="exmeta">'+prescriptionMeta(v)+'</div>';
+  text.querySelector('.exname').textContent = e.name;
+  head.appendChild(text);
+  div.appendChild(head);
+  addExerciseThumb(head, e.name, e.img, interactive,
+                   {altKeys: equipmentPhotoKeysFor(ctx ? ctx.opts[ctx.sel].variant : e)});
+
+  if(interactive){
+    var mach = document.createElement('button');
+    mach.type = 'button';
+    mach.className = 'sh-mach';
+    mach.appendChild(machineThumb(machinePhotoFor(ctx.opts[ctx.sel], e),
+                                  machineLabel, ctx.opts[ctx.sel].eqName ? true : false));
+    var nm = document.createElement('span');
+    nm.className = 'nm'; nm.textContent = machineLabel || 'Pick a machine';
+    mach.appendChild(nm);
+    var chev = document.createElement('span');
+    chev.className = 'chev'; chev.textContent = 'change ▾';
+    mach.appendChild(chev);
+    mach.onclick = function(){ openMachinePicker(ctx); };
+    div.appendChild(mach);
+  } else if(machineLabel){
+    var mline = document.createElement('div');
+    mline.className = 'exnote';
+    mline.style.marginTop = '4px';
+    mline.textContent = machineLabel;
+    div.appendChild(mline);
+  }
+
+  /* RIR, tempo and rest are the instructions you actually follow set to set,
+     so they get read at arm's length rather than buried in a sentence. */
+  var strip = document.createElement('div');
+  strip.className = 'ex-exec';
+  [['RIR', v.rir], ['Tempo', v.tempo], ['Rest', v.rest]].forEach(function(pair){
+    if(!pair[1]) return;
+    var cell = document.createElement('div');
+    cell.innerHTML = '<div class="l"></div><div class="n"></div>';
+    cell.querySelector('.l').textContent = pair[0];
+    cell.querySelector('.n').textContent = pair[1];
+    strip.appendChild(cell);
+  });
+  if(strip.children.length) div.appendChild(strip);
+  if(v.perSide){
+    var ps = document.createElement('div');
+    ps.className = 'ex-side';
+    ps.textContent = 'Log the weight per side';
+    div.appendChild(ps);
+  }
+
+  div.appendChild(buildHistoryBlock(v, e));
+  return div;
+}
+/* Three sessions and a verdict. Bold the sets that reached the top of the
+   range, so a flat run and a climbing one look different from across a gym. */
+function buildHistoryBlock(v, e){
+  var wrap = document.createElement('div');
+  wrap.className = 'ex-hist';
+  var rows = recentSessions(v.name, v.historyFrom, 3);
+  var ends = repRangeEnds(v.reps);
+
+  var h = document.createElement('div');
+  h.className = 'ex-hist-h';
+  h.textContent = rows.length ? 'Last ' + rows.length + (rows.length===1?' session':' sessions') : 'History';
+  wrap.appendChild(h);
+
+  if(!rows.length){
+    var none = document.createElement('div');
+    none.className = 'ex-hist-none';
+    none.textContent = 'Nothing logged on this machine yet — the first session sets the starting point.';
+    wrap.appendChild(none);
+    return wrap;
+  }
+  rows.forEach(function(r, i){
+    var line = document.createElement('div');
+    line.className = 'ex-hist-row' + (i===0 ? ' now' : '');
+    var d = document.createElement('span');
+    d.className = 'd'; d.textContent = fmtDateShort(r.date);
+    var reps = document.createElement('span');
+    reps.className = 'r';
+    setRepsOf(r).forEach(function(n, k){
+      var sp = document.createElement('span');
+      if(ends && n >= ends.top) sp.className = 'hit';
+      sp.textContent = n + (k < setRepsOf(r).length-1 ? ', ' : '');
+      reps.appendChild(sp);
+    });
+    var w = document.createElement('span');
+    w.className = 'w'; w.textContent = r.weight + liftUnitOf(r);
+    line.appendChild(d); line.appendChild(reps); line.appendChild(w);
+    wrap.appendChild(line);
+  });
+
+  var verdict = document.createElement('div');
+  verdict.className = 'ex-hist-v';
+  var t = workingTarget(v);
+  if(t.state === 'progressed'){
+    verdict.style.color = 'var(--green)';
+    verdict.textContent = 'Every set at the top last time — up to ' + t.weightStr + ', aiming for ' + t.aim + '.';
+  } else if(t.state === 'capped'){
+    verdict.style.color = 'var(--amber)';
+    verdict.textContent = 'Machine maxed at ' + e.cap + ' — take reps and pause time, not load.';
+  } else if(ends && t.last && t.last.reps >= ends.top){
+    verdict.style.color = 'var(--amber)';
+    verdict.textContent = 'Reps are there, sets are not — all ' + v.sets + ' at this weight and it moves.';
+  } else if(ends && t.last){
+    verdict.style.color = 'var(--amber)';
+    verdict.textContent = 'Holding ' + t.weightStr + ' — chase one more rep, up to ' + ends.top + '.';
+  } else {
+    verdict.style.color = 'var(--ink-dim)';
+    verdict.textContent = 'Holding ' + (t.weightStr || 'calibrate') + '.';
+  }
+  wrap.appendChild(verdict);
+  return wrap;
 }
 /* "5 × 10 @ 160kg" — or "@ calibrate" where no weight is known yet, which is
    the signal to ramp up and find one rather than guess heavy. Under Phase C the
@@ -2746,6 +2905,15 @@ function repRangeEnds(reps){
 /* historyFrom cuts the tail off: when an exercise moves to a different machine
    the old numbers are a different machine's numbers, and letting them set the
    working weight is the one error this whole variant scheme exists to stop. */
+/* The last few sessions, newest first. One session says what you lifted; three
+   say whether it is moving. That is the question the card is being asked. */
+function recentSessions(name, historyFrom, n){
+  return liftLog.filter(function(e){
+           return e.exercise === name && (!historyFrom || e.date >= historyFrom);
+         })
+         .sort(function(a,b){ return b.date.localeCompare(a.date); })
+         .slice(0, n || 3);
+}
 function lastLoggedSession(name, historyFrom){
   var rows = liftLog.filter(function(e){
     return e.exercise === name && (!historyFrom || e.date >= historyFrom);
@@ -2753,87 +2921,6 @@ function lastLoggedSession(name, historyFrom){
   if(!rows.length) return null;
   rows.sort(function(a,b){ return a.date.localeCompare(b.date); });
   return rows[rows.length-1];
-}
-/* Double progression, made checkable against what you actually logged.
-
-   Two things it deliberately will not do. It only speaks in phases that run
-   the rule — during the return ramp the load is set by the phase percentage,
-   not by last week's reps. And it never says a session felt easy: the log
-   holds one rep count per exercise and no RIR at all, so it can report that
-   the reps are there and hand the judgement back, which is where the plan
-   puts it too. */
-function progressionCue(e){
-  var phase = currentPhase();
-  if(!phase || phase.rule !== 'double-progression') return '';
-  var ends = repRangeEnds(e.reps);
-  if(!ends) return '';
-  var t = workingTarget(e);
-  var last = t.last;
-  if(!last){
-    return '<span style="color:var(--ink-dim)">Nothing logged for this yet — the first session sets the starting point.</span>';
-  }
-  var did = repsLabel(last) + ' @ ' + last.weight + ' ' + liftUnitOf(last) +
-            ' on ' + fmtDate(last.date);
-  if(t.state === 'progressed'){
-    return '<span style="color:var(--green)">Target raised from ' + t.from + '</span> — ' + did +
-      ' put you at the top of the range, so this session is ' + t.weightStr + ', aiming for ' + t.aim +
-      ' reps' + (t.jumpPct > 5 ? ' (a ' + t.jumpPct + '% jump — the smallest step this loads in)' : '') + '. ' +
-      '<span style="color:var(--ink-dim)">Drop back to ' + t.from + ' if that last one was a grind rather than RIR ' +
-      (e.rir||'target') + '.</span>';
-  }
-  if(t.state === 'capped'){
-    return '<span style="color:var(--amber)">Machine maxed at ' + e.cap + '</span> — ' + did +
-      '. No load left to add here, so keep taking reps and pause time up.';
-  }
-  if(last.reps >= ends.top){
-    return '<span style="color:var(--amber)">Holding ' + t.weightStr + '</span> — ' + did +
-      ': the reps are there, the sets are not. Get all ' + e.sets + ' at this weight before the load moves.';
-  }
-  return '<span style="color:var(--amber)">Holding ' + t.weightStr + '</span> — ' + did +
-    '. Chase one more rep, up to ' + ends.top + ', and the target moves itself.';
-}
-
-/* Machine, then the set-execution detail, then the written note. On the Plan
-   tab the alternates are left out — forty days of them would be noise; Today
-   carries them in full, because that is where you are standing at the rack. */
-function prescriptionNote(e, withAlts){
-  var bits = [];
-  if(e.machine) bits.push('<span style="color:var(--ink-dim)">Machine:</span> ' + e.machine);
-  var exec = [];
-  if(e.rir)   exec.push('RIR ' + e.rir);
-  if(e.tempo) exec.push('Tempo ' + e.tempo);
-  if(e.rest)  exec.push('Rest ' + e.rest);
-  if(exec.length) bits.push(exec.join(' · '));
-  if(e.note) bits.push(e.note);
-  /* Today only, like the alternates — the Plan tab's forty-odd days would each
-     carry a cue about a session that has not happened yet. */
-  if(withAlts){
-    var cue = progressionCue(e);
-    if(cue) bits.push(cue);
-  }
-  if(withAlts && e.alts && e.alts.length){
-    bits.push(e.alts.map(function(a, i){
-      /* An alternate is a full prescription in its own right, so the phase's
-         load reduction has to reach it too — showing the unscaled Phase A
-         number here would put return-ramp weight on the wrong machine. */
-      var w = a.weight ? a.weight : '<span style="color:var(--amber)">calibrate</span>';
-      if(a.weight){
-        var altScaled = phaseAdjustedWeight(a.weight);
-        if(altScaled) w += ' <span style="color:var(--amber)">→ ' + altScaled + ' this week</span>';
-      }
-      var line = '<span style="color:var(--amber)">If busy ' + (i+1) + ':</span> ' + a.machine +
-                 ' — ' + a.sets + ' × ' + a.reps + ' @ ' + w +
-                 (a.perSide ? ' · log per side' : '');
-      var ex2 = [];
-      if(a.rir)   ex2.push('RIR ' + a.rir);
-      if(a.tempo) ex2.push('Tempo ' + a.tempo);
-      if(a.rest)  ex2.push('Rest ' + a.rest);
-      if(ex2.length) line += '<br><span style="color:var(--ink-dim)">' + ex2.join(' · ') + '</span>';
-      if(a.note) line += '<br><span style="color:var(--ink-dim)">' + a.note + '</span>';
-      return line;
-    }).join('<br>'));
-  }
-  return bits.join('<br>');
 }
 /* ================= MEAL PACING =================
    Meals carry no clock time in the plan data, so fall back to a sensible
@@ -3543,35 +3630,6 @@ function narrowByMachine(list, machine){
   var loose = list.filter(function(eq){ return normEquipName(eq.name).indexOf(bare) !== -1; });
   return loose.length ? loose : list;
 }
-/* Equipment that trains at least one of the same muscles, nearest match first. */
-function alternativesFor(name, limit){
-  var target = findEquipment(name);
-  /* Whatever already serves this movement is not an alternative to it. */
-  var source = target ? [target] : [];
-  var wanted = target ? equipMuscles(target) : [];
-  /* Not in the inventory by name — fall back to matching the exercise name
-     against what each machine says it is used for. */
-  if(!target){
-    var n = String(name||'').toLowerCase();
-    equipLog.forEach(function(e){
-      (e.exercises||'').split(/[;,]/).forEach(function(x){
-        var xn = x.trim().toLowerCase();
-        if(xn && n.indexOf(xn)!==-1 && source.indexOf(e)===-1){
-          source.push(e);
-          wanted = wanted.concat(equipMuscles(e));
-        }
-      });
-    });
-  }
-  if(!wanted.length) return [];
-  var scored = equipLog.filter(function(e){ return source.indexOf(e)===-1; }).map(function(e){
-    var ms = equipMuscles(e);
-    var overlap = ms.filter(function(m){ return wanted.indexOf(m)!==-1; }).length;
-    return {equip:e, overlap:overlap};
-  }).filter(function(r){ return r.overlap > 0; })
-    .sort(function(a,b){ return b.overlap - a.overlap; });
-  return scored.slice(0, limit||3).map(function(r){ return r.equip; });
-}
 function buildEquipmentExport(){
   if(!equipLog.length) return 'No gym equipment recorded yet.';
   var lines = ['MY GYM — EQUIPMENT INVENTORY  ('+equipLog.length+' items, as at '+todayStr()+')',''];
@@ -4185,7 +4243,8 @@ function buildSheetRow(e, i, date){
   for(var oi=0; oi<opts.length; oi++){
     if(loggedRowFor(date, variantExerciseName(opts[oi], e))){ sel = oi; break; }
   }
-  SHEET.rows.push({ex:e, opts:opts, sel:sel, setVals:[]});
+  SHEET.rows.push({ex:e, opts:opts, sel:sel, setVals:[],
+                   onChange: function(){ fillSheetRow(i, SHEET.date); }});
 
   var head = document.createElement('div');
   head.className = 'sh-head';
@@ -4199,7 +4258,7 @@ function buildSheetRow(e, i, date){
   mach.type = 'button';
   mach.className = 'sh-mach';
   mach.id = 'shmach-' + i;
-  mach.onclick = function(){ openMachinePicker(i); };
+  mach.onclick = function(){ openMachinePicker(SHEET.rows[i]); };
   row.appendChild(mach);
 
   var fields = document.createElement('div');
@@ -4319,7 +4378,10 @@ function fillSheetRow(i, date){
    cannot picture are no help when you are standing in front of one trying to
    work out whether it is the black Cybex or the white one. So the row opens a
    real list: photo, name, and what the prescription becomes on it. */
-var PICKER = {row:null};
+/* The picker is driven by a context, not by a row index into the Log sheet:
+   {ex, opts, sel, onChange}. The session sheet supplies one per row, the Today
+   card supplies one per exercise, and neither needs to know about the other. */
+var PICKER = {ctx:null};
 function machinePhotoFor(opt, ex){
   if(opt && opt.eqName){
     var byMachine = exPhotoUrl(equipPhotoKey(opt.eqName));
@@ -4348,10 +4410,10 @@ function machineThumb(src, alt, inInventory){
   box.textContent = inInventory === false ? 'not in inventory' : 'no photo';
   return box;
 }
-function openMachinePicker(rowIdx){
-  var r = SHEET.rows[rowIdx];
-  if(!r) return;
-  PICKER.row = rowIdx;
+function openMachinePicker(ctx){
+  if(!ctx) return;
+  var r = ctx;
+  PICKER.ctx = ctx;
   document.getElementById('machPickerTitle').innerHTML =
     histEsc(r.ex.name) + '<span>Which machine did you use?</span>';
   document.getElementById('machPickerSearch').value = '';
@@ -4360,12 +4422,11 @@ function openMachinePicker(rowIdx){
 }
 function closeMachinePicker(){
   document.getElementById('machPicker').classList.remove('open');
-  PICKER.row = null;
+  PICKER.ctx = null;
 }
 function renderMachinePicker(){
-  var i = PICKER.row;
-  if(i === null || i === undefined) return;
-  var r = SHEET.rows[i];
+  var r = PICKER.ctx;
+  if(!r) return;
   var list = document.getElementById('machPickerList');
   var q = normEquipName(document.getElementById('machPickerSearch').value);
   list.innerHTML = '';
@@ -4438,7 +4499,7 @@ function renderMachinePicker(){
            : (o.kind === 'plan' ? 'What the plan prescribes' : 'Planned alternate — its own weights') +
              (o.eqName ? '' : ' · not matched to anything in your inventory'),
         selected: oi === r.sel,
-        onPick: function(){ chooseMachine(i, oi); }
+        onPick: function(){ chooseMachine(r, oi); }
       });
     });
   }
@@ -4461,7 +4522,7 @@ function renderMachinePicker(){
         src: exPhotoUrl(equipPhotoKey(eq.name)),
         sub: eq.muscles || '',
         selected: false,
-        onPick: function(){ chooseMachine(i, addInventoryOption(i, eq)); }
+        onPick: function(){ chooseMachine(r, addInventoryOption(r, eq)); }
       });
     });
   }
@@ -4476,8 +4537,7 @@ function renderMachinePicker(){
 /* A machine the plan never mentioned becomes a real option on this row, with no
    weight: nothing has been calibrated on it, and carrying a number across from
    a different machine is the error the whole variant scheme exists to stop. */
-function addInventoryOption(rowIdx, eq){
-  var r = SHEET.rows[rowIdx];
+function addInventoryOption(r, eq){
   for(var i=0;i<r.opts.length;i++){ if(r.opts[i].eqName === eq.name) return i; }
   var opt = {label: eq.name, kind:'inventory', eqName: eq.name, variant:{
     name: r.ex.name, machine: eq.name, sets: r.ex.sets, reps: r.ex.reps,
@@ -4547,12 +4607,11 @@ function sheetSetSummary(i){
   else if(ends && s.reps < ends.top) bits += ' · needs ' + ends.top + ' on every set';
   el.textContent = bits;
 }
-function chooseMachine(rowIdx, optIdx){
-  var r = SHEET.rows[rowIdx];
-  if(!r) return;
-  r.sel = optIdx;
+function chooseMachine(ctx, optIdx){
+  if(!ctx) return;
+  ctx.sel = optIdx;
   closeMachinePicker();
-  fillSheetRow(rowIdx, SHEET.date);
+  if(ctx.onChange) ctx.onChange();
 }
 /* Saving replaces any entry already held for this date and exercise rather than
    appending a second one: the sheet describes a session, and a session happened

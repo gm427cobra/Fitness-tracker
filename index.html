@@ -843,7 +843,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-14-2';
+var BUILD = '2026-09-14-3';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -2675,7 +2675,15 @@ function buildLiftRow(e, interactive){
     }
   }
   var v = ctx ? ctx.opts[ctx.sel].variant : e;
-  var machineLabel = ctx ? ctx.opts[ctx.sel].label : e.machine;
+  var machineLabel;
+  if(ctx){
+    machineLabel = machineDisplayName(ctx.opts[ctx.sel]);
+  } else {
+    /* Read-only: name it the way the picker would, so the Plan tab and the
+       Today card call the same machine the same thing. */
+    var planEq = equipmentEntriesFor(e)[0];
+    machineLabel = planEq ? planEq.name : e.machine;
+  }
 
   var head = document.createElement('div');
   head.className = 'ex-main';
@@ -2733,7 +2741,7 @@ function machineTile(ctx, e){
   var btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'ex-mach-tile';
-  btn.title = opt.label || 'Pick a machine';
+  btn.title = machineDisplayName(opt) || 'Pick a machine';
   if(src){
     var img = document.createElement('img');
     img.src = src;
@@ -4374,7 +4382,7 @@ function fillSheetRow(i, date){
     machBtn.appendChild(machineThumb(machinePhotoFor(r.opts[r.sel], r.ex), r.opts[r.sel].label));
     var nm = document.createElement('span');
     nm.className = 'nm';
-    nm.textContent = r.opts[r.sel].label || 'Pick a machine';
+    nm.textContent = machineDisplayName(r.opts[r.sel]) || 'Pick a machine';
     machBtn.appendChild(nm);
     var chev = document.createElement('span');
     chev.className = 'chev';
@@ -4423,6 +4431,31 @@ function fillSheetRow(i, date){
    {ex, opts, sel, onChange}. The session sheet supplies one per row, the Today
    card supplies one per exercise, and neither needs to know about the other. */
 var PICKER = {ctx:null};
+/* Every row in the picker named the same way. The plan writes a machine in
+   shorthand — "Cybex (white)" — while the inventory spells it out — "Leg Press
+   — Cybex (white)". Listed side by side under two schemes, the prescribed
+   machine stops looking like the same kind of thing as the alternatives, and
+   the one you are looking for is the one you cannot find. So display the
+   inventory's name wherever there is one.
+
+   Display only: opt.label still keys the log, so nothing already recorded
+   against a variant is orphaned by renaming what is on screen. */
+function machineDisplayName(opt){ return (opt && (opt.eqName || opt.label)) || ''; }
+/* The plan's own wording, kept only where it says something the inventory name
+   does not — an attachment, a grip, a setup. "(rope or straight bar)" survives;
+   "Cybex (white)" against "Leg Press — Cybex (white)" adds nothing and goes. */
+function machineExtraWording(opt){
+  if(!opt || !opt.eqName || opt.label === opt.eqName) return '';
+  /* Deliberately NOT nameTokens, which strips the bracketed part — that is the
+     right call when matching names and precisely wrong here, since the bracket
+     is usually where the extra wording lives. */
+  function rawTokens(x){
+    return normEquipName(x).split(' ').filter(function(t){ return t.length > 1; });
+  }
+  var have = rawTokens(opt.eqName);
+  var extra = rawTokens(opt.label).filter(function(t){ return have.indexOf(t) === -1; });
+  return extra.length ? opt.label : '';
+}
 function machinePhotoFor(opt, ex){
   if(opt && opt.eqName){
     var byMachine = exPhotoUrl(equipPhotoKey(opt.eqName));
@@ -4541,7 +4574,7 @@ function renderMachinePicker(){
   list.appendChild(hero);
   var heroNm = document.createElement('div');
   heroNm.className = 'mach-hero-nm';
-  heroNm.textContent = cur.label || 'No machine picked';
+  heroNm.textContent = machineDisplayName(cur) || 'No machine picked';
   list.appendChild(heroNm);
   var heroSub = document.createElement('div');
   heroSub.className = 'mach-hero-sub';
@@ -4561,8 +4594,9 @@ function renderMachinePicker(){
     r.opts.forEach(function(o, oi){
       if(!matches(o.label)) return;
       var v = o.variant;
+      var wording = machineExtraWording(o);
       addRow(list, {
-        name: o.label,
+        name: machineDisplayName(o),
         eqName: o.eqName,
         src: machinePhotoFor(o, r.ex),
         meta: (v.sets||'?') + ' × ' + (v.reps||'?') + ' @ ' + (v.weight || 'calibrate'),
@@ -4571,7 +4605,8 @@ function renderMachinePicker(){
            name the plan made up. */
         sub: o.kind === 'inventory' ? 'From your inventory — calibrate it'
            : (o.kind === 'plan' ? 'What the plan prescribes' : 'Planned alternate — its own weights') +
-             (o.eqName ? '' : ' · not matched to anything in your inventory'),
+             (o.eqName ? '' : ' · not matched to anything in your inventory') +
+             (wording ? ' · plan writes it as “' + wording + '”' : ''),
         selected: oi === r.sel,
         onPick: function(){ chooseMachine(r, oi); }
       });

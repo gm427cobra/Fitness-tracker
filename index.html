@@ -843,7 +843,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-14-3';
+var BUILD = '2026-09-14-4';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -949,7 +949,7 @@ var DEFAULT_PLAN = {
       "peakDate": "2026-09-08",
       "cutRateKgPerWeek": 0.24
   },
-  planVersion: '2026-09-11-hypertrophy-r9-dumbbells',
+  planVersion: '2026-09-14-hypertrophy-r10-legpress',
   /* The first day the new program applies. Anything before it is training that
      already happened and must be taken from the stored plan, not from here. */
   programChangeover: '2026-09-09',
@@ -1522,11 +1522,15 @@ var DEFAULT_PLAN = {
        own right. weight:null renders as "calibrate" — the signal to treat the
        first session on it as a genuine ramp-up test rather than a guess. */
     lowerA:{label:'Lower A — quads & calves', prep:'prepLower', cool:'coolLower', ex:[
-      {name:'Leg Press', machine:'Cybex (white)', sets:5, reps:'10–15', weight:'160kg', cap:'160kg', rir:'1–2',
-       tempo:'3-1-1', rest:'2–3 min',
-       note:'The WHITE Cybex, not the black one — confirmed 9 Sep. It is the white machine that caps at 160kg, and the two load differently, so the working history only means anything against one of them. Wider rep range than the rest because the load cannot move: 160kg is this machine\u2019s ceiling, not a training cap — it has nothing left to add. Keep progressing on reps and pause until 5×10 is comfortable at RIR 1–2, then move to the 45° below and calibrate it as a new exercise. That is the progression route, not a fallback.',
-       alts:[{machine:'Leg Press 45° (black)', sets:5, reps:'10–15', weight:null, rir:'1–2', tempo:'3-1-1', rest:'2–3 min',
-              note:'Where this movement goes once the white Cybex tops out — and the swap if it is busy. Fixed groove, loads differently: calibrate it, do not carry 160kg across.'}]},
+      {name:'Leg Press', machine:'Leg Press 45° — black', sets:5, reps:'10–12',
+       weight:null, historyFrom:'2026-09-15', rir:'1–2', tempo:'3-1-1', rest:'2–3 min',
+       note:'Moved off the white Cybex on 14 Sep, having finished it: 5×15 at 160kg is the top of the range on a stack with nothing left to add. This was always the route rather than a fallback — the plan said so from the start. CALIBRATE IT. A plate-loaded 45° sled carries its own weight and a different leverage, so the number on the plates is not comparable to a selectorised stack in either direction; ramp up and log what you settle on. The rep range comes back to 10–12 at the same time: 10–15 was only ever wide because the load could not move, and now it can. First session on it is 5 Oct in the return ramp at RIR 3–4, which is a good way to meet a new machine — learn the groove light, and let 19 Oct be where it starts climbing.',
+       alts:[{machine:'Leg Press — Cybex (white)', sets:5, reps:'10–15', weight:'160kg', cap:'160kg',
+              rir:'1–2', tempo:'3-1-1', rest:'2–3 min',
+              note:'Where you came from, and still maxed at 160kg — its own 5×15 is the ceiling. Keeps the wider 10–15 range because on a stack with nothing left, reps and pause time are the only progression. Worth taking if the 45° is busy, and the honest fallback during the return ramp: 75% and 88% of a known 160kg mean something, where a percentage of a machine you have never loaded does not.'},
+             {machine:'Leg Press — Cybex (black)', sets:5, reps:'10–12', weight:null, rir:'1–2',
+              tempo:'3-1-1', rest:'2–3 min',
+              note:'The other plate-loaded sled. Loads differently again — its own number.'}]},
       {name:'Leg Extension', machine:'Prime', sets:3, reps:'10–12', weight:'130kg', rir:'1–2',
        tempo:'2-1-2', rest:'90s', note:'Squeeze at the top.',
        alts:[{machine:'Leg Extension, silver plate-loaded', sets:3, reps:'10–12', weight:null, rir:'1–2', tempo:'2-1-2', rest:'90s'}]},

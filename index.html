@@ -272,6 +272,12 @@
   .mach-hero-nm{font-size:14px;font-weight:600;margin:7px 0 0;line-height:1.3;}
   .mach-hero-sub{font-size:11.5px;color:var(--ink-dim);margin-top:2px;}
 
+  .ex-goal{display:flex;align-items:baseline;gap:8px;margin-top:8px;padding:6px 9px;
+    border:1px solid var(--line);border-radius:6px;background:rgba(79,182,201,.07);}
+  .ex-goal .l{flex:none;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);}
+  .ex-goal .n{flex:1;min-width:0;font-family:var(--f-mono);font-size:14px;font-weight:600;color:var(--ink);}
+  .ex-goal .nx{flex:none;font-family:var(--f-mono);font-size:13px;color:var(--green);}
+
   .ex-hist{margin-top:9px;border-top:1px dashed var(--line);padding-top:7px;}
   .ex-hist-h{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:4px;}
   .ex-hist-row{display:flex;align-items:baseline;gap:8px;font-family:var(--f-mono);
@@ -843,7 +849,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-14-4';
+var BUILD = '2026-09-15-1';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -2733,8 +2739,35 @@ function buildLiftRow(e, interactive){
     div.appendChild(ps);
   }
 
+  var goal = buildGoalLine(v);
+  if(goal) div.appendChild(goal);
   div.appendChild(buildHistoryBlock(v, e));
   return div;
+}
+/* "5 × 12 @ 160kg → 165kg" — every set at twelve and the weight moves, to
+   that. Stated rather than left to be worked out from a range and a rule. */
+function buildGoalLine(v){
+  var g = progressTarget(v);
+  if(!g.top) return null;                          /* no range, nothing to aim at */
+  var row = document.createElement('div');
+  row.className = 'ex-goal';
+  var l = document.createElement('span');
+  l.className = 'l';
+  l.textContent = g.state === 'capped' ? 'At the cap' : 'To progress';
+  row.appendChild(l);
+  var n = document.createElement('span');
+  n.className = 'n';
+  n.textContent = g.sets + ' × ' + g.top + (g.at ? ' @ ' + g.at : '');
+  row.appendChild(n);
+  var nx = document.createElement('span');
+  nx.className = 'nx';
+  if(g.state === 'capped')      nx.textContent = 'reps and pause only';
+  else if(g.next)               nx.textContent = '→ ' + g.next;
+  else if(!g.at)                nx.textContent = 'once calibrated';
+  else                          nx.textContent = '';
+  if(g.state === 'capped') nx.style.color = 'var(--amber)';
+  row.appendChild(nx);
+  return row;
 }
 /* Double the old thumbnail, and the only thing you tap to change machine.
    Works with no photo too: the tile is the target either way, which is how you
@@ -2808,16 +2841,16 @@ function buildHistoryBlock(v, e){
   var t = workingTarget(v);
   if(t.state === 'progressed'){
     verdict.style.color = 'var(--green)';
-    verdict.textContent = 'Every set at the top last time — up to ' + t.weightStr + ', aiming for ' + t.aim + '.';
+    verdict.textContent = 'Every set at the top last time — raised from ' + t.from + '.';
   } else if(t.state === 'capped'){
     verdict.style.color = 'var(--amber)';
-    verdict.textContent = 'Machine maxed at ' + e.cap + ' — take reps and pause time, not load.';
+    verdict.textContent = 'Machine maxed at ' + e.cap + ' — nothing left to add.';
   } else if(ends && t.last && t.last.reps >= ends.top){
     verdict.style.color = 'var(--amber)';
-    verdict.textContent = 'Reps are there, sets are not — all ' + v.sets + ' at this weight and it moves.';
+    verdict.textContent = 'Reps are there on ' + t.last.sets + ' of ' + v.sets + ' sets.';
   } else if(ends && t.last){
     verdict.style.color = 'var(--amber)';
-    verdict.textContent = 'Holding ' + t.weightStr + ' — chase one more rep, up to ' + ends.top + '.';
+    verdict.textContent = 'Lowest set was ' + t.last.reps + ' — every set needs ' + ends.top + '.';
   } else {
     verdict.style.color = 'var(--ink-dim)';
     verdict.textContent = 'Holding ' + (t.weightStr || 'calibrate') + '.';
@@ -2945,6 +2978,31 @@ function workingTarget(e){
   out.weightStr = formatWeight(p, next);
   out.aim = ends.bottom;
   out.jumpPct = Math.round((next/last.weight - 1) * 1000) / 10;
+  return out;
+}
+
+/* What the exercise is working toward: the sets and reps that trigger the next
+   load, and what that load becomes. The rep range only implies this — "10–12"
+   does not say that every one of five sets has to reach 12 before anything
+   moves, nor what it moves to. */
+function progressTarget(e){
+  var ends = repRangeEnds(e.reps);
+  var t = workingTarget(e);
+  var out = {sets:e.sets, top: ends?ends.top:null, bottom: ends?ends.bottom:null,
+             at:t.weightStr, next:null, state:t.state};
+  if(!ends || t.state === 'capped') return out;   /* no ladder, or the top of one */
+  var base = parseWeight(t.weightStr);
+  if(!base) return out;                            /* nothing calibrated yet */
+  var p = {prefix:'', value:base.value, unit:base.unit, suffix:base.suffix};
+  var step = loadStep(p);
+  var n = Math.ceil(((base.value * 1.025) - 1e-9) / step) * step;
+  if(n <= base.value) n = base.value + step;
+  var cap = e.cap ? parseWeight(e.cap) : null;
+  if(cap){
+    var capVal = cap.unit === base.unit ? cap.value : convertLift(cap.value, cap.unit, base.unit);
+    if(n > capVal) return out;                     /* the step would overshoot it */
+  }
+  out.next = formatWeight(p, n);
   return out;
 }
 

@@ -301,8 +301,13 @@
      not inferred from a hairline between rows — mid-session you are looking for
      the block you are standing in, not reading top to bottom. It bleeds out
      through the card's own padding so the photo keeps its 124px without
-     costing the text column the width of two more gutters. */
-  .exrow.lift-lg{border:1px solid rgba(236,239,241,.34);border-radius:12px;
+     costing the text column the width of two more gutters.
+     The two horizontal rules are white and 2px: they are the start and the
+     finish, and a dim grey hairline is not something you can pick out at
+     arm's length in gym lighting. The verticals stay quiet — they only need
+     to close the shape. */
+  .exrow.lift-lg{border:1px solid rgba(236,239,241,.28);border-radius:12px;
+    border-top:2px solid #fff;border-bottom:2px solid #fff;
     background:var(--panel);overflow:hidden;padding:0;margin:0 -8px 16px;}
   .exrow.lift-lg:first-child{padding-top:0;}
   /* Name, load and the three execution numbers share one column; the machine
@@ -937,7 +942,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-15-3';
+var BUILD = '2026-09-15-4';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;

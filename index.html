@@ -291,6 +291,84 @@
   .ex-hist-none{font-size:12px;color:var(--ink-dim);line-height:1.45;}
   .ex-hist-v{font-size:12.5px;margin-top:5px;line-height:1.45;}
 
+  /* ---- The Today card, sized for the gym floor ----------------------------
+     Read at arm's length, mid-set, phone propped against a rack. Every size
+     below is a fraction of the 124px machine tile, which is what holds the
+     proportions together: name a quarter of it, load a fifth, the numbers you
+     compare against half. The tile itself does not grow — the text comes up to
+     meet it. The Plan tab keeps the compact sizes; it is read sitting down. */
+  /* Name, load and the three execution numbers share one column; the machine
+     photo holds the other and spans all three rows, which is what sets the
+     text sizes. */
+  .lift-lg .ex-head{display:grid;grid-template-columns:minmax(0,1fr) 124px;
+    column-gap:12px;align-items:start;}
+  .lift-lg .ex-head > .ex-mach-tile{grid-column:2;grid-row:1/span 3;}
+  .lift-lg .exname{font-size:29px;line-height:1.04;letter-spacing:-.015em;}
+  /* The one number you act on before touching the machine. */
+  .lift-lg .ex-load{font-family:var(--f-mono);font-size:25px;font-weight:600;
+    color:var(--green);line-height:1.1;margin-top:6px;}
+  .lift-lg .ex-load .cal{color:var(--amber);}
+  .lift-lg .ex-load .sub{display:block;font-family:var(--f-body);font-size:11.5px;
+    font-weight:400;color:var(--amber);margin-top:3px;line-height:1.35;}
+  /* Flex rather than three fixed columns: a prose value leaves the strip (see
+     .ex-cue) and the two that remain should take the space back. */
+  .lift-lg .ex-exec{display:flex;gap:5px;margin-top:10px;}
+  .lift-lg .ex-exec > div{flex:1 1 0;min-width:0;padding:5px;}
+  .lift-lg .ex-exec .l{font-size:8.5px;letter-spacing:.08em;}
+  .lift-lg .ex-exec .n{font-size:13.5px;margin-top:1px;white-space:nowrap;letter-spacing:-.015em;}
+  /* Where one of the three is an instruction rather than a number. */
+  .lift-lg .ex-cue{font-size:12px;color:var(--ink-dim);margin-top:7px;line-height:1.4;}
+  .lift-lg .ex-cue b{color:var(--ink);font-weight:600;}
+
+  /* Target and history are one table: same columns, same widths, so today's
+     row and the last three sit under each other and the comparison is a glance
+     down a column rather than a calculation. */
+  .lift-lg .ex-goal{display:flex;align-items:baseline;gap:6px;margin-top:12px;
+    padding:5px 6px;border:none;border-radius:6px 6px 0 0;background:rgba(0,0,0,.34);}
+  .lift-lg .ex-goal .l{flex:none;width:72px;font-family:var(--f-body);font-size:15px;
+    font-weight:600;letter-spacing:0;text-transform:none;color:var(--red);}
+  .lift-lg .ex-goal .n{flex:1;min-width:0;font-size:15px;color:var(--red);}
+  .lift-lg .ex-goal .nx{flex:none;font-size:15px;color:var(--red);white-space:nowrap;}
+  .lift-lg .ex-hist{margin-top:0;border-top:none;padding:2px 0 4px;
+    background:rgba(255,255,255,.022);border-radius:0 0 6px 6px;}
+  /* The dates and the Target label say what the rows are; a heading over them
+     only repeats it. */
+  .lift-lg .ex-hist-h{display:none;}
+  /* Sized so five two-digit sets, the widest date ("28 Sept") and a per-hand
+     weight all still make one line at 360px. Past that the reps wrap at a
+     comma, which is the right thing to lose last. */
+  .lift-lg .ex-hist-row{font-size:15px;padding:3px 6px;gap:6px;}
+  .lift-lg .ex-hist-row.now{font-size:16px;}
+  .lift-lg .ex-hist-row .d{width:72px;white-space:nowrap;}
+  .lift-lg .ex-hist-row .w{white-space:nowrap;}
+  .lift-lg .ex-hist-none{font-size:13px;padding:4px 6px;}
+  .lift-lg .ex-hist-v{font-size:13px;padding:3px 6px 0;}
+  .lift-lg .ex-side{font-size:12.5px;}
+  /* Narrower than an iPhone 15, three tiles in what is left beside a 124px
+     photo stop holding "2–3 min", so they take the full width underneath it
+     instead. Nothing reparents — the photo just stops spanning that row. */
+  @media (max-width:389px){
+    .lift-lg .exname{font-size:25px;}
+    .lift-lg .ex-load{font-size:22px;}
+    .lift-lg .ex-head > .ex-mach-tile{grid-row:1/span 2;}
+    .lift-lg .ex-exec{grid-column:1/-1;}
+    .lift-lg .ex-goal .l,.lift-lg .ex-hist-row .d{width:66px;}
+    .lift-lg .ex-goal .n{font-size:14px;}
+    .lift-lg .ex-goal .nx,.lift-lg .ex-hist-row{font-size:14px;}
+    .lift-lg .ex-hist-row.now{font-size:15px;}
+  }
+  /* An original SE. Five two-digit sets and a weight in 260px of card leaves no
+     slack at all, so the table drops one more size rather than folding a
+     session onto two lines. */
+  @media (max-width:349px){
+    .lift-lg .ex-goal .l,.lift-lg .ex-hist-row .d{width:56px;}
+    .lift-lg .ex-goal .l{font-size:13px;}
+    .lift-lg .ex-goal .n,.lift-lg .ex-goal .nx,.lift-lg .ex-hist-row{font-size:12.5px;}
+    /* No room left to make the latest session bigger as well as brighter, so
+       here it is only brighter. */
+    .lift-lg .ex-hist-row.now{font-size:12.5px;}
+  }
+
   p.lead{font-size:13px;color:var(--ink-dim);line-height:1.5;margin:0 0 12px;}
   .note-strip{
     border-left:3px solid var(--amber);background:rgba(232,163,61,.08);
@@ -849,7 +927,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-15-1';
+var BUILD = '2026-09-15-2';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -2665,7 +2743,9 @@ function renderExerciseBlock(tpl, containerEl, allowUpload, tkey){
    sessions answer "progressing or flat" faster than a sentence about it can. */
 function buildLiftRow(e, interactive){
   var div = document.createElement('div');
-  div.className = 'exrow';
+  /* Today is read standing up, at arm's length; the Plan tab sitting down.
+     Same row, two sizes — see .lift-lg. */
+  div.className = 'exrow' + (interactive ? ' lift-lg' : '');
 
   /* On Today the machine is selectable, and everything below it follows the
      selection. On the Plan tab it is just the name of the prescribed machine. */
@@ -2695,20 +2775,65 @@ function buildLiftRow(e, interactive){
     machineLabel = planEq ? planEq.name : e.machine;
   }
 
+  /* RIR, tempo and rest are the instructions you actually follow set to set,
+     so they get read at arm's length rather than buried in a sentence. */
+  var strip = document.createElement('div');
+  strip.className = 'ex-exec';
+  var cues = [];
+  [['RIR', v.rir], ['Tempo', v.tempo], ['Rest', v.rest]].forEach(function(pair){
+    if(!pair[1]) return;
+    /* A few of these are an instruction rather than a number — "controlled,
+       pause at face". A third of the strip cannot hold a sentence without
+       breaking it mid-word, so it goes on a line of its own underneath and the
+       tiles stay numbers. "2–3 min" is the longest thing that still reads as
+       one. */
+    if(interactive && String(pair[1]).length > 7){ cues.push(pair); return; }
+    var cell = document.createElement('div');
+    cell.innerHTML = '<div class="l"></div><div class="n"></div>';
+    cell.querySelector('.l').textContent = pair[0];
+    cell.querySelector('.n').textContent = pair[1];
+    strip.appendChild(cell);
+  });
+  var cueEl = null;
+  if(cues.length){
+    cueEl = document.createElement('div');
+    cueEl.className = 'ex-cue';
+    cues.forEach(function(pair, i){
+      if(i) cueEl.appendChild(document.createElement('br'));
+      var b = document.createElement('b');
+      b.textContent = pair[0];
+      cueEl.appendChild(b);
+      cueEl.appendChild(document.createTextNode(' — ' + pair[1]));
+    });
+  }
+
   var head = document.createElement('div');
-  head.className = 'ex-main';
-  var text = document.createElement('div');
-  text.className = 'ex-text';
-  text.innerHTML = '<div class="exname"></div><div class="exmeta">'+prescriptionMeta(v)+'</div>';
-  text.querySelector('.exname').textContent = e.name;
-  head.appendChild(text);
-  div.appendChild(head);
   if(interactive){
-    /* The photo IS the machine control now — a named bar under every exercise
-       was a full-width row seven times a session, saying what the picture
-       already says. Twice the size and it carries the tap instead. */
+    /* Name, load, then the three execution numbers down the left; the machine
+       photo alongside, spanning all three. The sets and reps that used to ride
+       along with the weight here have moved to the target row, where they line
+       up under the sessions they are being compared with. */
+    head.className = 'ex-head';
+    var nm = document.createElement('div');
+    nm.className = 'exname';
+    nm.textContent = e.name;
+    head.appendChild(nm);
+    head.appendChild(buildLoadLine(v));
+    /* The photo IS the machine control — a named bar under every exercise was
+       a full-width row seven times a session, saying what the picture already
+       says. It carries the tap instead. */
     head.appendChild(machineTile(ctx, e));
+    if(strip.children.length) head.appendChild(strip);
+    div.appendChild(head);
+    if(cueEl) div.appendChild(cueEl);
   } else {
+    head.className = 'ex-main';
+    var text = document.createElement('div');
+    text.className = 'ex-text';
+    text.innerHTML = '<div class="exname"></div><div class="exmeta">'+prescriptionMeta(v)+'</div>';
+    text.querySelector('.exname').textContent = e.name;
+    head.appendChild(text);
+    div.appendChild(head);
     addExerciseThumb(head, e.name, e.img, false, {altKeys: equipmentPhotoKeysFor(e)});
     if(machineLabel){
       var mline = document.createElement('div');
@@ -2717,21 +2842,8 @@ function buildLiftRow(e, interactive){
       mline.textContent = machineLabel;
       div.appendChild(mline);
     }
+    if(strip.children.length) div.appendChild(strip);
   }
-
-  /* RIR, tempo and rest are the instructions you actually follow set to set,
-     so they get read at arm's length rather than buried in a sentence. */
-  var strip = document.createElement('div');
-  strip.className = 'ex-exec';
-  [['RIR', v.rir], ['Tempo', v.tempo], ['Rest', v.rest]].forEach(function(pair){
-    if(!pair[1]) return;
-    var cell = document.createElement('div');
-    cell.innerHTML = '<div class="l"></div><div class="n"></div>';
-    cell.querySelector('.l').textContent = pair[0];
-    cell.querySelector('.n').textContent = pair[1];
-    strip.appendChild(cell);
-  });
-  if(strip.children.length) div.appendChild(strip);
   if(v.perSide){
     var ps = document.createElement('div');
     ps.className = 'ex-side';
@@ -2739,24 +2851,65 @@ function buildLiftRow(e, interactive){
     div.appendChild(ps);
   }
 
-  var goal = buildGoalLine(v);
+  var goal = buildGoalLine(v, interactive);
   if(goal) div.appendChild(goal);
-  div.appendChild(buildHistoryBlock(v, e));
+  div.appendChild(buildHistoryBlock(v, e, interactive));
   return div;
 }
+/* The load, on its own and large. Sets and reps are not here: they belong with
+   the sessions they are measured against, a few lines down. */
+function buildLoadLine(v){
+  var d = document.createElement('div');
+  d.className = 'ex-load';
+  var t = workingTarget(v);
+  if(t.state === 'none' || !t.weightStr){
+    var c = document.createElement('span');
+    c.className = 'cal';
+    c.textContent = 'calibrate';
+    d.appendChild(c);
+  } else {
+    d.appendChild(document.createTextNode(compactWeight(t.weightStr) + (t.state === 'progressed' ? ' ▲' : '')));
+  }
+  /* Under Phase C the plan sets the load itself, off the working weight rather
+     than the figure above it — so say which number to actually put on. */
+  var scaled = t.weightStr ? phaseAdjustedWeight(t.weightStr) : null;
+  if(scaled){
+    var sub = document.createElement('span');
+    sub.className = 'sub';
+    sub.textContent = 'Load ' + scaled + ' this week';
+    d.appendChild(sub);
+  }
+  return d;
+}
 /* "5 × 12 @ 160kg → 165kg" — every set at twelve and the weight moves, to
-   that. Stated rather than left to be worked out from a range and a rule. */
-function buildGoalLine(v){
+   that. Stated rather than left to be worked out from a range and a rule.
+   On Today it is written as a session instead: the same three columns as the
+   history under it, so the row you are trying to write sits directly above the
+   last three you did and the comparison is read straight down. */
+function buildGoalLine(v, asRow){
   var g = progressTarget(v);
   if(!g.top) return null;                          /* no range, nothing to aim at */
   var row = document.createElement('div');
   row.className = 'ex-goal';
   var l = document.createElement('span');
   l.className = 'l';
-  l.textContent = g.state === 'capped' ? 'At the cap' : 'To progress';
-  row.appendChild(l);
   var n = document.createElement('span');
   n.className = 'n';
+  if(asRow){
+    l.textContent = 'Target';
+    var reps = [];
+    for(var i=0; i<g.sets; i++) reps.push(g.top);
+    n.textContent = reps.join(', ');
+    row.appendChild(l);
+    row.appendChild(n);
+    var w = document.createElement('span');
+    w.className = 'nx';
+    w.textContent = g.at ? compactWeight(g.at) : 'calibrate';
+    row.appendChild(w);
+    return row;
+  }
+  l.textContent = g.state === 'capped' ? 'At the cap' : 'To progress';
+  row.appendChild(l);
   n.textContent = g.sets + ' × ' + g.top + (g.at ? ' @ ' + g.at : '');
   row.appendChild(n);
   var nx = document.createElement('span');
@@ -2799,7 +2952,7 @@ function machineTile(ctx, e){
 }
 /* Three sessions and a verdict. Bold the sets that reached the top of the
    range, so a flat run and a climbing one look different from across a gym. */
-function buildHistoryBlock(v, e){
+function buildHistoryBlock(v, e, asRow){
   var wrap = document.createElement('div');
   wrap.className = 'ex-hist';
   var rows = recentSessions(v.name, v.historyFrom, 3);
@@ -2854,6 +3007,18 @@ function buildHistoryBlock(v, e){
   } else {
     verdict.style.color = 'var(--ink-dim)';
     verdict.textContent = 'Holding ' + (t.weightStr || 'calibrate') + '.';
+  }
+  /* What hitting the target row buys you. It cannot sit in the target row
+     itself: in the weight column, next to a list of reps, it would read as the
+     weight to do them at. */
+  if(asRow && t.state !== 'capped'){
+    var g = progressTarget(v);
+    if(g.next && g.at){
+      var nx = document.createElement('span');
+      nx.style.color = 'var(--green)';
+      nx.textContent = ' Then ' + g.next + '.';
+      verdict.appendChild(nx);
+    }
   }
   wrap.appendChild(verdict);
   return wrap;
@@ -2922,6 +3087,16 @@ function parseWeight(str){
 function formatWeight(p, value){
   /* Half a kilo is the finest thing that can actually go on a bar or a stack. */
   return p.prefix + (Math.round(value*2)/2) + p.unit + p.suffix;
+}
+/* "~75kg to start" is a sentence with a number in it, and it is fine as one
+   until it has to sit in a column of weights next to a list of reps, where it
+   squeezes the reps onto two lines. Only the qualifiers that change what the
+   number means — per hand, per side — survive the trip. */
+function compactWeight(str){
+  var p = parseWeight(str);
+  if(!p || /^\s*$/.test(p.suffix)) return str;
+  var per = p.suffix.match(/\/(hand|side)/);
+  return p.prefix + p.value + p.unit + (per ? '/' + per[1] : '');
 }
 /* The smallest real increment. A dumbbell rack steps in whole kilos a side, a
    pound stack in fives, everything else in the usual 2.5kg pair of plates.

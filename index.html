@@ -297,53 +297,63 @@
      proportions together: name a quarter of it, load a fifth, the numbers you
      compare against half. The tile itself does not grow — the text comes up to
      meet it. The Plan tab keeps the compact sizes; it is read sitting down. */
+  /* One exercise is one box. Where it starts and where it finishes is drawn,
+     not inferred from a hairline between rows — mid-session you are looking for
+     the block you are standing in, not reading top to bottom. It bleeds out
+     through the card's own padding so the photo keeps its 124px without
+     costing the text column the width of two more gutters. */
+  .exrow.lift-lg{border:1px solid rgba(236,239,241,.34);border-radius:12px;
+    background:var(--panel);overflow:hidden;padding:0;margin:0 -8px 16px;}
+  .exrow.lift-lg:first-child{padding-top:0;}
   /* Name, load and the three execution numbers share one column; the machine
      photo holds the other and spans all three rows, which is what sets the
      text sizes. */
   .lift-lg .ex-head{display:grid;grid-template-columns:minmax(0,1fr) 124px;
-    column-gap:12px;align-items:start;}
+    column-gap:10px;align-items:start;padding:10px 10px 0;}
   .lift-lg .ex-head > .ex-mach-tile{grid-column:2;grid-row:1/span 3;}
-  .lift-lg .exname{font-size:29px;line-height:1.04;letter-spacing:-.015em;}
+  .lift-lg .exname{font-size:30px;line-height:1.04;letter-spacing:-.015em;}
   /* The one number you act on before touching the machine. */
-  .lift-lg .ex-load{font-family:var(--f-mono);font-size:25px;font-weight:600;
-    color:var(--green);line-height:1.1;margin-top:6px;}
+  .lift-lg .ex-load{font-family:var(--f-mono);font-size:26px;font-weight:600;
+    color:var(--green);line-height:1.1;margin-top:5px;}
   .lift-lg .ex-load .cal{color:var(--amber);}
   .lift-lg .ex-load .sub{display:block;font-family:var(--f-body);font-size:11.5px;
     font-weight:400;color:var(--amber);margin-top:3px;line-height:1.35;}
   /* Flex rather than three fixed columns: a prose value leaves the strip (see
      .ex-cue) and the two that remain should take the space back. */
-  .lift-lg .ex-exec{display:flex;gap:5px;margin-top:10px;}
+  .lift-lg .ex-exec{display:flex;gap:5px;margin-top:11px;}
   .lift-lg .ex-exec > div{flex:1 1 0;min-width:0;padding:5px;}
   .lift-lg .ex-exec .l{font-size:8.5px;letter-spacing:.08em;}
-  .lift-lg .ex-exec .n{font-size:13.5px;margin-top:1px;white-space:nowrap;letter-spacing:-.015em;}
+  .lift-lg .ex-exec .n{font-size:13px;margin-top:1px;white-space:nowrap;letter-spacing:-.015em;}
   /* Where one of the three is an instruction rather than a number. */
-  .lift-lg .ex-cue{font-size:12px;color:var(--ink-dim);margin-top:7px;line-height:1.4;}
+  .lift-lg .ex-cue{font-size:12px;color:var(--ink-dim);margin-top:8px;padding:0 10px;line-height:1.4;}
   .lift-lg .ex-cue b{color:var(--ink);font-weight:600;}
 
   /* Target and history are one table: same columns, same widths, so today's
      row and the last three sit under each other and the comparison is a glance
-     down a column rather than a calculation. */
-  .lift-lg .ex-goal{display:flex;align-items:baseline;gap:6px;margin-top:12px;
-    padding:5px 6px;border:none;border-radius:6px 6px 0 0;background:rgba(0,0,0,.34);}
+     down a column rather than a calculation. Both run the full width of the
+     box, which is what separates the numbers from the instructions above them
+     without a second border. */
+  .lift-lg .ex-goal{display:flex;align-items:baseline;gap:6px;margin:12px 0 0;
+    padding:6px 10px;border:none;border-radius:0;background:#0A0D10;}
   .lift-lg .ex-goal .l{flex:none;width:72px;font-family:var(--f-body);font-size:15px;
     font-weight:600;letter-spacing:0;text-transform:none;color:var(--red);}
   .lift-lg .ex-goal .n{flex:1;min-width:0;font-size:15px;color:var(--red);}
   .lift-lg .ex-goal .nx{flex:none;font-size:15px;color:var(--red);white-space:nowrap;}
-  .lift-lg .ex-hist{margin-top:0;border-top:none;padding:2px 0 4px;
-    background:rgba(255,255,255,.022);border-radius:0 0 6px 6px;}
+  .lift-lg .ex-hist{margin-top:0;border-top:none;padding:3px 0 6px;
+    background:rgba(255,255,255,.03);border-radius:0;}
   /* The dates and the Target label say what the rows are; a heading over them
      only repeats it. */
   .lift-lg .ex-hist-h{display:none;}
   /* Sized so five two-digit sets, the widest date ("28 Sept") and a per-hand
      weight all still make one line at 360px. Past that the reps wrap at a
      comma, which is the right thing to lose last. */
-  .lift-lg .ex-hist-row{font-size:15px;padding:3px 6px;gap:6px;}
+  .lift-lg .ex-hist-row{font-size:15px;padding:3px 10px;gap:6px;}
   .lift-lg .ex-hist-row.now{font-size:16px;}
   .lift-lg .ex-hist-row .d{width:72px;white-space:nowrap;}
   .lift-lg .ex-hist-row .w{white-space:nowrap;}
-  .lift-lg .ex-hist-none{font-size:13px;padding:4px 6px;}
-  .lift-lg .ex-hist-v{font-size:13px;padding:3px 6px 0;}
-  .lift-lg .ex-side{font-size:12.5px;}
+  .lift-lg .ex-hist-none{font-size:13px;padding:4px 10px;}
+  .lift-lg .ex-hist-v{font-size:13px;padding:4px 10px 1px;}
+  .lift-lg .ex-side{font-size:12.5px;padding:0 10px;}
   /* Narrower than an iPhone 15, three tiles in what is left beside a 124px
      photo stop holding "2–3 min", so they take the full width underneath it
      instead. Nothing reparents — the photo just stops spanning that row. */
@@ -927,7 +937,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-15-2';
+var BUILD = '2026-09-15-3';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -2902,10 +2912,10 @@ function buildGoalLine(v, asRow){
     n.textContent = reps.join(', ');
     row.appendChild(l);
     row.appendChild(n);
-    var w = document.createElement('span');
-    w.className = 'nx';
-    w.textContent = g.at ? compactWeight(g.at) : 'calibrate';
-    row.appendChild(w);
+    /* No weight in this row. The load is already the second thing on the card,
+       in green, at 26px — repeating it here in the column the history puts its
+       weights in would read as "do these reps at this weight", which is the one
+       thing it does not mean. */
     return row;
   }
   l.textContent = g.state === 'capped' ? 'At the cap' : 'To progress';

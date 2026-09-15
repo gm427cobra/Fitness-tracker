@@ -302,35 +302,44 @@
      the block you are standing in, not reading top to bottom. It bleeds out
      through the card's own padding so the photo keeps its 124px without
      costing the text column the width of two more gutters.
-     The two horizontal rules are white and 2px: they are the start and the
-     finish, and a dim grey hairline is not something you can pick out at
-     arm's length in gym lighting. The verticals stay quiet — they only need
-     to close the shape. */
-  .exrow.lift-lg{border:1px solid rgba(236,239,241,.28);border-radius:12px;
-    border-top:2px solid #fff;border-bottom:2px solid #fff;
+     The frame is 2px of the dim ink the app already uses for secondary text —
+     enough to pick out at arm's length in gym lighting, and the same grey as
+     everything else on the screen rather than a white rule shouting over it. */
+  .exrow.lift-lg{border:2px solid rgba(138,148,160,.5);border-radius:12px;
     background:var(--panel);overflow:hidden;padding:0;margin:0 -8px 16px;}
   .exrow.lift-lg:first-child{padding-top:0;}
-  /* Name, load and the three execution numbers share one column; the machine
-     photo holds the other and spans all three rows, which is what sets the
-     text sizes. */
+  /* Name and load take the left column, the photo the right, and the photo
+     spans just those two rows. The execution numbers then run the full width
+     underneath — a machine name is often two or three lines, and squeezing
+     three tiles into whatever those lines leave beside a 124px photo is what
+     made "2–3 min" fight for room. */
   .lift-lg .ex-head{display:grid;grid-template-columns:minmax(0,1fr) 124px;
-    column-gap:10px;align-items:start;padding:10px 10px 0;}
-  .lift-lg .ex-head > .ex-mach-tile{grid-column:2;grid-row:1/span 3;}
+    column-gap:10px;align-items:start;padding:10px;}
+  /* Name and load are one block in one row, not two rows: as two, the photo's
+     spare height gets split between them and the load floats away from the
+     name it belongs to. Whatever the photo is taller by falls below the load,
+     which is where the eye expects the slack. */
+  .lift-lg .ex-head > .ex-text{grid-column:1;grid-row:1;min-width:0;align-self:start;}
+  .lift-lg .ex-head > .ex-mach-tile{grid-column:2;grid-row:1;}
   .lift-lg .exname{font-size:30px;line-height:1.04;letter-spacing:-.015em;}
   /* The one number you act on before touching the machine. */
   .lift-lg .ex-load{font-family:var(--f-mono);font-size:26px;font-weight:600;
-    color:var(--green);line-height:1.1;margin-top:5px;}
+    color:var(--green);line-height:1.1;margin-top:8px;}
   .lift-lg .ex-load .cal{color:var(--amber);}
   .lift-lg .ex-load .sub{display:block;font-family:var(--f-body);font-size:11.5px;
     font-weight:400;color:var(--amber);margin-top:3px;line-height:1.35;}
-  /* Flex rather than three fixed columns: a prose value leaves the strip (see
+  /* Its own panel across the full width, under the name and the photo both.
+     Flex rather than three fixed columns: a prose value leaves the strip (see
      .ex-cue) and the two that remain should take the space back. */
-  .lift-lg .ex-exec{display:flex;gap:5px;margin-top:11px;}
-  .lift-lg .ex-exec > div{flex:1 1 0;min-width:0;padding:5px;}
-  .lift-lg .ex-exec .l{font-size:8.5px;letter-spacing:.08em;}
-  .lift-lg .ex-exec .n{font-size:13px;margin-top:1px;white-space:nowrap;letter-spacing:-.015em;}
+  .lift-lg .ex-exec{grid-column:1/-1;grid-row:2;display:flex;gap:6px;margin-top:11px;
+    padding:6px;background:var(--panel-2);border-radius:9px;}
+  .lift-lg .ex-exec > div{flex:1 1 0;min-width:0;padding:6px 8px;}
+  .lift-lg .ex-exec .l{font-size:9.5px;letter-spacing:.1em;}
+  .lift-lg .ex-exec .n{font-size:17px;margin-top:2px;white-space:nowrap;letter-spacing:-.01em;}
   /* Where one of the three is an instruction rather than a number. */
-  .lift-lg .ex-cue{font-size:12px;color:var(--ink-dim);margin-top:8px;padding:0 10px;line-height:1.4;}
+  /* Sits between the strip and the target band, so it needs air on both sides
+     — the band has no margin of its own to lean on. */
+  .lift-lg .ex-cue{font-size:12px;color:var(--ink-dim);margin:0 0 10px;padding:0 10px;line-height:1.4;}
   .lift-lg .ex-cue b{color:var(--ink);font-weight:600;}
 
   /* Target and history are one table: same columns, same widths, so today's
@@ -338,7 +347,7 @@
      down a column rather than a calculation. Both run the full width of the
      box, which is what separates the numbers from the instructions above them
      without a second border. */
-  .lift-lg .ex-goal{display:flex;align-items:baseline;gap:6px;margin:12px 0 0;
+  .lift-lg .ex-goal{display:flex;align-items:baseline;gap:6px;margin:0;
     padding:6px 10px;border:none;border-radius:0;background:#0A0D10;}
   .lift-lg .ex-goal .l{flex:none;width:72px;font-family:var(--f-body);font-size:15px;
     font-weight:600;letter-spacing:0;text-transform:none;color:var(--red);}
@@ -358,15 +367,14 @@
   .lift-lg .ex-hist-row .w{white-space:nowrap;}
   .lift-lg .ex-hist-none{font-size:13px;padding:4px 10px;}
   .lift-lg .ex-hist-v{font-size:13px;padding:4px 10px 1px;}
-  .lift-lg .ex-side{font-size:12.5px;padding:0 10px;}
-  /* Narrower than an iPhone 15, three tiles in what is left beside a 124px
-     photo stop holding "2–3 min", so they take the full width underneath it
-     instead. Nothing reparents — the photo just stops spanning that row. */
+  .lift-lg .ex-side{font-size:12.5px;padding:0 10px;margin:0 0 10px;}
+  /* Narrower than an iPhone 15. The strip is full width at every size now, so
+     only the table needs to give — and the name, which has 124px less room
+     than the strip does. */
   @media (max-width:389px){
-    .lift-lg .exname{font-size:25px;}
-    .lift-lg .ex-load{font-size:22px;}
-    .lift-lg .ex-head > .ex-mach-tile{grid-row:1/span 2;}
-    .lift-lg .ex-exec{grid-column:1/-1;}
+    .lift-lg .exname{font-size:27px;}
+    .lift-lg .ex-load{font-size:23px;}
+    .lift-lg .ex-exec .n{font-size:16px;}
     .lift-lg .ex-goal .l,.lift-lg .ex-hist-row .d{width:66px;}
     .lift-lg .ex-goal .n{font-size:14px;}
     .lift-lg .ex-goal .nx,.lift-lg .ex-hist-row{font-size:14px;}
@@ -376,6 +384,8 @@
      slack at all, so the table drops one more size rather than folding a
      session onto two lines. */
   @media (max-width:349px){
+    .lift-lg .ex-exec > div{padding:6px 5px;}
+    .lift-lg .ex-exec .n{font-size:14.5px;}
     .lift-lg .ex-goal .l,.lift-lg .ex-hist-row .d{width:56px;}
     .lift-lg .ex-goal .l{font-size:13px;}
     .lift-lg .ex-goal .n,.lift-lg .ex-goal .nx,.lift-lg .ex-hist-row{font-size:12.5px;}
@@ -942,7 +952,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-15-4';
+var BUILD = '2026-09-15-5';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -2829,11 +2839,14 @@ function buildLiftRow(e, interactive){
        along with the weight here have moved to the target row, where they line
        up under the sessions they are being compared with. */
     head.className = 'ex-head';
+    var block = document.createElement('div');
+    block.className = 'ex-text';
     var nm = document.createElement('div');
     nm.className = 'exname';
     nm.textContent = e.name;
-    head.appendChild(nm);
-    head.appendChild(buildLoadLine(v));
+    block.appendChild(nm);
+    block.appendChild(buildLoadLine(v));
+    head.appendChild(block);
     /* The photo IS the machine control — a named bar under every exercise was
        a full-width row seven times a session, saying what the picture already
        says. It carries the tap instead. */

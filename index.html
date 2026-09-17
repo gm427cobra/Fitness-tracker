@@ -964,7 +964,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-17-2';
+var BUILD = '2026-09-17-3';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -1973,6 +1973,43 @@ function planFromDoc(data){
    the new stamp would claim to be a program it is not, and the update banner
    would never appear. Absent means "older than any stamped version". */
 var PLAN_IDENTITY_KEYS = {planVersion:1};
+/* An alternate movement is additive: it changes nothing the plan prescribes,
+   it only adds a choice at the rack. So it travels to a stored plan the way a
+   missing top-level key does, instead of waiting on the program-update banner
+   — that banner replaces whole sessions, which is the wrong size of instrument
+   for "the Suitcase Carry is also an option now", and until it is tapped the
+   movement is in no list anywhere: not the machine picker, not the exercise
+   selector, not the photo report. Which is how a movement nobody could reach
+   went unnoticed.
+
+   Deliberately narrow. Templates are matched by key and exercises by name, and
+   an alternate is added only when nothing of that name is there already.
+   Nothing the stored plan holds is touched: not its sets, reps, weights or
+   notes, and not an alternate it already carries. Machine alternates are left
+   out on purpose — which machines a gym has is the stored plan's business, not
+   the app's. */
+function mergeAlternatesForward(plan){
+  if(!plan || !plan.templates || !DEFAULT_PLAN.templates) return 0;
+  var added = 0;
+  Object.keys(DEFAULT_PLAN.templates).forEach(function(k){
+    var dt = DEFAULT_PLAN.templates[k], st = plan.templates[k];
+    if(!dt || !st || !dt.ex || !st.ex || dt === st) return;
+    dt.ex.forEach(function(de){
+      if(!de.alts || !de.alts.length) return;
+      var se = null;
+      for(var i=0; i<st.ex.length; i++){ if(st.ex[i].name === de.name){ se = st.ex[i]; break; } }
+      if(!se) return;
+      de.alts.forEach(function(da){
+        if(!da.name) return;                       /* movements only — see above */
+        var have = (se.alts||[]).some(function(sa){ return sa.name === da.name; });
+        if(have) return;
+        (se.alts = se.alts || []).push(JSON.parse(JSON.stringify(da)));
+        added++;
+      });
+    });
+  });
+  return added;
+}
 function mergeWithDefaults(stored){
   var merged = {};
   var missing = false;
@@ -1984,6 +2021,7 @@ function mergeWithDefaults(stored){
     else merged[k]=stored[k];
   }
   for(var k2 in stored){ if(merged[k2]===undefined) merged[k2]=stored[k2]; }
+  if(mergeAlternatesForward(merged)) missing = true;
   return {plan:merged, patched:missing};
 }
 async function loadPlan(){
@@ -3006,7 +3044,9 @@ function machineTile(ctx, e){
   } else {
     var ph = document.createElement('span');
     ph.className = 'ph';
-    ph.textContent = opt.eqName ? 'no photo' : 'not in inventory';
+    /* "Not in inventory" is a complaint about a missing machine, which is the
+       wrong thing to say about a movement that simply has no picture yet. */
+    ph.textContent = machinePhotoKey(opt, e) ? 'no photo' : 'not in inventory';
     btn.appendChild(ph);
   }
   var tag = document.createElement('span');
@@ -4978,7 +5018,32 @@ function machineExtraWording(opt){
   var extra = rawTokens(opt.label).filter(function(t){ return have.indexOf(t) === -1; });
   return extra.length ? opt.label : '';
 }
+/* Where a photograph of this option is kept, and therefore where one taken
+   from here is saved. Deliberately the mirror image of machinePhotoFor below:
+   anywhere that can show a photo has to be somewhere you can put one, or the
+   row displays a picture it gives you no way to supply.
+
+   An alternate movement is a movement, so it is keyed like any other exercise,
+   by its name. Anything sitting on a machine is keyed by the machine, which is
+   the key the Equipment tab writes. The exercise the plan prescribes falls back
+   to its own name when the inventory has never heard of the machine — which is
+   the case for every dumbbell movement in the program. Null is reserved for the
+   one case with genuinely nowhere to go: a machine alternate whose machine is
+   not in the inventory, where the primary's name would be the wrong exercise. */
+function machinePhotoKey(opt, ex){
+  if(!opt) return null;
+  if(opt.exName) return opt.exName;
+  if(opt.eqName) return equipPhotoKey(opt.eqName);
+  return (opt.kind === 'plan' && ex && ex.name) ? ex.name : null;
+}
 function machinePhotoFor(opt, ex){
+  /* Its own movement first: a suitcase carry and a farmer's hold are the same
+     two dumbbells and not the same picture, so a photo taken against the carry
+     has to beat the one on the rack it shares. */
+  if(opt && opt.exName){
+    var byMove = exPhotoUrl(opt.exName);
+    if(byMove) return byMove;
+  }
   if(opt && opt.eqName){
     var byMachine = exPhotoUrl(equipPhotoKey(opt.eqName));
     if(byMachine) return byMachine;
@@ -5035,11 +5100,14 @@ function renderMachinePicker(){
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'mach-row' + (opts.selected ? ' on' : '');
-    var thumb = machineThumb(opts.src, opts.name, opts.eqName ? true : false);
+    var thumb = machineThumb(opts.src, opts.name, opts.photoKey ? true : false);
     /* Straight to the lightbox for a proper look, without picking the row —
        the whole reason for opening this list may be that you cannot tell which
        machine it is from a 50-pixel square. */
-    if(opts.src) thumb.onclick = function(ev){ ev.stopPropagation(); openLightbox(opts.src, opts.name); };
+    /* The third argument is what puts Replace and Remove on the lightbox. The
+       picker used to leave it off, so a photo reached from here could be looked
+       at and never changed. */
+    if(opts.src) thumb.onclick = function(ev){ ev.stopPropagation(); openLightbox(opts.src, opts.name, opts.photoKey); };
     btn.appendChild(thumb);
     var body = document.createElement('div');
     body.className = 'body';
@@ -5065,13 +5133,15 @@ function renderMachinePicker(){
     btn.onclick = opts.onPick;
     parent.appendChild(btn);
     /* No photo on a machine is exactly the moment you most want to take one —
-       you are standing at it. Same store the Equipment tab writes to. */
-    if(!opts.src && opts.eqName){
+       you are standing at it. Same store the Equipment tab writes to. Gated on
+       there being somewhere to put it rather than on the row being a machine,
+       or an alternate movement is the one row you cannot photograph. */
+    if(!opts.src && opts.photoKey){
       var cam = document.createElement('button');
       cam.type = 'button';
       cam.className = 'mach-cam';
       cam.textContent = 'Photo';
-      cam.onclick = function(ev){ ev.stopPropagation(); pickExercisePhoto(equipPhotoKey(opts.eqName)); };
+      cam.onclick = function(ev){ ev.stopPropagation(); pickExercisePhoto(opts.photoKey); };
       btn.appendChild(cam);
     }
   }
@@ -5087,15 +5157,16 @@ function renderMachinePicker(){
     var hi = document.createElement('img');
     hi.src = curSrc; hi.alt = cur.label || '';
     hero.appendChild(hi);
-    hero.onclick = function(){ openLightbox(curSrc, cur.label || ''); };
+    hero.onclick = function(){ openLightbox(curSrc, machineDisplayName(cur) || '', machinePhotoKey(cur, r.ex)); };
   } else {
+    var curKey = machinePhotoKey(cur, r.ex);
     var hph = document.createElement('span');
     hph.className = 'ph';
-    hph.textContent = cur.eqName ? 'no photo yet' : 'not in your inventory';
+    hph.textContent = curKey ? 'no photo yet' : 'not in your inventory';
     hero.appendChild(hph);
     hero.style.cursor = 'default';
     /* Nothing to enlarge, so offer the thing that would fix that. */
-    if(cur.eqName) hero.onclick = function(){ pickExercisePhoto(equipPhotoKey(cur.eqName)); };
+    if(curKey) hero.onclick = function(){ pickExercisePhoto(curKey); };
   }
   list.appendChild(hero);
   var heroNm = document.createElement('div');
@@ -5105,8 +5176,8 @@ function renderMachinePicker(){
   var heroSub = document.createElement('div');
   heroSub.className = 'mach-hero-sub';
   heroSub.textContent = curSrc ? 'Tap the photo to enlarge · pick another below'
-                       : (cur.eqName ? 'Tap to add a photo · or pick another below'
-                                     : 'Pick another below');
+                       : (machinePhotoKey(cur, r.ex) ? 'Tap to add a photo · or pick another below'
+                                               : 'Pick another below');
   list.appendChild(heroSub);
 
   function matches(name){ return !q || normEquipName(name).indexOf(q) !== -1; }
@@ -5124,6 +5195,7 @@ function renderMachinePicker(){
       addRow(list, {
         name: machineDisplayName(o),
         eqName: o.eqName,
+        photoKey: machinePhotoKey(o, r.ex),
         src: machinePhotoFor(o, r.ex),
         meta: (v.sets||'?') + ' × ' + (v.reps||'?') + ' @ ' + (v.weight || 'calibrate'),
         /* "No photo" and "no such machine" look identical otherwise, and they
@@ -5133,7 +5205,7 @@ function renderMachinePicker(){
            : (o.kind === 'plan' ? 'What the plan prescribes'
               : o.exName ? 'Planned alternate movement — logged and loaded in its own right'
               : 'Planned alternate — its own weights') +
-             (o.eqName ? '' : ' · not matched to anything in your inventory') +
+             (o.eqName || o.exName ? '' : ' · not matched to anything in your inventory') +
              (wording ? ' · plan writes it as “' + wording + '”' : ''),
         selected: oi === r.sel,
         onPick: function(){ chooseMachine(r, oi); }
@@ -5156,6 +5228,7 @@ function renderMachinePicker(){
       addRow(list, {
         name: eq.name,
         eqName: eq.name,
+        photoKey: equipPhotoKey(eq.name),
         src: exPhotoUrl(equipPhotoKey(eq.name)),
         sub: eq.muscles || '',
         selected: false,
@@ -6716,6 +6789,15 @@ function reportExercisePhotos(){
       if(!tpl || !tpl.ex) return;
       out.push(tpl.label);
       tpl.ex.forEach(function(e){
+        /* Alternate movements are exercises in their own right, so the report
+           that answers "what still needs a photograph" has to count them —
+           otherwise the one row you cannot see is the one you came here for. */
+        (e.alts||[]).forEach(function(a){
+          if(!a.name) return;
+          var apad = a.name + '                            '.slice(0, Math.max(1, 26 - a.name.length));
+          if(exPhotoUrl(a.name)){ own++; out.push('  ' + apad + 'own photo (alternate)'); }
+          else { none++; out.push('  ' + apad + 'NONE · alternate movement — photograph it from Today'); }
+        });
         var pad = e.name + '                            '.slice(0, Math.max(1, 26 - e.name.length));
         if(exPhotoUrl(e.name)){ own++; out.push('  ' + pad + 'own photo'); return; }
         var keys = equipmentPhotoKeysFor(e), hit = null;

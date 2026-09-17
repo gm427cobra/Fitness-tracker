@@ -735,7 +735,8 @@ steps | 8400"></textarea>
         <!-- Preselected from the plan by syncLiftUnit() when the exercise changes. -->
         <select id="liftUnit"><option value="kg">kg</option><option value="lb">lb</option></select>
       </div>
-      <div class="field"><label>Reps</label><input type="number" id="liftReps"></div>
+      <!-- Relabelled from the plan by syncLiftUnit(): a carry is metres, a hold seconds. -->
+      <div class="field"><label id="liftRepsLabel">Reps</label><input type="number" id="liftReps"></div>
       <div class="field"><label>Sets</label><input type="number" id="liftSets"></div>
     </div>
     <button class="btn full" onclick="addLift()">Save lift</button>
@@ -2953,6 +2954,7 @@ function buildLoadLine(v){
 function buildGoalLine(v, asRow){
   var g = progressTarget(v);
   if(!g.top) return null;                          /* no range, nothing to aim at */
+  var ru = repUnitOf(v.reps).unit;
   var row = document.createElement('div');
   row.className = 'ex-goal';
   var l = document.createElement('span');
@@ -2962,7 +2964,7 @@ function buildGoalLine(v, asRow){
   if(asRow){
     l.textContent = 'Target';
     var reps = [];
-    for(var i=0; i<g.sets; i++) reps.push(g.top);
+    for(var i=0; i<g.sets; i++) reps.push(g.top + ru);
     n.textContent = reps.join(', ');
     row.appendChild(l);
     row.appendChild(n);
@@ -2974,11 +2976,11 @@ function buildGoalLine(v, asRow){
   }
   l.textContent = g.state === 'capped' ? 'At the cap' : 'To progress';
   row.appendChild(l);
-  n.textContent = g.sets + ' × ' + g.top + (g.at ? ' @ ' + g.at : '');
+  n.textContent = g.sets + ' × ' + g.top + ru + (g.at ? ' @ ' + g.at : '');
   row.appendChild(n);
   var nx = document.createElement('span');
   nx.className = 'nx';
-  if(g.state === 'capped')      nx.textContent = 'reps and pause only';
+  if(g.state === 'capped')      nx.textContent = repUnitOf(v.reps).noun + ' and pause only';
   else if(g.next)               nx.textContent = '→ ' + g.next;
   else if(!g.at)                nx.textContent = 'once calibrated';
   else                          nx.textContent = '';
@@ -3021,6 +3023,10 @@ function buildHistoryBlock(v, e, asRow){
   wrap.className = 'ex-hist';
   var rows = recentSessions(v.name, v.historyFrom, 3);
   var ends = repRangeEnds(v.reps);
+  /* "30, 30" against "38kg" says nothing about which is which. Each entry's own
+     stamp first, since it knows what was counted; the prescription only covers
+     the ones logged before the stamp existed. */
+  var planUnit = repUnitOf(v.reps).unit;
 
   var h = document.createElement('div');
   h.className = 'ex-hist-h';
@@ -3041,10 +3047,11 @@ function buildHistoryBlock(v, e, asRow){
     d.className = 'd'; d.textContent = fmtDateShort(r.date);
     var reps = document.createElement('span');
     reps.className = 'r';
+    var ru = r.repUnit || planUnit;
     setRepsOf(r).forEach(function(n, k){
       var sp = document.createElement('span');
       if(ends && n >= ends.top) sp.className = 'hit';
-      sp.textContent = n + (k < setRepsOf(r).length-1 ? ', ' : '');
+      sp.textContent = n + ru + (k < setRepsOf(r).length-1 ? ', ' : '');
       reps.appendChild(sp);
     });
     var w = document.createElement('span');
@@ -3131,12 +3138,38 @@ function summariseSetReps(list){
   return {setReps: clean, sets: clean.length,
           reps: clean.length ? Math.min.apply(null, clean) : 0};
 }
+/* A rep is not always a rep. The plan writes "20–30s/side" for a hold and
+   "20–30m/side" for a carry, and what you count there is seconds or metres —
+   the number goes in the same box and means something else. The prescription
+   already says which, at the end of its range, so read it off rather than
+   asking for it twice. Everything downstream treats the figure identically:
+   the progression rule still wants every set at the top of the range, and
+   thirty metres beats twenty-five for the same reason twelve reps beats ten. */
+var REP_UNITS = {
+  s:   {unit:'s',   perSet:'Seconds per set', noun:'seconds'},
+  sec: {unit:'s',   perSet:'Seconds per set', noun:'seconds'},
+  secs:{unit:'s',   perSet:'Seconds per set', noun:'seconds'},
+  m:   {unit:'m',   perSet:'Metres per set',  noun:'metres'},
+  min: {unit:'min', perSet:'Minutes per set', noun:'minutes'}
+};
+var REP_UNIT_PLAIN = {unit:'', perSet:'Reps per set', noun:'reps'};
+function repUnitOf(reps){
+  /* The letters have to sit against the number — "20–30m/side" is metres, and
+     "10/side" is reps with a qualifier, not a unit called "side". */
+  var m = String(reps==null?'':reps).match(/^\s*\d+(?:\.\d+)?(?:\s*[\u2013-]\s*\d+(?:\.\d+)?)?\s*([A-Za-z]+)/);
+  return (m && REP_UNITS[m[1].toLowerCase()]) || REP_UNIT_PLAIN;
+}
 /* "4 × 8" when every set matched, "10, 10, 9, 8" when they did not. */
 function repsLabel(e){
   var list = setRepsOf(e);
   if(!list.length) return '—';
+  /* Stamped on the entry when it was not reps, because the log outlives the
+     prescription that produced it: a carry logged as "2 × 25" reads as reps
+     the moment the plan it came from is edited. */
+  var u = (e && e.repUnit) || '';
   var same = list.every(function(v){ return v === list[0]; });
-  return same ? list.length + ' × ' + list[0] : list.join(', ');
+  return same ? list.length + ' × ' + list[0] + u
+              : list.map(function(v){ return v + u; }).join(', ');
 }
 
 /* ================= WORKING TARGET =================
@@ -4526,7 +4559,12 @@ function populateLiftExerciseSelect(){
   for(var key in PLAN.templates){
     var tpl = PLAN.templates[key], group = liftGroupFor(key);
     if(tpl.cardio) add(group, tpl.cardio.name);
-    (tpl.ex||[]).forEach(function(e){ add(group, e.name); });
+    (tpl.ex||[]).forEach(function(e){
+      add(group, e.name);
+      /* An alternate that names its own movement is its own exercise, so it is
+         nameable here before it has ever been logged. */
+      (e.alts||[]).forEach(function(a){ if(a.name) add(group, a.name); });
+    });
   }
   /* Anything logged before that the plan no longer lists stays selectable. */
   liftLog.forEach(function(e){ add('Previously logged', e.exercise); });
@@ -4730,7 +4768,7 @@ function renderSessionSheet(){
   all.className = 'btn full';
   all.style.marginTop = '12px';
   all.id = 'sheetSaveAll';
-  all.textContent = 'Save every row with reps in it';
+  all.textContent = 'Save every row you have filled in';
   all.onclick = saveSheetAll;
   body.appendChild(all);
 
@@ -4738,7 +4776,8 @@ function renderSessionSheet(){
   hint.className = 'lead';
   hint.style.margin = '8px 0 0';
   hint.textContent = 'Weight comes from the plan and from what you last lifted — change it if it differed. ' +
-    'One rep box per prescribed set: fill in what each set actually gave you, and use + or − if you did ' +
+    'One box per prescribed set — reps, or the seconds or metres a hold or a carry asks for: ' +
+    'fill in what each set actually gave you, and use + or − if you did ' +
     'more or fewer. The lowest set is what moves your working weight, so the boxes are left blank on ' +
     'purpose — these should be numbers you counted.';
   body.appendChild(hint);
@@ -4786,7 +4825,7 @@ function buildSheetRow(e, i, date){
      how many boxes you filled in, which is the same thing and one less field. */
   var setRow = document.createElement('div');
   setRow.className = 'sh-setrow';
-  setRow.innerHTML = '<div class="lbl"><span>Reps per set</span><em id="shsl-'+i+'"></em></div>' +
+  setRow.innerHTML = '<div class="lbl"><span id="shsu-'+i+'">Reps per set</span><em id="shsl-'+i+'"></em></div>' +
                      '<div class="sh-sets" id="shsets-'+i+'"></div>';
   row.appendChild(setRow);
 
@@ -4829,6 +4868,12 @@ function fillSheetRow(i, date){
      on whatever the plan listed first. */
   var nameEl = row && row.querySelector('.sh-name');
   if(nameEl) nameEl.textContent = displayExerciseName(r.opts[r.sel], r.ex);
+
+  /* Ask for what you are going to count. A carry is metres and a hold is
+     seconds, and both used to be headed "Reps per set" over a box you were
+     expected to read the prescription to understand. */
+  var unitEl = document.getElementById('shsu-'+i);
+  if(unitEl) unitEl.textContent = repUnitOf(v.reps).perSet;
 
   if(logged){
     w.value = logged.weight;
@@ -5215,8 +5260,9 @@ async function saveSheetRow(i, opts){
   var r = SHEET.rows[i];
   if(!r) return false;
   var s = summariseSetReps(r.setVals);
+  var ru = repUnitOf(r.opts[r.sel].variant.reps);
   if(!s.sets){
-    if(!opts.quiet) flashSheetRow(i, 'Put the reps in, set by set.');
+    if(!opts.quiet) flashSheetRow(i, 'Put the ' + ru.noun + ' in, set by set.');
     return false;
   }
   var entry = {
@@ -5230,6 +5276,9 @@ async function saveSheetRow(i, opts){
     setReps: s.setReps
   };
   if(document.getElementById('shu-'+i).value === 'lb') entry.unit = 'lb';
+  /* Only stamped when it is not plain reps, so existing entries stay valid
+     unchanged — the same convention as the weight unit above. */
+  if(ru.unit) entry.repUnit = ru.unit;
   liftLog = liftLog.filter(function(x){ return !(x.date===entry.date && x.exercise===entry.exercise); });
   liftLog.push(entry);
   liftLog.sort(function(a,b){ return a.date.localeCompare(b.date); });
@@ -5258,7 +5307,7 @@ async function saveSheetAll(){
   btn.textContent = 'Saved ' + saved + ' exercise' + (saved===1?'':'s');
   setTimeout(function(){
     var b = document.getElementById('sheetSaveAll');
-    if(b) b.textContent = 'Save every row with reps in it';
+    if(b) b.textContent = 'Save every row you have filled in';
   }, 2500);
 }
 function flashSheetRow(i, msg){
@@ -5293,20 +5342,44 @@ function convertLift(v, from, to){
   return from === 'lb' ? v / LB_PER_KG : v * LB_PER_KG;
 }
 /* What the plan prescribes this movement in, so the form can preselect it. */
-function plannedUnitFor(name){
+/* The program's entry for a movement, alternates included — an alternate that
+   names its own movement is an exercise in its own right, and the manual form
+   has to be able to find it. Written as a delta against its primary, so it
+   inherits anything it does not restate. */
+function plannedEntryFor(name){
   for(var k in PLAN.templates){
     var ex = (PLAN.templates[k] || {}).ex || [];
     for(var i=0; i<ex.length; i++){
-      if(ex[i].name !== name) continue;
-      if(ex[i].unit === 'lb') return 'lb';
-      if(/lb/i.test(ex[i].weight || '')) return 'lb';
-      return 'kg';
+      if(ex[i].name === name) return ex[i];
+      var alts = ex[i].alts || [];
+      for(var j=0; j<alts.length; j++){
+        var a = alts[j];
+        if(a.name !== name) continue;
+        return {name: name, machine: a.machine,
+                unit:   a.unit || ex[i].unit,
+                weight: a.weight !== undefined ? a.weight : ex[i].weight,
+                reps:   a.reps != null ? a.reps : ex[i].reps,
+                sets:   a.sets != null ? a.sets : ex[i].sets};
+      }
     }
   }
+  return null;
+}
+function plannedUnitFor(name){
+  var e = plannedEntryFor(name);
+  if(!e) return 'kg';
+  if(e.unit === 'lb') return 'lb';
+  if(/lb/i.test(e.weight || '')) return 'lb';
   return 'kg';
 }
+function plannedRepUnitFor(name){
+  var e = plannedEntryFor(name);
+  return repUnitOf(e ? e.reps : '');
+}
 /* Picking an exercise sets the unit its plan entry is written in, so the common
-   case needs no thought; the selector is still there to override. */
+   case needs no thought; the selector is still there to override. The count
+   field is relabelled off the same entry, because the box that says "Reps" is
+   where the metres of a carry would otherwise go unmarked. */
 function syncLiftUnit(){
   var sel = document.getElementById('liftExercise');
   var unit = document.getElementById('liftUnit');
@@ -5315,6 +5388,11 @@ function syncLiftUnit(){
     ? (document.getElementById('liftExerciseOtherVal').value || '')
     : sel.value;
   unit.value = plannedUnitFor(name);
+  var lbl = document.getElementById('liftRepsLabel');
+  if(lbl){
+    var ru = plannedRepUnitFor(name);
+    lbl.textContent = ru.noun.charAt(0).toUpperCase() + ru.noun.slice(1);
+  }
 }
 async function addLift(){
   var date=document.getElementById('liftDate').value || todayStr();
@@ -5327,6 +5405,8 @@ async function addLift(){
   var entry = {date:date, exercise:exercise, weight:weight, reps:reps, sets:sets};
   /* Only stamped when it is not kg, so existing entries stay valid unchanged. */
   if(document.getElementById('liftUnit').value === 'lb') entry.unit = 'lb';
+  var ru = plannedRepUnitFor(exercise);
+  if(ru.unit) entry.repUnit = ru.unit;
   liftLog.push(entry);
   liftLog.sort(function(a,b){return a.date.localeCompare(b.date);});
   await saveArr('lift-log', liftLog);
@@ -5822,8 +5902,9 @@ function qaItemDetail(it){
     case 'note':   return 'pain '+(it.pain==null?'n/a':it.pain+'/10')+' — '+(it.text||'');
     case 'equipment': return 'gym equipment · '+(it.muscles||'no muscles given');
     default:       return (+it.weight||0)+'kg × '+
-                     (it.setReps && it.setReps.length ? it.setReps.join(', ')
-                                                      : (+it.reps||0)+' × '+(+it.sets||0)+' set'+((+it.sets)>1?'s':''));
+                     (it.setReps && it.setReps.length
+                       ? it.setReps.map(function(v){ return v + (it.repUnit||''); }).join(', ')
+                       : (+it.reps||0)+' × '+(+it.sets||0)+' set'+((+it.sets)>1?'s':''));
   }
 }
 function checkQuickAdd(){

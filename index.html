@@ -123,6 +123,16 @@
   .exnote{font-size:12.5px;color:var(--ink-dim);margin-top:4px;line-height:1.45;}
   .ex-main{display:flex;gap:10px;align-items:flex-start;}
   .ex-text{flex:1;min-width:0;}
+  /* Repeat-a-meal: the quantity sits next to the button that logs it. What was
+     three dates last week is four tonight, and retyping four macros to say so
+     was the reason the library went unused. */
+  .qty-add{display:flex;align-items:flex-end;gap:6px;flex:none;}
+  .qty-fld{flex:none;}
+  .qty-fld label{font-size:9px;letter-spacing:.06em;margin-bottom:2px;text-align:center;}
+  .qty-in{width:56px;flex:none;padding:8px 4px;font-size:15px;text-align:center;
+    font-family:var(--f-mono);}
+  .qty-in.changed{border-color:var(--blue);color:var(--blue);}
+  .qty-btn{width:auto;padding:8px 12px;flex:none;}
   .ex-thumb{width:62px;height:62px;flex:none;object-fit:cover;border-radius:6px;
     border:1px solid var(--line);background:var(--panel-2);cursor:zoom-in;display:none;}
   .lightbox{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.92);
@@ -671,7 +681,8 @@ steps | 8400"></textarea>
     <div class="card-h"><h2>Repeat a meal</h2>
       <select id="mealLibDate" style="font-size:12px;padding:5px 8px;width:auto"></select>
     </div>
-    <p class="lead">Anything logged before, ready to add again. Whole meals first, then single items.</p>
+    <p class="lead">Anything logged before, ready to add again. Whole meals first, then single items.
+      Change the quantity before you add and the macros come with it — three dates last week, four tonight.</p>
     <input type="text" id="mealLibSearch" placeholder="Search meals and items…" oninput="renderMealLibrary()">
     <div id="mealLibOut" style="margin-top:10px"></div>
   </div>
@@ -1058,11 +1069,11 @@ var DEFAULT_PLAN = {
       "peakDate": "2026-09-08",
       "cutRateKgPerWeek": 0.24
   },
-  planVersion: '2026-09-14-hypertrophy-r10-legpress',
+  planVersion: '2026-09-17-hypertrophy-r11-suitcase',
   /* The first day the new program applies. Anything before it is training that
      already happened and must be taken from the stored plan, not from here. */
   programChangeover: '2026-09-09',
-  planNote: '4-day Upper/Lower hypertrophy split with stretching inside the session rather than bolted on the end. Every training day runs prep → lifting → stretch, and the app costs all three in minutes against a 65-minute cap. The stretching is aimed at a desk-worker lower back and a shoulder that is recovering well and worth keeping that way. The cap moved from 60 to 65 on 9 Sep, and those five minutes bought back almost all the volume the stretching had cost: Lower A, Upper A and Upper B carry their full prior prescription, and only the Prone Y-Raise sits somewhere new — in the Upper prep block, where it warms the shoulder rather than closing a long session. Lower B is the exception and stays trimmed by four sets and the crunch: at 26 sets and three per-side movements it ran 70 minutes before a single stretch was added, so it was over any sane cap on its own merits. If a machine is busy and the clock is going, pair two 60-second accessories back to back, then drop a cable fly or rear delt set — cut the stretching last. Phase A pre-op push to 18 Sep → op Sat 19 Sep → rest to 3 Oct → return ramp from 5 Oct → normal progression from 19 Oct.',
+  planNote: '4-day Upper/Lower hypertrophy split with stretching inside the session rather than bolted on the end. Every training day runs prep → lifting → stretch, and the app costs all three in minutes against a 65-minute cap. The stretching is aimed at a desk-worker lower back and a shoulder that is recovering well and worth keeping that way. The cap moved from 60 to 65 on 9 Sep, and those five minutes bought back almost all the volume the stretching had cost: Lower A, Upper A and Upper B carry their full prior prescription, and only the Prone Y-Raise sits somewhere new — in the Upper prep block, where it warms the shoulder rather than closing a long session. Lower B is the exception and stays trimmed by four sets and the crunch: at 26 sets and three per-side movements it ran 70 minutes before a single stretch was added, so it was over any sane cap on its own merits. If a machine is busy and the clock is going, pair two 60-second accessories back to back, then drop a cable fly or rear delt set — cut the stretching last. Phase A pre-op push to 18 Sep → op Sat 19 Sep → rest to 3 Oct → return ramp from 5 Oct → normal progression from 19 Oct. The Suitcase Carry is back on Lower B from 17 Sep, as an alternate to the Single-Arm Farmer’s Hold rather than a replacement for it: same implement and same load, so take the carry when there is a lane free to walk it and the hold when there is not. It is logged under its own name, because a loaded walk and a static hold are not the same exercise and their weights should not be averaged.',
   /* The session cap is a constraint on the program, not a note about it: every
      template is costed against it, and Tools → "Check session lengths" is what
      proves a change still fits. Adding sets without checking is how a 65-minute
@@ -1704,7 +1715,15 @@ var DEFAULT_PLAN = {
        weight:'11.3kg', rir:'1–2', tempo:'pause 1s at extension', rest:'60s',
        note:'Anti-rotation core, and the one that earns its place for a lower back: it trains the trunk to resist movement rather than to flex.'},
       {name:'Single-Arm Farmer’s Hold', machine:'Dumbbell or kettlebell', sets:2, reps:'20–30s/side',
-       weight:'38kg', rir:'near-failure grip', tempo:'hold', rest:'60s'},
+       weight:'38kg', rir:'near-failure grip', tempo:'hold', rest:'60s',
+       /* An alternate that changes the movement rather than the machine, which
+          is why it carries its own name: the hold replaced the Suitcase Carry
+          on 9 Sep because a loaded walk needs a clear lane and the hold does
+          not. Both are back on the table now — take the carry when there is
+          room to walk it. */
+       alts:[{name:'Suitcase Carry', machine:'Dumbbell or kettlebell', sets:2, reps:'20–30m/side',
+              weight:'38kg', rir:'near-failure grip', tempo:'walk', rest:'60s',
+              note:'Same implement, same load, same anti-lateral-flexion job — it just needs a clear lane to walk, which is the only reason it was swapped out. Walking adds a hip and trunk stability demand the static hold does not have, so it is tracked in its own right: 38kg is where to start it, not a number carried across. Distance rather than seconds, and the rule is the same as the hold — stop the moment you lean toward the loaded side.'}]},
       /* Abdominal Crunch dropped from Lower B on 9 Sep and still out at the
          65-minute cap: adding it back is nearly eight minutes, more than any
          other single change available here. Direct flexion stays on Monday;
@@ -2843,7 +2862,7 @@ function buildLiftRow(e, interactive){
     block.className = 'ex-text';
     var nm = document.createElement('div');
     nm.className = 'exname';
-    nm.textContent = e.name;
+    nm.textContent = displayExerciseName(ctx.opts[ctx.sel], e);
     block.appendChild(nm);
     block.appendChild(buildLoadLine(v));
     head.appendChild(block);
@@ -2869,6 +2888,23 @@ function buildLiftRow(e, interactive){
       mline.style.marginTop = '4px';
       mline.textContent = machineLabel;
       div.appendChild(mline);
+    }
+    /* An alternate that is only another machine belongs to the picker — there
+       are forty-four of those and the Plan tab would drown in them. One that
+       names a different movement is a choice the plan itself is offering, so
+       the plan is where it has to be readable. */
+    var altMoves = (e.alts||[]).filter(function(a){ return a.name; });
+    if(altMoves.length){
+      var oline = document.createElement('div');
+      oline.className = 'exnote';
+      oline.style.marginTop = '4px';
+      oline.textContent = 'Or ' + altMoves.map(function(a){
+        return a.name + ' — ' + (a.sets != null ? a.sets : e.sets) + ' × ' +
+               (a.reps != null ? a.reps : e.reps) +
+               (a.weight !== undefined ? (a.weight ? ' @ ' + a.weight : ' @ calibrate')
+                                       : (e.weight ? ' @ ' + e.weight : ' @ calibrate'));
+      }).join(' · ');
+      div.appendChild(oline);
     }
     if(strip.children.length) div.appendChild(strip);
   }
@@ -4225,6 +4261,102 @@ function buildItemLibrary(){
   return Object.keys(bySig).map(function(k){ return bySig[k]; })
     .sort(function(a,b){ return b.lastDate.localeCompare(a.lastDate) || b.count-a.count; });
 }
+/* ---- Quantity, read off the name the item was logged under ----
+   The library is built from what you already ate, and what you ate is written
+   down as a quantity: "3 dates", "200g chicken breast", "Weetabix x2". Logging
+   four dates should therefore be one number, not a re-entry of four macros —
+   so read the quantity the name already states, and scale everything to the new
+   one. Three shapes cover nearly all of it; anything with no quantity in its
+   name falls back to a plain multiplier, which is the same arithmetic wearing a
+   different label. */
+function parseItemQty(name){
+  var t = String(name==null?'':name).trim(), m;
+  /* "200g chicken breast", "330ml Coke Zero" — a measure welded to a number. */
+  m = t.match(/^(\d+(?:\.\d+)?)\s*(mg|kg|g|ml|cl|l|oz|lb)\b([\s\S]*)$/i);
+  if(m) return {qty:parseFloat(m[1]), unit:m[2], rest:m[3], shape:'leadUnit'};
+  /* "Chicken breast 200g" — the same measure, written after the food. */
+  m = t.match(/^([\s\S]*?)(\d+(?:\.\d+)?)\s*(mg|kg|g|ml|cl|l|oz|lb)\s*$/i);
+  if(m && m[1].trim()) return {qty:parseFloat(m[2]), unit:m[3], rest:m[1], shape:'trailUnit'};
+  /* "3 dates", "3 x eggs" — a bare count. A word has to follow it, or "2% milk"
+     becomes two of something called "% milk". */
+  m = t.match(/^(\d+(?:\.\d+)?)\s*(?:x|\u00d7)?\s+([A-Za-z][\s\S]*)$/);
+  if(m) return {qty:parseFloat(m[1]), unit:'', rest:m[2], shape:'leadCount'};
+  /* "Weetabix x2", "Dates ×3" */
+  m = t.match(/^([\s\S]*[A-Za-z])\s*(?:x|\u00d7)\s*(\d+(?:\.\d+)?)\s*$/);
+  if(m) return {qty:parseFloat(m[2]), unit:'', rest:m[1], shape:'trailCount'};
+  return null;
+}
+/* 4, not 4.0; 1.5, not 1.50. The box is a quantity, not a measurement. */
+function fmtQty(q){
+  if(!isFinite(q)) return '';
+  return String(Math.round(q*100)/100);
+}
+/* The same name at a different quantity, written the way it was written before:
+   the shape that was parsed out is the shape put back. */
+function itemNameAtQty(name, q){
+  var pq = parseItemQty(name);
+  if(!pq) return name;
+  var n = fmtQty(q);
+  if(pq.shape === 'leadUnit')   return n + pq.unit + pq.rest;
+  if(pq.shape === 'trailUnit')  return pq.rest + n + pq.unit;
+  if(pq.shape === 'leadCount')  return n + ' ' + pq.rest;
+  if(pq.shape === 'trailCount') return pq.rest + ' ×' + n;
+  return name;
+}
+/* What the box is asking for: the unit where the name names one, a count where
+   it states one, and a multiplier where it states neither. */
+function qtyFieldLabel(pq){
+  if(!pq) return '×';
+  return pq.unit ? pq.unit.toLowerCase() : 'qty';
+}
+function scaleMacros(e, f){
+  return {
+    kcal:    Math.round((e.kcal||0)    * f),
+    protein: Math.round((e.protein||0) * f * 10) / 10,
+    carbs:   Math.round((e.carbs||0)   * f * 10) / 10,
+    fat:     Math.round((e.fat||0)     * f * 10) / 10
+  };
+}
+/* Exactly what "Add" will log: the item as it stands, or the item scaled to the
+   quantity in the box. An unreadable or empty box is the original, not zero —
+   the button should never silently log nothing. */
+function scaledItem(e, raw){
+  var pq = parseItemQty(e.name), base = pq ? pq.qty : 1;
+  var q = parseFloat(raw);
+  if(!isFinite(q) || q <= 0) q = base;
+  var f = base > 0 ? q / base : 1;
+  if(Math.abs(f - 1) < 1e-9){
+    return {name:e.name, kcal:e.kcal||0, protein:e.protein||0, carbs:e.carbs||0,
+            fat:e.fat||0, factor:1, qty:q};
+  }
+  var m = scaleMacros(e, f);
+  m.name = pq ? itemNameAtQty(e.name, q) : e.name + ' ×' + fmtQty(q);
+  m.factor = f;
+  m.qty = q;
+  return m;
+}
+/* A meal takes a multiplier rather than a quantity — it has no single one — but
+   each item inside it still scales by its own name: "3 dates" at ×2 is six
+   dates, not "3 dates ×2". */
+function scaledMealItems(m, raw){
+  var f = parseFloat(raw);
+  if(!isFinite(f) || f <= 0) f = 1;
+  if(Math.abs(f - 1) < 1e-9){
+    return m.items.map(function(e){
+      return {name:e.name, kcal:e.kcal||0, protein:e.protein||0, carbs:e.carbs||0, fat:e.fat||0};
+    });
+  }
+  return m.items.map(function(e){
+    var pq = parseItemQty(e.name);
+    var out = scaleMacros(e, f);
+    out.name = pq ? itemNameAtQty(e.name, pq.qty * f) : e.name + ' ×' + fmtQty(f);
+    return out;
+  });
+}
+function macroLine(e){
+  return Math.round(e.kcal||0) + ' kcal · ' + Math.round(e.protein||0) + 'P / ' +
+         Math.round(e.carbs||0) + 'C / ' + Math.round(e.fat||0) + 'F';
+}
 function sumItems(items){
   return items.reduce(function(a,e){
     a.kcal+=e.kcal||0; a.protein+=e.protein||0; a.carbs+=e.carbs||0; a.fat+=e.fat||0; return a;
@@ -4261,13 +4393,18 @@ function renderMealLibrary(){
     html += meals.slice(0, MEAL_LIB_LIMIT).map(function(m, i){
       var t = sumItems(m.items);
       return '<div class="exrow"><div class="ex-main"><div class="ex-text">'+
-        '<div class="exname">'+m.meal+' · '+Math.round(t.kcal)+' kcal</div>'+
-        '<div class="exmeta">'+Math.round(t.protein)+'P / '+Math.round(t.carbs)+'C / '+Math.round(t.fat)+'F'+
+        '<div class="exname" id="mlmname-'+i+'">'+histEsc(m.meal)+' · '+Math.round(t.kcal)+' kcal</div>'+
+        '<div class="exmeta" id="mlmmeta-'+i+'">'+Math.round(t.protein)+'P / '+Math.round(t.carbs)+'C / '+Math.round(t.fat)+'F'+
           ' · '+m.items.length+' item'+(m.items.length>1?'s':'')+
           ' · last '+fmtDate(m.lastDate)+(m.count>1? ' · '+m.count+'×':'')+'</div>'+
-        '<div class="exnote">'+m.items.map(function(i2){return i2.name;}).join(', ')+'</div>'+
+        '<div class="exnote" id="mlmitems-'+i+'">'+histEsc(m.items.map(function(i2){return i2.name;}).join(', '))+'</div>'+
         '</div>'+
-        '<button class="btn" style="width:auto;padding:8px 12px;flex:none" onclick="repeatMeal('+i+')">Add</button>'+
+        '<div class="qty-add">'+
+          '<div class="qty-fld"><label>×</label>'+
+          '<input type="number" class="qty-in" id="mlmq-'+i+'" min="0" step="0.5" inputmode="decimal" '+
+            'value="1" oninput="previewMealQty('+i+')"></div>'+
+          '<button class="btn qty-btn" onclick="repeatMeal('+i+')">Add</button>'+
+        '</div>'+
         '</div></div>';
     }).join('');
     if(meals.length > MEAL_LIB_LIMIT) html += '<p class="lead">'+(meals.length-MEAL_LIB_LIMIT)+' more — search to narrow.</p>';
@@ -4275,13 +4412,23 @@ function renderMealLibrary(){
   if(items.length){
     html += '<h3 class="section">Items</h3>';
     html += items.slice(0, MEAL_LIB_LIMIT).map(function(r, i){
-      var e = r.item;
+      var e = r.item, pq = parseItemQty(e.name);
+      /* A measure moves in fives, a count in ones — nobody logs 201g of
+         chicken, and the arrows should land on the number you meant. */
+      var step = pq ? (pq.unit ? 5 : 1) : 0.5;
       return '<div class="exrow"><div class="ex-main"><div class="ex-text">'+
-        '<div class="exname">'+e.name+'</div>'+
-        '<div class="exmeta">'+Math.round(e.kcal)+' kcal · '+Math.round(e.protein)+'P / '+
-          Math.round(e.carbs)+'C / '+Math.round(e.fat)+'F'+(r.count>1? ' · '+r.count+'×':'')+'</div>'+
+        '<div class="exname" id="mliname-'+i+'">'+histEsc(e.name)+'</div>'+
+        '<div class="exmeta" id="mlimeta-'+i+'">'+macroLine(e)+'</div>'+
+        '<div class="exnote" id="mlinote-'+i+'">'+
+          (r.count>1? 'Logged '+r.count+'× · last '+fmtDate(r.lastDate)
+                    : 'Last '+fmtDate(r.lastDate))+'</div>'+
         '</div>'+
-        '<button class="btn ghost" style="width:auto;padding:8px 12px;flex:none" onclick="repeatItem('+i+')">Add</button>'+
+        '<div class="qty-add">'+
+          '<div class="qty-fld"><label>'+histEsc(qtyFieldLabel(pq))+'</label>'+
+          '<input type="number" class="qty-in" id="mliq-'+i+'" min="0" step="'+step+'" inputmode="decimal" '+
+            'value="'+fmtQty(pq ? pq.qty : 1)+'" oninput="previewItemQty('+i+')"></div>'+
+          '<button class="btn ghost qty-btn" onclick="repeatItem('+i+')">Add</button>'+
+        '</div>'+
         '</div></div>';
     }).join('');
     if(items.length > MEAL_LIB_LIMIT) html += '<p class="lead">'+(items.length-MEAL_LIB_LIMIT)+' more — search to narrow.</p>';
@@ -4295,11 +4442,41 @@ function targetMealSlot(fallback){
   var sel = document.getElementById('mealLibDate');
   return (sel && sel.value) ? sel.value : fallback;
 }
+/* The row shows what Add will log rather than what was logged last time, so the
+   quantity is checked before it is saved and not afterwards in the history. */
+function previewItemQty(i){
+  var r = (renderMealLibrary._items||[])[i];
+  if(!r) return;
+  var box = document.getElementById('mliq-'+i);
+  var s = scaledItem(r.item, box ? box.value : null);
+  var nm = document.getElementById('mliname-'+i);
+  var mt = document.getElementById('mlimeta-'+i);
+  if(nm) nm.textContent = s.name;
+  if(mt) mt.textContent = macroLine(s);
+  if(box) box.classList.toggle('changed', Math.abs(s.factor - 1) > 1e-9);
+}
+function previewMealQty(i){
+  var m = (renderMealLibrary._meals||[])[i];
+  if(!m) return;
+  var box = document.getElementById('mlmq-'+i);
+  var items = scaledMealItems(m, box ? box.value : null);
+  var t = sumItems(items);
+  var nm = document.getElementById('mlmname-'+i);
+  var mt = document.getElementById('mlmmeta-'+i);
+  var li = document.getElementById('mlmitems-'+i);
+  if(nm) nm.textContent = m.meal + ' · ' + Math.round(t.kcal) + ' kcal';
+  if(mt) mt.textContent = Math.round(t.protein)+'P / '+Math.round(t.carbs)+'C / '+
+                          Math.round(t.fat)+'F · '+items.length+' item'+(items.length>1?'s':'');
+  if(li) li.textContent = items.map(function(e){ return e.name; }).join(', ');
+  var f = parseFloat(box && box.value);
+  if(box) box.classList.toggle('changed', isFinite(f) && f > 0 && Math.abs(f - 1) > 1e-9);
+}
 async function repeatMeal(i){
   var m = (renderMealLibrary._meals||[])[i];
   if(!m) return;
+  var box = document.getElementById('mlmq-'+i);
   var slot = targetMealSlot(m.meal), d = todayStr();
-  m.items.forEach(function(e){
+  scaledMealItems(m, box ? box.value : null).forEach(function(e){
     foodLog.push({date:d, meal:slot, name:e.name, kcal:e.kcal, protein:e.protein, carbs:e.carbs, fat:e.fat});
   });
   foodLog.sort(function(a,b){return a.date.localeCompare(b.date);});
@@ -4310,7 +4487,9 @@ async function repeatMeal(i){
 async function repeatItem(i){
   var r = (renderMealLibrary._items||[])[i];
   if(!r) return;
-  var e = r.item, slot = targetMealSlot(mealOf(e)==='Unassigned'? defaultMealForNow() : mealOf(e));
+  var box = document.getElementById('mliq-'+i);
+  var e = scaledItem(r.item, box ? box.value : null);
+  var slot = targetMealSlot(mealOf(r.item)==='Unassigned'? defaultMealForNow() : mealOf(r.item));
   foodLog.push({date:todayStr(), meal:slot, name:e.name, kcal:e.kcal, protein:e.protein, carbs:e.carbs, fat:e.fat});
   foodLog.sort(function(a,b){return a.date.localeCompare(b.date);});
   await saveArr('food-log', foodLog);
@@ -4444,9 +4623,16 @@ function sheetMachineOptions(e){
   (e.alts||[]).forEach(function(a){
     /* An alternate inherits anything it does not restate — it is written as a
        delta against the primary, not as a standalone record. */
-    var altEq = equipmentEntriesFor({name: e.name, machine: a.machine})[0];
-    opts.push(ownHistory({label: a.machine, kind:'alt', eqName: altEq ? altEq.name : null, variant:{
-      name: e.name, machine: a.machine,
+    /* Most alternates are the same movement on another machine, and the machine
+       is what names them. One that restates `name` is a different movement on
+       the same kit — a Suitcase Carry against a Farmer's Hold — so the movement
+       names it instead, or the picker would offer "Dumbbell or kettlebell"
+       twice and the two would be indistinguishable. */
+    var altName = a.name || e.name;
+    var altEq = equipmentEntriesFor({name: altName, machine: a.machine})[0];
+    opts.push(ownHistory({label: a.name || a.machine, kind:'alt', exName: a.name || null,
+                          eqName: altEq ? altEq.name : null, variant:{
+      name: altName, machine: a.machine,
       sets: a.sets != null ? a.sets : e.sets,
       reps: a.reps != null ? a.reps : e.reps,
       weight: a.weight !== undefined ? a.weight : e.weight,
@@ -4479,7 +4665,19 @@ function sheetMachineOptions(e){
    or the progression ladder would average two machines that load differently —
    the plan says as much about the 45° press: "do not carry 160kg across". The
    primary keeps the bare exercise name so no existing history is orphaned. */
+/* What the row is called on screen, which is not always what it is logged as:
+   a machine alternate is logged as "<exercise> — <machine>" so its history
+   stays separate, but the heading is still the exercise — the machine is named
+   on its own line right under it. Only an alternate that is a different
+   movement renames the row, because there it really is a different exercise. */
+function displayExerciseName(opt, e){
+  return (opt && opt.exName) || (e && e.name) || '';
+}
 function variantExerciseName(opt, e){
+  /* A movement of its own is logged under its own name rather than as
+     "<primary> — <label>": it is not a variant of the primary, and reading its
+     history as one would have a walk set the working weight of a static hold. */
+  if(opt && opt.exName) return opt.exName;
   return opt.kind === 'plan' ? e.name : e.name + ' — ' + opt.label;
 }
 function sheetTemplateFor(dateStr){
@@ -4626,6 +4824,12 @@ function fillSheetRow(i, date){
   var row = document.getElementById('shrow-'+i);
   if(!w) return;
 
+  /* An alternate that is a different movement changes what this row *is*, not
+     just what it is done on — so the name follows the pick rather than staying
+     on whatever the plan listed first. */
+  var nameEl = row && row.querySelector('.sh-name');
+  if(nameEl) nameEl.textContent = displayExerciseName(r.opts[r.sel], r.ex);
+
   if(logged){
     w.value = logged.weight;
     u.value = liftUnitOf(logged);
@@ -4671,8 +4875,12 @@ function fillSheetRow(i, date){
 
   var bits = [];
   if(r.opts[r.sel].kind !== 'plan'){
+    /* Same point either way — this is its own ladder — but say which it is, or a
+       walked carry is explained as a machine that loads differently. */
     bits.push('<span style="color:var(--amber)">Logged as “' + histEsc(exName) + '”</span> — a different ' +
-              'machine loads differently, so it keeps its own history rather than moving the ladder on ' +
+              (r.opts[r.sel].exName ? 'movement asks for different things of you'
+                                    : 'machine loads differently') +
+              ', so it keeps its own history rather than moving the ladder on ' +
               histEsc(r.ex.name) + '.');
   }
   if(v.perSide) bits.push('Log the weight per side.');
@@ -4705,12 +4913,16 @@ var PICKER = {ctx:null};
 
    Display only: opt.label still keys the log, so nothing already recorded
    against a variant is orphaned by renaming what is on screen. */
-function machineDisplayName(opt){ return (opt && (opt.eqName || opt.label)) || ''; }
+/* An alternate movement is named by the movement, not by the kit it shares with
+   the primary — "Dumbbells — rack" under both rows names neither of them. */
+function machineDisplayName(opt){ return (opt && (opt.exName || opt.eqName || opt.label)) || ''; }
 /* The plan's own wording, kept only where it says something the inventory name
    does not — an attachment, a grip, a setup. "(rope or straight bar)" survives;
    "Cybex (white)" against "Leg Press — Cybex (white)" adds nothing and goes. */
 function machineExtraWording(opt){
   if(!opt || !opt.eqName || opt.label === opt.eqName) return '';
+  /* The label is the movement's name here, already shown as the row's title. */
+  if(opt.exName) return '';
   /* Deliberately NOT nameTokens, which strips the bracketed part — that is the
      right call when matching names and precisely wrong here, since the bracket
      is usually where the extra wording lives. */
@@ -4753,8 +4965,12 @@ function openMachinePicker(ctx){
   if(!ctx) return;
   var r = ctx;
   PICKER.ctx = ctx;
+  /* Where one of the options is a movement of its own, the question is no
+     longer only about the machine — the list is offering a different exercise. */
+  var hasAltMove = r.opts.some(function(o){ return !!o.exName; });
   document.getElementById('machPickerTitle').innerHTML =
-    histEsc(r.ex.name) + '<span>Which machine did you use?</span>';
+    histEsc(r.ex.name) + '<span>' +
+    (hasAltMove ? 'Which did you do, and on what?' : 'Which machine did you use?') + '</span>';
   document.getElementById('machPickerSearch').value = '';
   document.getElementById('machPicker').classList.add('open');
   renderMachinePicker();
@@ -4869,7 +5085,9 @@ function renderMachinePicker(){
            call for completely different things — take a picture, or correct a
            name the plan made up. */
         sub: o.kind === 'inventory' ? 'From your inventory — calibrate it'
-           : (o.kind === 'plan' ? 'What the plan prescribes' : 'Planned alternate — its own weights') +
+           : (o.kind === 'plan' ? 'What the plan prescribes'
+              : o.exName ? 'Planned alternate movement — logged and loaded in its own right'
+              : 'Planned alternate — its own weights') +
              (o.eqName ? '' : ' · not matched to anything in your inventory') +
              (wording ? ' · plan writes it as “' + wording + '”' : ''),
         selected: oi === r.sel,

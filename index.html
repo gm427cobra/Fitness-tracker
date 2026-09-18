@@ -964,7 +964,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-17-3';
+var BUILD = '2026-09-18-1';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -1070,11 +1070,11 @@ var DEFAULT_PLAN = {
       "peakDate": "2026-09-08",
       "cutRateKgPerWeek": 0.24
   },
-  planVersion: '2026-09-17-hypertrophy-r11-suitcase',
+  planVersion: '2026-09-18-hypertrophy-r12-isolinearrow',
   /* The first day the new program applies. Anything before it is training that
      already happened and must be taken from the stored plan, not from here. */
   programChangeover: '2026-09-09',
-  planNote: '4-day Upper/Lower hypertrophy split with stretching inside the session rather than bolted on the end. Every training day runs prep → lifting → stretch, and the app costs all three in minutes against a 65-minute cap. The stretching is aimed at a desk-worker lower back and a shoulder that is recovering well and worth keeping that way. The cap moved from 60 to 65 on 9 Sep, and those five minutes bought back almost all the volume the stretching had cost: Lower A, Upper A and Upper B carry their full prior prescription, and only the Prone Y-Raise sits somewhere new — in the Upper prep block, where it warms the shoulder rather than closing a long session. Lower B is the exception and stays trimmed by four sets and the crunch: at 26 sets and three per-side movements it ran 70 minutes before a single stretch was added, so it was over any sane cap on its own merits. If a machine is busy and the clock is going, pair two 60-second accessories back to back, then drop a cable fly or rear delt set — cut the stretching last. Phase A pre-op push to 18 Sep → op Sat 19 Sep → rest to 3 Oct → return ramp from 5 Oct → normal progression from 19 Oct. The Suitcase Carry is back on Lower B from 17 Sep, as an alternate to the Single-Arm Farmer’s Hold rather than a replacement for it: same implement and same load, so take the carry when there is a lane free to walk it and the hold when there is not. It is logged under its own name, because a loaded walk and a static hold are not the same exercise and their weights should not be averaged.',
+  planNote: '4-day Upper/Lower hypertrophy split with stretching inside the session rather than bolted on the end. Every training day runs prep → lifting → stretch, and the app costs all three in minutes against a 65-minute cap. The stretching is aimed at a desk-worker lower back and a shoulder that is recovering well and worth keeping that way. The cap moved from 60 to 65 on 9 Sep, and those five minutes bought back almost all the volume the stretching had cost: Lower A, Upper A and Upper B carry their full prior prescription, and only the Prone Y-Raise sits somewhere new — in the Upper prep block, where it warms the shoulder rather than closing a long session. Lower B is the exception and stays trimmed by four sets and the crunch: at 26 sets and three per-side movements it ran 70 minutes before a single stretch was added, so it was over any sane cap on its own merits. If a machine is busy and the clock is going, pair two 60-second accessories back to back, then drop a cable fly or rear delt set — cut the stretching last. Phase A pre-op push to 18 Sep → op Sat 19 Sep → rest to 3 Oct → return ramp from 5 Oct → normal progression from 19 Oct. The Suitcase Carry is back on Lower B from 17 Sep, as an alternate to the Single-Arm Farmer’s Hold rather than a replacement for it: same implement and same load, so take the carry when there is a lane free to walk it and the hold when there is not. It is logged under its own name, because a loaded walk and a static hold are not the same exercise and their weights should not be averaged. The 45° ISO Linear Row arrived at Orpington in Sep 2026 and sits on Upper B as a third choice for the Chest-Supported Row, alongside the two Hammer Strength iso-laterals: plate-loaded, independent arms, its own history and its own starting weight. Nothing is prescribed on it until it has been calibrated — 5 Oct in the return ramp is the session to meet it.',
   /* The session cap is a constraint on the program, not a note about it: every
      template is costed against it, and Tools → "Check session lengths" is what
      proves a change still fits. Adding sets without checking is how a 65-minute
@@ -1737,7 +1737,10 @@ var DEFAULT_PLAN = {
     upperB:{label:'Upper B — back, side delts & arms', prep:'prepUpper', cool:'coolUpper', ex:[
       {name:'Chest-Supported Row', machine:'Cybex Eagle NX', sets:5, reps:'8–10', weight:'40kg',
        rir:'1–2', tempo:'2-1-1', rest:'2 min', note:'Squeeze the shoulder blades.',
-       alts:[{machine:'Iso-Lateral D.Y. Row, Hammer Strength', sets:5, reps:'8–10', weight:null, perSide:true, rir:'1–2', tempo:'2-1-1', rest:'2 min'},
+       alts:[{machine:'45° ISO Linear Row', sets:5, reps:'8–10', weight:null, perSide:true,
+              rir:'1–2', tempo:'2-1-1', rest:'2 min',
+              note:'New at Orpington, Sep 2026, and the strongest row in the room on paper: plate-loaded, independent arms, each running on its own 45° linear bearing. CALIBRATE IT — the carriage and the rails carry resistance of their own and the 40kg on the Cybex is a selectorised stack, so the two numbers mean nothing to each other in either direction. Independent arms, so log per side. Set the pad before the plates: the torso wants supporting through the whole set rather than held up, and a row that quietly becomes a bent-over hold is the one thing a stiff lower back does not need — if it cannot be set that way, take one of the chest-supported rows instead. Best met on 5 Oct in the return ramp at RIR 3–4, which is the honest way to learn a new groove.'},
+             {machine:'Iso-Lateral D.Y. Row, Hammer Strength', sets:5, reps:'8–10', weight:null, perSide:true, rir:'1–2', tempo:'2-1-1', rest:'2 min'},
              {machine:'Iso-Lateral Row, Hammer Strength (silver frame)', sets:5, reps:'8–10', weight:null, perSide:true, rir:'1–2', tempo:'2-1-1', rest:'2 min'}]},
       {name:'Lat Pulldown', machine:'Plate-loaded, independent handles', sets:4, reps:'10–12', weight:'70kg',
        perSide:true, rir:'1–2', tempo:'2-1-1', rest:'90s', note:'Elbows lead.',
@@ -1983,11 +1986,18 @@ var PLAN_IDENTITY_KEYS = {planVersion:1};
    went unnoticed.
 
    Deliberately narrow. Templates are matched by key and exercises by name, and
-   an alternate is added only when nothing of that name is there already.
-   Nothing the stored plan holds is touched: not its sets, reps, weights or
-   notes, and not an alternate it already carries. Machine alternates are left
-   out on purpose — which machines a gym has is the stored plan's business, not
-   the app's. */
+   an alternate is added only when nothing of that key is there already. Nothing
+   the stored plan holds is touched: not its sets, reps, weights or notes, and
+   not an alternate it already carries.
+
+   This covers machine alternates as well as movements. It did not at first, on
+   the reasoning that which machines a gym has is the stored plan's business —
+   which had it backwards. A new machine on the gym floor is exactly the case
+   this exists for, and the 45° ISO Linear Row would otherwise have needed a
+   whole program replacement to become selectable. An alternate is an option at
+   the rack and never a prescription, so it is safe to add and free to ignore;
+   the key is the movement's name where it has one and the machine's where it
+   does not. */
 function mergeAlternatesForward(plan){
   if(!plan || !plan.templates || !DEFAULT_PLAN.templates) return 0;
   var added = 0;
@@ -2000,8 +2010,9 @@ function mergeAlternatesForward(plan){
       for(var i=0; i<st.ex.length; i++){ if(st.ex[i].name === de.name){ se = st.ex[i]; break; } }
       if(!se) return;
       de.alts.forEach(function(da){
-        if(!da.name) return;                       /* movements only — see above */
-        var have = (se.alts||[]).some(function(sa){ return sa.name === da.name; });
+        var key = da.name || da.machine;
+        if(!key) return;
+        var have = (se.alts||[]).some(function(sa){ return (sa.name || sa.machine) === key; });
         if(have) return;
         (se.alts = se.alts || []).push(JSON.parse(JSON.stringify(da)));
         added++;

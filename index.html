@@ -964,7 +964,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-18-1';
+var BUILD = '2026-09-18-2';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -6087,14 +6087,59 @@ function clearQAFromUrl(){
 var UK_WEEKLY_UNIT_GUIDELINE = 14;
 var STATUS_COLOR = {hit:'var(--green)', partial:'var(--amber)', off:'var(--amber)', missed:'var(--red)', rest:'rgba(255,255,255,.08)', future:'rgba(255,255,255,.03)', pending:'var(--blue)'};
 
-function plannedExerciseNames(tpl){
+/* What each planned row will accept as having been done. A row is answered by
+   the movement the plan lists or by any alternate carrying its own name —
+   picking one on the session sheet logs it under that name, which is the whole
+   point of naming it, and this grid was the last place still reading the
+   primary name as the only right answer. A machine alternate never had the
+   problem: it logs as "<exercise> — <machine>", and the loose match below
+   finds the exercise inside it. */
+function plannedExerciseSlots(tpl){
   if(!tpl || tpl.rest || tpl.op || tpl.postop) return [];
-  if(tpl.cardio) return [tpl.cardio.name];
-  return tpl.ex.map(function(e){return e.name;});
+  if(tpl.cardio) return [{name: tpl.cardio.name, accepts: [tpl.cardio.name]}];
+  return (tpl.ex||[]).map(function(e){
+    var accepts = [e.name];
+    (e.alts||[]).forEach(function(a){
+      if(a.name && accepts.indexOf(a.name) === -1) accepts.push(a.name);
+    });
+    return {name: e.name, accepts: accepts};
+  });
 }
 function namesLooselyMatch(planned, logged){
   var p = planned.toLowerCase(), l = logged.toLowerCase();
   return p===l || l.indexOf(p)!==-1 || p.indexOf(l)!==-1;
+}
+/* One logged entry answers one planned row, and the order the rows claim them
+   in is not an implementation detail. An alternate can stand behind two rows at
+   once — the preacher curl is offered under both curls on Upper B — and the
+   loose match has always been able to read one name as another ("Row" sits
+   inside both "Chest-Supported Row" and "High Row"). Without one-to-one
+   claiming, a single set would tick off two rows and a session would read
+   complete that was not.
+
+   Three passes, weakest evidence last, so a row can never lose the entry that
+   names it outright to a row that merely tolerates it: every row takes its own
+   name first, then the alternates it accepts, and only then falls back to a
+   name that just contains or is contained by one of them. */
+function countMatchedExercises(slots, loggedNames){
+  var used = {}, matched = 0, pending = slots.slice();
+  function pass(test){
+    var still = [];
+    pending.forEach(function(slot){
+      var took = false;
+      for(var i=0; i<loggedNames.length; i++){
+        if(used[i]) continue;
+        if(test(slot, loggedNames[i])){ used[i] = 1; matched++; took = true; break; }
+      }
+      if(!took) still.push(slot);
+    });
+    pending = still;
+  }
+  function same(a, b){ return String(a).toLowerCase() === String(b).toLowerCase(); }
+  pass(function(slot, l){ return same(slot.name, l); });
+  pass(function(slot, l){ return slot.accepts.some(function(n){ return same(n, l); }); });
+  pass(function(slot, l){ return slot.accepts.some(function(n){ return namesLooselyMatch(n, l); }); });
+  return matched;
 }
 function macroStatus(logged, target){
   if(!target) return 'future';
@@ -6112,16 +6157,15 @@ function getTrainingStatus(dateStr){
   var tpl = PLAN.templates[tkey];
   if(tpl.rest || tpl.op || tpl.postop) return {status:'rest'};
   if(idx > todayIdx) return {status:'future'};
-  var planned = plannedExerciseNames(tpl);
+  var slots = plannedExerciseSlots(tpl);
+  var planned = slots.map(function(s){ return s.name; });
   var loggedEntries = liftLog.filter(function(e){return e.date===dateStr;});
   var loggedNames = loggedEntries.map(function(e){return e.exercise;});
-  var matched = planned.filter(function(p){
-    return loggedNames.some(function(l){ return namesLooselyMatch(p,l); });
-  });
+  var matched = countMatchedExercises(slots, loggedNames);
   if(idx===todayIdx && loggedEntries.length===0) return {status:'pending', planned:planned, logged:loggedEntries};
-  var ratio = planned.length? matched.length/planned.length : (loggedEntries.length?1:0);
+  var ratio = planned.length? matched/planned.length : (loggedEntries.length?1:0);
   var status = ratio>=0.8 ? 'hit' : (ratio>0 ? 'partial' : 'missed');
-  return {status:status, planned:planned, logged:loggedEntries, matched:matched.length, total:planned.length};
+  return {status:status, planned:planned, logged:loggedEntries, matched:matched, total:planned.length};
 }
 function getDietStatus(dateStr){
   if(dateStr < PLAN.trackingStart) return {status:'future'};

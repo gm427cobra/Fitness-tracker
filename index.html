@@ -987,7 +987,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-19-5';
+var BUILD = '2026-09-19-6';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -1029,33 +1029,33 @@ var DEFAULT_PLAN = {
   programStart: '2026-08-24',
   trackingStart: '2026-08-25',
   programEnd: '2027-07-15',
-  targetKg: 90.0,
+  targetKg: 88.0,
   startKg: 96.0,
   totalProgramDays: 84,
   profile: {heightCm: 178, age: 45, sex: 'male'},
   "weightProjection": {
-      "note": "Revised 19 Sep: target moved from 87kg to 90kg, and the shape changed to hold-then-cut. Nothing comes off until the cut starts on 2 Nov — the fortnight after the operation and the four weeks of the return ramp are both held at maintenance, because the weeks you come back to training in are the ones where muscle is most readily regained and a deficit is the one thing that would waste them. From 2 Nov it is 0.21kg/week, which is about a kilo a month and gentle enough that training does not suffer for it. No bulk: at this body fat a surplus lands mostly as fat and would have to be dieted back off, and at thirty years of training age it buys very little muscle that maintenance does not. Read this against the strength log, not on its own — flat weight with climbing loads is the outcome to want.",
+      "note": "Revised 19 Sep: target 88kg, and the shape is hold-then-cut. Nothing comes off until the cut starts on 2 Nov — the fortnight after the operation and the four weeks of the return ramp are both held at maintenance, because the weeks you come back to training in are the ones where muscle is most readily regained and a deficit is the one thing that would waste them. From 2 Nov it is 0.27kg/week, about 1.1kg a month. That is 0.28% of bodyweight a week, against the 0.5–1% a normal cut runs at, so it stays gentle enough that training should not suffer for it. No bulk: at this body fat a surplus lands mostly as fat and would have to be dieted back off, and at thirty years of training age it buys very little muscle that maintenance does not. Read this against the strength log, not on its own — flat weight with climbing loads is the outcome to want.",
       "points": [
           ["2026-09-08", 96.70],
           ["2026-09-19", 96.51],
           ["2026-10-03", 96.63],
           ["2026-11-01", 96.63],
-          ["2026-12-01", 95.72],
-          ["2027-01-01", 94.78],
-          ["2027-02-01", 93.85],
-          ["2027-03-01", 93.00],
-          ["2027-04-01", 92.07],
-          ["2027-05-01", 91.16],
-          ["2027-06-01", 90.23],
-          ["2027-07-01", 89.32],
-          ["2027-07-15", 88.93]
+          ["2026-12-01", 95.49],
+          ["2027-01-01", 94.32],
+          ["2027-02-01", 93.14],
+          ["2027-03-01", 92.08],
+          ["2027-04-01", 90.91],
+          ["2027-05-01", 89.77],
+          ["2027-06-01", 88.60],
+          ["2027-07-01", 87.46],
+          ["2027-07-15", 86.93]
       ],
       "peakKg": 98.3,
       "peakDate": "2026-09-26",
-      "cutRateKgPerWeek": 0.21,
+      "cutRateKgPerWeek": 0.27,
       "cutStarts": "2026-11-02",
-      "rev": 3,
-      "modelNote": "The planned line is the committed points above with the water laid over the top: creatine loading in from 31 Aug to late September, and surgical fluid through the rest fortnight. So it reads as a scale weight rather than as fat, and a week that is heavy for a reason can be told apart from a week that has drifted. About 1.1kg of the line from October on is creatine water, which is why 90kg on the scale with creatine on board is nearer 89kg of you.",
+      "rev": 4,
+      "modelNote": "The planned line is the committed points above with the water laid over the top: creatine loading in from 31 Aug to late September, and surgical fluid through the rest fortnight. So it reads as a scale weight rather than as fat, and a week that is heavy for a reason can be told apart from a week that has drifted. About 1.1kg of the line from October on is creatine water, which is why 88kg on the scale with creatine on board is nearer 87kg of you.",
       /* Creatine pulls water into muscle. None of it is fat, so it belongs on
          the projected line as a step the scale is expected to take rather than
          as a surprise a fortnight later. */
@@ -1130,14 +1130,14 @@ var DEFAULT_PLAN = {
            "label": "Return ramp — hold at maintenance",
            "note": "The most valuable four weeks in the plan and the worst possible place for a deficit. Coming back from a fortnight off is when muscle is regained fastest, so this holds flat at 2700 and spends the window on training rather than on the scale. Weight sits around 97.7kg. The cut waits."},
           {"from": "2026-11-02", "to": "2027-07-14", "kind": "cut",
-           "label": "Slow cut — 0.21kg/wk",
-           "note": "About a kilo a month on 2450kcal, protein held at 200g. Gentle by design: a bigger deficit would come off faster and take muscle with it, and there is no deadline pressure that justifies that. Judge it on the 7-day average and on whether the working weights are still climbing."},
+           "label": "Slow cut — 0.27kg/wk",
+           "note": "About 1.1kg a month on 2400kcal, protein held at 200g. Still gentle: 0.28% of bodyweight a week against the 0.5–1% a normal cut runs at, which is the range where loss stays mostly fat. Judge it on the 7-day average and on whether the working weights are still climbing, not on any single morning."},
           {"from": "2027-07-15", "to": "2027-07-15", "kind": "target",
-           "label": "At target — 90kg",
-           "note": "90kg on the scale with creatine on board, which is nearer 89kg of you without it. If the strength log has held through the cut, that is the whole job done."}
+           "label": "At target — 88kg",
+           "note": "88kg on the scale with creatine on board, which is nearer 87kg of you without it. If the strength log has held through the cut, that is the whole job done."}
       ]
   },
-  planVersion: '2026-09-19-hold-then-cut-90kg',
+  planVersion: '2026-09-19-hold-then-cut-88kg',
   /* The first day the new program applies. Anything before it is training that
      already happened and must be taken from the stored plan, not from here. */
   programChangeover: '2026-09-09',
@@ -1911,15 +1911,15 @@ var DEFAULT_PLAN = {
        the calories — in a deficit it is the lever that decides how much of the
        loss is fat, so it is the last thing to cut, not the first. */
     cut: {
-      label:'Cut — 0.21kg/wk', dateRange:'2 Nov onward', kcal:2450, protein:200, carbs:230, fat:80,
+      label:'Cut — 0.27kg/wk', dateRange:'2 Nov onward', kcal:2400, protein:200, carbs:220, fat:80,
       meals:[
-        {name:'Breakfast', kcal:480, protein:38, food:'3 whole eggs + 3 whites, 2 slices sourdough', time:'07:30'},
-        {name:'Lunch', kcal:640, protein:52, food:'220g chicken/salmon, 200g potato/rice, big salad, olive oil', time:'12:30'},
+        {name:'Breakfast', kcal:470, protein:38, food:'3 whole eggs + 3 whites, 2 slices sourdough', time:'07:30'},
+        {name:'Lunch', kcal:630, protein:52, food:'220g chicken/salmon, 190g potato/rice, big salad, olive oil', time:'12:30'},
         {name:'Training snack', kcal:300, protein:34, food:'Whey shake + banana', time:'16:00'},
         {name:'Dinner — Prep Kitchen', kcal:700, protein:55, food:'Filter Higher Protein + Under 500kcal, Regular portion rather than Large', pk:true, pkTag:'MUSCLE GAIN · REGULAR', time:'19:00'},
-        {name:'Evening', kcal:330, protein:30, food:'300g Greek yoghurt + berries', time:'21:00'}
+        {name:'Evening', kcal:300, protein:30, food:'300g Greek yoghurt + berries', time:'21:00'}
       ],
-      note: 'Check the rate after four weeks, not after four days. The app compares your actual kg/week against the planned 0.21 on the Progress tab — if it is running under 0.1kg/wk take another 150kcal off, if it is over 0.35kg/wk put 150 back on. Maintenance is an estimate with about ±150kcal of slack in it, and this is how that gets resolved. Alcohol is the other lever and the cheaper one: the two heavy weekends in the log cost roughly 1000kcal each, which is four days of this deficit apiece.'
+      note: 'Check the rate after four weeks, not after four days. The app compares your actual kg/week against the planned 0.27 on the Progress tab — if it is running under 0.15kg/wk take another 150kcal off, if it is over 0.45kg/wk put 150 back on. Maintenance is an estimate with about ±150kcal of slack in it, and this is how that gets resolved. Alcohol is the other lever and the cheaper one: the two heavy weekends in the log cost roughly 1000kcal each, which is three days of this deficit apiece.'
     }
   },
   prepKitchenNote: 'Plan: <b style="color:var(--ink)">Muscle Gain</b>. Portion: <b style="color:var(--ink)">Large</b> on training/build weeks, <b style="color:var(--ink)">Regular</b> or a lower-carb swap on the post-op rest fortnight. Filter every week for <b style="color:var(--ink)">Higher Protein</b> + <b style="color:var(--ink)">Under 500kcal</b> tags.',

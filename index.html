@@ -496,23 +496,18 @@
   .log-tbl th,.log-tbl td{white-space:nowrap;}
   .log-tbl td.name{white-space:normal;min-width:90px;}
   .chart-tip{font-size:11px;color:var(--ink-dim);margin:6px 0 0;}
-  /* The plan verdict. One word you can read from across the room, the two
-     numbers behind it, and then the reason — in that order, because the word
-     is what you came for and the reason is what you stay for. */
-  .track-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
-  .track-verdict{font-family:var(--f-display);font-size:22px;font-weight:700;letter-spacing:.01em;line-height:1.1;}
-  .track-gap{font-family:var(--f-mono);font-size:14px;color:var(--ink-dim);}
-  .track-gap b{color:var(--ink);font-weight:600;}
-  .track-rows{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin-top:10px;
-    font-size:12.5px;line-height:1.45;}
-  .track-rows dt{color:var(--ink-dim);white-space:nowrap;}
-  .track-rows dd{margin:0;color:var(--ink);}
-  .track-rows dd .mono{font-family:var(--f-mono);}
-  .track-why{font-size:12.5px;color:var(--ink-dim);line-height:1.5;margin:10px 0 0;
-    border-left:2px solid var(--line);padding-left:10px;}
-  .track-why b{color:var(--ink);font-weight:600;}
-  .track-act{margin:10px 0 0;padding:9px 11px;border-radius:6px;font-size:12.5px;line-height:1.5;
-    border:1px solid;background:rgba(0,0,0,.18);}
+  /* The readout under the weight chart. One row, three numbers, fixed height
+     so the chart never jumps as you drag along it. */
+  .wt-read{display:flex;gap:0;align-items:stretch;margin:4px 0 6px;min-height:38px;
+    border:1px solid var(--line);border-radius:6px;background:rgba(0,0,0,.18);overflow:hidden;}
+  .wt-read .cell{flex:1;min-width:0;padding:4px 8px 5px;border-right:1px solid var(--line);}
+  .wt-read .cell:last-child{border-right:0;}
+  .wt-read .k{font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-dim);}
+  .wt-read .v{font-family:var(--f-mono);font-size:14px;font-weight:600;margin-top:1px;line-height:1.15;}
+  .wt-read .v small{font-family:var(--f-body);font-size:9.5px;font-weight:400;color:var(--ink-dim);
+    display:block;margin-top:1px;letter-spacing:0;line-height:1.3;}
+  .wt-read .hint{flex:1;padding:10px 8px;font-size:11.5px;color:var(--ink-dim);}
+  .legend{gap:12px;}
 
   #summaryOut{width:100%;min-height:180px;font-family:var(--f-mono);font-size:11.5px;line-height:1.5;resize:vertical;}
   #planEditorTextarea{font-family:var(--f-mono);font-size:11px;line-height:1.5;resize:vertical;}
@@ -825,23 +820,17 @@ steps | 8400"></textarea>
     <div id="dayDetailBody"></div>
   </div>
 
-  <div class="card" id="planTrackCard">
-    <div class="card-h"><h2>Weight vs plan</h2><span class="badge" id="planTrackBadge">—</span></div>
-    <div id="planTrackBody"></div>
-  </div>
-
   <div class="card">
-    <div class="card-h"><h2>Weight trend</h2></div>
+    <div class="card-h"><h2>Weight trend</h2><span class="badge" id="weightReadDate">tap the chart</span></div>
     <div class="chart-box"><canvas id="weightChart"></canvas></div>
+    <div class="wt-read" id="weightRead"></div>
     <div class="legend">
       <span><i style="background:#4FB6C9"></i>Weight</span>
       <span><i style="background:#6FCF97"></i>7-day avg</span>
       <span><i style="background:var(--plan)"></i>Planned</span>
-      <span><i style="background:rgba(180,142,232,.30)"></i>On-plan band</span>
+      <span><i style="background:rgba(180,142,232,.30)"></i>Band</span>
       <span><i style="background:#E8A33D"></i>Target</span>
     </div>
-    <p class="chart-tip" id="weightChartNote"></p>
-    <p class="chart-tip">Tap a logged point to open that day in the log. The chart runs to the end of the program — scroll right for the rest of the plan.</p>
   </div>
   <div class="card">
     <div class="card-h"><h2>Lift trend</h2>
@@ -992,7 +981,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-19-3';
+var BUILD = '2026-09-19-4';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -2382,7 +2371,6 @@ function startTodayAutoRefresh(){
 function renderProgress(){
   renderWeekStats();
   renderAdherenceCalendars();
-  renderPlanTrack();
   renderWeightChart();
   populateLiftChartSelect();
   renderLiftChart();
@@ -6798,13 +6786,35 @@ function drawLineChart(canvas, series, labels, opts){
     ctx.fillText(val.toFixed(0), padL-4, gy+3);
   }
   ctx.textAlign='center';
-  /* Five labels is right for a chart that fits the screen and far too few for
-     one that scrolls for a metre. Take whichever rule gives more of them, so a
-     wide chart gets a date roughly every 90px and nothing else loses any. */
-  var step=Math.min(Math.max(1, Math.floor(n/5)),
-                    Math.max(1, Math.round(n/Math.max(2, Math.floor((W-padL-padR)/90)))));
-  for(var i=0;i<n;i+=step){
-    ctx.fillText(labels[i].slice(5), X(i), H-3);
+  if(opts.monthTicks){
+    /* On a chart that spans most of a year, an evenly spaced date every N days
+       lands on arbitrary Tuesdays and reads as noise. Months are what a plan is
+       actually thought in, they are already evenly spaced, and three letters
+       beats "11-02" at a glance. The year rides along each January so a line
+       running into next summer cannot be misread. */
+    ctx.font='11px sans-serif'; ctx.fillStyle='#9AA4B0';
+    for(var i=0;i<n;i++){
+      var dd = labels[i];
+      if(dd.slice(8) !== '01' && i !== 0) continue;
+      var dt = new Date(dd+'T00:00:00');
+      var txt = dt.toLocaleDateString('en-GB',{month:'short'});
+      if(dt.getMonth()===0 || i===0) txt += ' ' + String(dt.getFullYear()).slice(2);
+      /* Don't draw a label the plot area would clip in half. */
+      if(X(i) < padL+10 || X(i) > W-padR-10) continue;
+      ctx.fillText(txt, X(i), H-4);
+      ctx.save(); ctx.strokeStyle='#232A31'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(X(i), padT); ctx.lineTo(X(i), H-padB); ctx.stroke(); ctx.restore();
+    }
+    ctx.font='9px sans-serif'; ctx.fillStyle='#8A94A0';
+  } else {
+    /* Five labels is right for a chart that fits the screen and far too few for
+       one that scrolls for a metre. Take whichever rule gives more of them, so a
+       wide chart gets a date roughly every 90px and nothing else loses any. */
+    var step=Math.min(Math.max(1, Math.floor(n/5)),
+                      Math.max(1, Math.round(n/Math.max(2, Math.floor((W-padL-padR)/90)))));
+    for(var i2=0;i2<n;i2+=step){
+      ctx.fillText(labels[i2].slice(5), X(i2), H-3);
+    }
   }
   /* Where the record stops and the plan takes over. Without it a projection
      drawn on the same axes reads as history. */
@@ -6859,6 +6869,22 @@ function drawLineChart(canvas, series, labels, opts){
       });
     }
   });
+  /* The column you last touched. Drawn over the series so it reads as a
+     pointer rather than as another line in the data. */
+  if(opts.selectIndex!=null && opts.selectIndex>=0 && opts.selectIndex<n){
+    var sx = X(opts.selectIndex);
+    ctx.save();
+    ctx.strokeStyle='#ECEFF1'; ctx.globalAlpha=.55; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(sx,padT); ctx.lineTo(sx,H-padB); ctx.stroke();
+    ctx.globalAlpha=1;
+    series.forEach(function(sr){
+      var v = sr.data[opts.selectIndex];
+      if(v==null || sr.noMark) return;
+      ctx.fillStyle=sr.color; ctx.strokeStyle='#12161B'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.arc(sx, Y(v), 4, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    });
+    ctx.restore();
+  }
   /* Enough geometry for chartHit() to turn a tap back into a label. */
   canvas._hit = {mode:'line', W:W, H:H, padL:padL, padR:padR, n:n, labels:labels, keys:labels};
 }
@@ -7016,103 +7042,71 @@ function rollingAvg7(sorted){
     return vals.reduce(function(a,b){return a+b;},0)/vals.length;
   });
 }
-/* "Is this going to plan?" is the question the scale is actually being asked,
-   and two lines on a chart answer it only if you already know what the gap
-   between them means. So the app says it: where you are against where the plan
-   put you, whether that gap is inside the week's tolerance, and — when it is
-   not — what would have to change.
+/* What the scale said on a day you may not have stood on it.
 
-   The deliberate part is that a gap is never reported without its reason. A
-   fortnight of surgical fluid and a fortnight of overeating look identical on
-   the scale and are not remotely the same thing, and a tracker that cannot tell
-   you which one you are in will have you cutting calories through a recovery. */
-var TRACK_STYLE = {
-  on:    {word:'On plan',    color:'var(--green)',   badge:'tracking'},
-  drift: {word:'Drifting',   color:'var(--amber)',   badge:'watch'},
-  off:   {word:'Off plan',   color:'var(--red)',     badge:'reassess'},
-  stale: {word:'Not weighing', color:'var(--ink-dim)', badge:'no recent data'}
-};
-function fmtKgDelta(v){ return (v>=0?'+':'−') + Math.abs(v).toFixed(1) + 'kg'; }
-function fmtRate(v){ return (v>=0?'+':'−') + Math.abs(v).toFixed(2) + 'kg/wk'; }
-function renderPlanTrack(){
-  var card = document.getElementById('planTrackCard');
-  var body = document.getElementById('planTrackBody');
-  var badge = document.getElementById('planTrackBadge');
-  var note = document.getElementById('weightChartNote');
-  if(!card || !body) return;
-  if(note) note.textContent = projSpec().modelNote || '';
-
-  var r = planVsActual();
-  if(!r){
-    badge.textContent = 'no data';
-    badge.style.color = badge.style.borderColor = 'var(--ink-dim)';
-    body.innerHTML = '<p class="lead" style="margin:0">Log a few days of bodyweight and this will say whether the scale is where the plan put it.</p>';
+   Weighing is every other day at best, so most columns of the chart have no
+   reading of their own. Between two that do, a straight line between them is
+   the honest answer \u2014 it is what the trend did, even if no morning recorded
+   it. Outside that range there is nothing to interpolate from and saying so
+   beats inventing a number: before the first weigh-in, and after the last,
+   the answer is that there isn't one. */
+function actualKgOn(dateStr, sorted){
+  if(!sorted.length) return null;
+  if(dateStr < sorted[0].date || dateStr > sorted[sorted.length-1].date) return null;
+  for(var i=0;i<sorted.length;i++){
+    if(sorted[i].date === dateStr) return {kg:sorted[i].kg, exact:true};
+    if(sorted[i].date > dateStr){
+      var a = sorted[i-1], b = sorted[i];
+      var span = daysBetween(a.date, b.date);
+      if(!span) return {kg:b.kg, exact:true};
+      var f = daysBetween(a.date, dateStr)/span;
+      return {kg:a.kg + (b.kg-a.kg)*f, exact:false, gap:span};
+    }
+  }
+  return null;
+}
+/* The readout under the chart. Past and present get the scale against the
+   plan; the future has no scale to give, so it gets the plan alone rather than
+   an empty column pretending a number is missing. */
+function renderWeightRead(dateStr){
+  var box = document.getElementById('weightRead');
+  var badge = document.getElementById('weightReadDate');
+  if(!box) return;
+  if(!dateStr){
+    badge.textContent = 'tap the chart';
+    box.innerHTML = '<div class="hint">Tap any point on the chart for that day\u2019s weight against the plan.</div>';
     return;
   }
-  var st = TRACK_STYLE[r.status];
-  badge.textContent = st.badge;
-  badge.style.color = badge.style.borderColor = st.color;
-
+  var today = todayStr();
+  var sorted = bwLog.filter(function(e){return e.date>=PLAN.trackingStart;})
+                    .sort(function(a,b){return a.date.localeCompare(b.date);});
+  var plan = projectedKgOn(dateStr);
   var H = [];
-  H.push('<div class="track-head">' +
-         '<span class="track-verdict" style="color:'+st.color+'">'+st.word+'</span>' +
-         (r.status==='stale'
-           ? '<span class="track-gap">last weighed '+r.stale+' days ago</span>'
-           : '<span class="track-gap"><b>'+r.avg.toFixed(1)+'kg</b> vs plan '+r.plan.toFixed(1)+'kg &middot; '+fmtKgDelta(r.delta)+'</span>') +
-         '</div>');
+  badge.textContent = fmtDate(dateStr) + (dateStr===today? ' \u00b7 today' : '');
 
-  H.push('<dl class="track-rows">');
-  H.push('<dt>Stage today</dt><dd>'+(r.phase? r.phase.label : 'Between stages')+
-         (r.planToday!=null? ', plan says <span class="mono">'+r.planToday.toFixed(1)+'kg</span>' : '')+'</dd>');
-  H.push('<dt>Last weighed</dt><dd><span class="mono">'+r.latest.toFixed(1)+'kg</span> on '+fmtDateShort(r.asOf)+
-         (r.stale>0 ? ' &mdash; '+r.stale+' day'+(r.stale===1?'':'s')+' ago' : ' (today)')+'</dd>');
-  H.push('<dt>7-day average</dt><dd><span class="mono">'+r.avg.toFixed(1)+'kg</span> from '+r.n7+' weigh-in'+(r.n7===1?'':'s')+
-         (r.thin? ' &mdash; too few to average honestly' : '')+'</dd>');
-  if(r.status!=='stale'){
-  H.push('<dt>On-plan band</dt><dd><span class="mono">'+(r.plan-r.tol).toFixed(1)+'–'+(r.plan+r.tol).toFixed(1)+'kg</span> this week'+
-         (r.tol > ((projSpec().tolerance||{}).kg==null?1.0:projSpec().tolerance.kg)+0.05
-            ? ' &mdash; wider than usual, because water is moving on purpose' : '')+'</dd>');
-  if(r.rate){
-    H.push('<dt>Last '+r.rate.days+' days</dt><dd><span class="mono">'+fmtRate(r.rate.actual)+'</span> actual vs <span class="mono">'+
-           fmtRate(r.rate.planned)+'</span> planned</dd>');
+  if(dateStr > today){
+    H.push('<div class="cell"><div class="k">Planned</div><div class="v" style="color:var(--plan)">'+
+           (plan==null?'\u2014':plan.toFixed(1)+'kg')+'<small>'+daysBetween(today,dateStr)+' days from now</small></div></div>');
+    var ph = projPhaseOn(dateStr);
+    H.push('<div class="cell"><div class="k">Stage</div><div class="v" style="font-size:12.5px;font-family:var(--f-body);font-weight:600">'+
+           (ph? ph.label : '\u2014')+'</div></div>');
   } else {
-    H.push('<dt>Rate</dt><dd>Not enough history yet — needs about a fortnight of weigh-ins either side.</dd>');
+    var act = actualKgOn(dateStr, sorted);
+    H.push('<div class="cell"><div class="k">Actual</div><div class="v" style="color:#4FB6C9">'+
+           (act? act.kg.toFixed(1)+'kg' : '\u2014')+
+           '<small>'+(act? (act.exact? 'weighed' : 'est, '+act.gap+'-day gap')
+                          : 'not weighed')+'</small></div></div>');
+    H.push('<div class="cell"><div class="k">Planned</div><div class="v" style="color:var(--plan)">'+
+           (plan==null?'\u2014':plan.toFixed(1)+'kg')+'<small>\u00b1'+projToleranceOn(dateStr).toFixed(1)+'kg band</small></div></div>');
+    if(act && plan!=null){
+      var d = act.kg - plan, t = projToleranceOn(dateStr);
+      var col = Math.abs(d)<=t ? 'var(--green)' : (Math.abs(d)<=t*2 ? 'var(--amber)' : 'var(--red)');
+      H.push('<div class="cell"><div class="k">vs plan</div><div class="v" style="color:'+col+'">'+
+             (d>=0?'+':'\u2212')+Math.abs(d).toFixed(1)+'kg<small>'+
+             (Math.abs(d)<=t? 'on plan' : (Math.abs(d)<=t*2? 'drifting' : 'off plan'))+'</small></div></div>');
+    }
   }
-  }
-  var td = projTargetDate();
-  if(td) H.push('<dt>Target</dt><dd>'+PLAN.targetKg.toFixed(1)+'kg projected '+fmtDateLong(td)+'</dd>');
-  H.push('</dl>');
-
-  if(r.phase && r.phase.note){
-    H.push('<p class="track-why"><b>Why the line does this now.</b> '+r.phase.note+'</p>');
-  }
-
-  /* What to do about it. Only ever one instruction, and for the two statuses
-     that are fine the instruction is to leave it alone — which is worth saying
-     out loud, because a scale going the wrong way is exactly when people stop
-     doing the thing that was working. */
-  var act;
-  if(r.status==='stale'){
-    act = 'No weigh-in for ' + r.stale + ' days, so there is nothing to judge the plan against \u2014 and the line has moved on without you. '
-        + 'Weigh yourself tomorrow morning, then daily for a week: the seven-day average is what this reads, and it needs about four mornings before it means anything. '
-        + 'Expect a high number rather than being alarmed by one \u2014 check the stage above for what the plan already allows for.';
-  } else if(r.thin){
-    act = 'Only ' + r.n7 + ' weigh-in' + (r.n7===1?'':'s') + ' in the last seven days, so treat this verdict as provisional \u2014 one heavy morning is carrying most of the average. '
-        + 'Weigh daily for a week and it will settle into something worth acting on.';
-  } else if(r.status==='on'){
-    act = 'Nothing to change. The scale is where the plan put it, so judge the next fortnight on whether the working weights are still climbing rather than on the number.';
-  } else if(r.status==='drift'){
-    act = 'Worth watching, not worth acting on yet. Keep weighing daily and give it two more weeks — if the gap is still opening by then it is real, and this will say so.';
-  } else {
-    var over = r.delta > 0;
-    act = 'The gap is more than twice this week’s tolerance, which is past what water and weighing noise explain. ' +
-      (over ? 'Check the intake against 2800kcal for a fortnight before changing anything — an unlogged few hundred a day is the usual cause, and the fix is logging, not cutting.'
-            : 'Losing faster than planned puts the muscle at risk, which is the one thing this plan was built to avoid. Check protein is landing at 200g and that the working weights have not stalled.') +
-      ' If it holds after that, the plan needs reassessing rather than more discipline.';
-  }
-  H.push('<p class="track-act" style="border-color:'+st.color+';color:var(--ink)">'+act+'</p>');
-
-  body.innerHTML = H.join('');
+  box.innerHTML = H.join('');
 }
 
 /* The weight chart is the one chart with a future. Everything else here plots
@@ -7159,17 +7153,47 @@ function renderWeightChart(){
     d = addDays(d,1);
   }
 
+  /* Every column is a day, so the actual weight the readout quotes for a day
+     between weigh-ins is drawn too \u2014 otherwise the marker lands on a gap and
+     the number appears to come from nowhere. Faint, and behind the real
+     readings, because it is inference rather than a morning on the scale. */
+  var interp = labels.map(function(d){
+    var a = actualKgOn(d, logged);
+    return (a && !a.exact) ? a.kg : null;
+  });
+
   sizeChart(canvas, labels.length, 4);
-  drawLineChart(canvas, [
+  var series = [
     {data:plan, color:'#B48EE8', dashed:true,
      band:{hi:hi, lo:lo}, fill:'rgba(180,142,232,.13)'},
-    {data:target, color:'#E8A33D', dashed:true},
+    {data:target, color:'#E8A33D', dashed:true, noMark:true},
+    {data:interp, color:'rgba(79,182,201,.35)', width:1.2, noMark:true},
     {data:kgs, color:'#4FB6C9', pointsOnly:true, dotR:2.2},
     {data:avg7, color:'#6FCF97', width:2.2}
-  ], labels, {markIndex:markIndex, markLabel:'today'});
+  ];
+  function paint(sel){
+    drawLineChart(canvas, series, labels,
+      {markIndex:markIndex, markLabel:'today', monthTicks:true, selectIndex:sel});
+  }
+  paint(canvas._wtSel==null? null : canvas._wtSel);
   scrollChartToIndex(canvas, markIndex<0?labels.length-1:markIndex, labels.length, 0.55);
-  /* Tapping a day that hasn't happened yet has nothing to open. */
-  attachChartTap(canvas, function(hit){ if(hit.key <= today) openLogFor('bw', hit.key); });
+
+  /* Tap, or drag along the chart to scrub through it. Pointer events cover
+     finger and mouse alike; the touch-action rule is what stops a horizontal
+     drag being stolen by the scrolling chart-box mid-read. */
+  function readAt(ev){
+    var hit = chartHit(canvas, ev);
+    if(!hit) return;
+    canvas._wtSel = hit.index;
+    renderWeightRead(hit.key);
+    paint(hit.index);
+  }
+  canvas.style.touchAction = 'pan-y';
+  canvas.style.cursor = 'pointer';
+  canvas.onclick = null;
+  canvas.onpointerdown = function(ev){ canvas.setPointerCapture(ev.pointerId); readAt(ev); };
+  canvas.onpointermove = function(ev){ if(ev.buttons) readAt(ev); };
+  renderWeightRead(canvas._wtSel==null? null : labels[canvas._wtSel]);
 }
 function populateLiftChartSelect(){
   var sel = document.getElementById('liftChartSelect');

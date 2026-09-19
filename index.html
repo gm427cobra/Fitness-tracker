@@ -992,7 +992,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-19-2';
+var BUILD = '2026-09-19-3';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -1118,7 +1118,18 @@ var DEFAULT_PLAN = {
              saturation lands around 28 Sep, not back in early September. */
           "startDate": "2026-08-31",
           "dose": "7g/day, no loading phase",
-          "kg": 1.2,
+          /* Fitted to the scale rather than taken from a textbook. The 7-day
+             average ran 95.9kg over the four mornings before 31 Aug and 97.2kg
+             over the four most recent, which is +1.3kg in twenty days \u2014 on an
+             intake averaging about 2790kcal, near enough maintenance, so there
+             is almost no tissue change in that number. Extrapolated over the
+             full ramp it points at roughly 1.8kg, which is above what creatine
+             alone usually gives; some of it will be glycogen from eating 295g
+             of carbs a day consistently. 1.5 splits the difference between that
+             reading and the textbook kilo, and sits inside the 1-2kg your own
+             note predicted. It is a fitted guess either way, and the washout at
+             the end of the program is what will finally test it. */
+          "kg": 1.5,
           "rampDays": 28,
           /* The date the committed points were drawn against. They were set on
              8 Sep from that morning's 96.7kg, when only a third of the water

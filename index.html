@@ -992,7 +992,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-19-1';
+var BUILD = '2026-09-19-2';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -1102,7 +1102,7 @@ var DEFAULT_PLAN = {
          are the committed plan and are never overwritten — see
          mergeProjectionForward(). */
       "rev": 2,
-      "modelNote": "The planned line is the committed points above with the water laid over the top: creatine coming on through August, surgical fluid through the rest fortnight, and creatine coming back off near the end. So it reads as a scale weight rather than as fat, and a week that is heavy for a reason can be told apart from a week that has drifted.",
+      "modelNote": "The planned line is the committed points above with the water laid over the top: creatine loading in from 31 Aug to late September, surgical fluid through the rest fortnight, and creatine coming back off near the end. So it reads as a scale weight rather than as fat, and a week that is heavy for a reason can be told apart from a week that has drifted. The line runs above the committed points from November on, and that gap is the creatine water — which is why 87kg on the scale while on creatine is about 86kg of you.",
       /* Creatine pulls water into muscle. It is about a kilo on a 5g/day
          protocol, it arrives over the first month, and it leaves again over
          about a month if you stop. None of it is fat, in either direction, so
@@ -1111,9 +1111,21 @@ var DEFAULT_PLAN = {
          week of August, which puts saturation within a day of the 8 Sep peak
          above — most of that peak is this. */
       "creatine": {
-          "startDate": "2026-08-10",
-          "kg": 1.0,
+          /* 31 Aug, from the note logged that day — "Started creatine
+             monohydrate 7g/day. Expect ~1-2kg water-weight increase over the
+             next 2-3 weeks" — and the food log agrees, first entry same day.
+             Which means it is still loading in now, through the operation:
+             saturation lands around 28 Sep, not back in early September. */
+          "startDate": "2026-08-31",
+          "dose": "7g/day, no loading phase",
+          "kg": 1.2,
           "rampDays": 28,
+          /* The date the committed points were drawn against. They were set on
+             8 Sep from that morning's 96.7kg, when only a third of the water
+             was in, so what goes over the spine is the water since THAT day,
+             not the water since zero. Get this wrong and the whole line is out
+             by the amount already on board when the plan was written. */
+          "anchorDate": "2026-09-08",
           /* Stopping is a scale decision, not a training one: it hands back
              roughly a kilo of water and brings the target forward by about a
              month, at the cost of what creatine was doing for the training.
@@ -1143,27 +1155,27 @@ var DEFAULT_PLAN = {
       /* What the line is doing and why, so the app can name today's stage
          rather than leaving it to be read off the curve. */
       "phases": [
-          {"from": "2026-08-25", "to": "2026-09-07", "kind": "water",
+          {"from": "2026-08-25", "to": "2026-08-30", "kind": "hold",
+           "label": "Baseline \u2014 before creatine",
+           "note": "Maintenance calories, no supplement water. This is the cleanest read on the scale you get all program."},
+          {"from": "2026-08-31", "to": "2026-09-18", "kind": "water",
            "label": "Creatine loading in",
-           "note": "The rise here is mostly intramuscular water, not fat. Expect roughly a kilo between the second week of August and the first week of September."},
-          {"from": "2026-09-08", "to": "2026-09-18", "kind": "hold",
-           "label": "Peak — holding at maintenance",
-           "note": "96.7kg is the planned high point of the whole program. Weight flat, working weights climbing, is the outcome to want."},
+           "note": "Started 7g/day on 31 Aug. Roughly a kilo of water pulled into muscle over four weeks, so the scale rises without a gram of fat being added. Your own note that day said not to read it as fat gain \u2014 that still stands."},
           {"from": "2026-09-19", "to": "2026-10-03", "kind": "water",
-           "label": "Post-op fluid & rest fortnight",
-           "note": "The scale is expected to go up here, by up to a kilo, and then come back down on its own. Calories drop to 2500 because there is no training to fuel — hold that even if the number ticks up."},
+           "label": "Post-op fluid, creatine still loading",
+           "note": "The two overlap, which is why the highest number of the whole program falls here. Surgical fluid and a fortnight off your feet on top of creatine water that has not finished arriving. All of it is water. Hold the 2500kcal rest-phase intake even as the number climbs, and do not cut to chase it."},
           {"from": "2026-10-04", "to": "2026-10-31", "kind": "hold",
-           "label": "Return ramp — still flat",
-           "note": "Back under the bar at 70–80% and building to normal progression by 19 Oct. Weight is meant to sit flat through this, not fall — the deficit waits until training is back to full."},
+           "label": "Return ramp \u2014 flat, creatine saturated",
+           "note": "Fluid gone, creatine levelled off, back under the bar at 70\u201380% building to normal progression by 19 Oct. Weight is meant to sit flat here, not fall \u2014 the deficit waits until training is back to full."},
           {"from": "2026-11-01", "to": "2027-05-14", "kind": "cut",
-           "label": "Slow cut — 0.24kg/wk",
-           "note": "About a kilo a month. Gentle enough to keep training hard through it, which is the whole point of going this slowly. Read it alongside the strength trend, not on its own."},
-          {"from": "2027-05-15", "to": "2027-06-17", "kind": "cut",
-           "label": "Final cut — creatine off",
-           "note": "Same 0.24kg/wk of tissue, plus about a kilo of creatine water coming back off over four weeks. That water is what brings the target forward."},
-          {"from": "2027-06-18", "to": "2027-07-15", "kind": "target",
-           "label": "At target — hold",
-           "note": "87kg. Nothing left to lose — the line holds here rather than carrying on down."}
+           "label": "Slow cut \u2014 0.24kg/wk",
+           "note": "About a kilo a month, gentle enough to keep training hard through it. Note the line runs a little above the plan's committed points for this whole stretch: that gap is the creatine water, and it comes off at the end rather than during."},
+          {"from": "2027-05-15", "to": "2027-07-04", "kind": "cut",
+           "label": "Final cut \u2014 creatine off",
+           "note": "Same 0.24kg/wk of tissue, plus the creatine water coming back off over four weeks. Worth knowing: while you are on creatine, 87kg on the scale is about 86kg of you."},
+          {"from": "2027-07-05", "to": "2027-07-15", "kind": "target",
+           "label": "At target \u2014 hold",
+           "note": "87kg. Nothing left to lose \u2014 the line holds here rather than carrying on down."}
       ]
   },
   planVersion: '2026-09-17-hypertrophy-r11-suitcase',
@@ -2498,14 +2510,18 @@ function creatineWaterOn(dateStr){
   }
   return w;
 }
-/* The spine already reads as a saturated scale weight — its first anchor sits
-   a day after creatine saturates — so what goes on top is the difference from
-   saturation, not the raw amount. Negative before the first month is up, and
-   negative again once it washes out. */
+/* The spine is a scale weight read on one particular morning, with however
+   much creatine water was on board that morning baked into it. So what goes
+   over the top is the water gained or lost SINCE that morning, not the raw
+   amount — otherwise the whole line is out by whatever was already in.
+
+   Falls back to the saturated weight when no anchor is given, which is the
+   right reading for a plan written after creatine had levelled off. */
 function creatineDeltaOn(dateStr){
   var c = projSpec().creatine;
   if(!c || !c.startDate) return 0;
-  return creatineWaterOn(dateStr) - (c.kg==null ? 1.0 : c.kg);
+  var atAnchor = c.anchorDate ? creatineWaterOn(c.anchorDate) : (c.kg==null ? 1.0 : c.kg);
+  return creatineWaterOn(dateStr) - atAnchor;
 }
 /* One-off fluid: up, hold, and back to nothing. */
 function eventWaterOn(dateStr){
@@ -2608,9 +2624,26 @@ function planVsActual(){
      wrong way hard enough to put it outside within the month. */
   if(rate && status==='on' && Math.abs(rate.actual-rate.planned)*4 > tol) status = 'drift';
 
+  var n7 = sorted.filter(function(e){return e.date>=addDays(asOf,-6) && e.date<=asOf;}).length;
+  /* A verdict is only as good as the weighing behind it. Two things can make
+     it worthless while it still looks confident, and both have to be said out
+     loud rather than folded into the number:
+
+     the record has stopped \u2014 the average is from whenever you last stood on
+     the scale, and against a line that has moved since; and the window is thin
+     \u2014 a "7-day average" built from two mornings is one of those mornings plus
+     an opinion, and a single salty weekend inside it drags the whole thing.
+
+     Staleness wins over the gap. Reporting ON PLAN off a fortnight-old number
+     is worse than reporting nothing, because it answers the question you asked
+     with data that cannot answer it. */
+  var stale = daysBetween(asOf, todayStr());
+  var thin = n7 < 3;
+  if(stale > 4) status = 'stale';
   return {asOf:asOf, avg:avg, plan:plan, delta:delta, tol:tol, status:status,
-          rate:rate, phase:projPhaseOn(asOf), latest:sorted[sorted.length-1].kg,
-          n7:sorted.filter(function(e){return e.date>=addDays(asOf,-6) && e.date<=asOf;}).length};
+          rate:rate, phase:projPhaseOn(todayStr()) || projPhaseOn(asOf),
+          latest:sorted[sorted.length-1].kg, n7:n7, stale:stale, thin:thin,
+          planToday:projectedKgOn(todayStr())};
 }
 
 /* ================= PROGRESSION PHASE =================
@@ -6983,9 +7016,10 @@ function rollingAvg7(sorted){
    the scale and are not remotely the same thing, and a tracker that cannot tell
    you which one you are in will have you cutting calories through a recovery. */
 var TRACK_STYLE = {
-  on:    {word:'On plan',   color:'var(--green)', badge:'tracking'},
-  drift: {word:'Drifting',  color:'var(--amber)', badge:'watch'},
-  off:   {word:'Off plan',  color:'var(--red)',   badge:'reassess'}
+  on:    {word:'On plan',    color:'var(--green)',   badge:'tracking'},
+  drift: {word:'Drifting',   color:'var(--amber)',   badge:'watch'},
+  off:   {word:'Off plan',   color:'var(--red)',     badge:'reassess'},
+  stale: {word:'Not weighing', color:'var(--ink-dim)', badge:'no recent data'}
 };
 function fmtKgDelta(v){ return (v>=0?'+':'−') + Math.abs(v).toFixed(1) + 'kg'; }
 function fmtRate(v){ return (v>=0?'+':'−') + Math.abs(v).toFixed(2) + 'kg/wk'; }
@@ -7011,13 +7045,19 @@ function renderPlanTrack(){
   var H = [];
   H.push('<div class="track-head">' +
          '<span class="track-verdict" style="color:'+st.color+'">'+st.word+'</span>' +
-         '<span class="track-gap"><b>'+r.avg.toFixed(1)+'kg</b> vs plan '+r.plan.toFixed(1)+'kg &middot; '+fmtKgDelta(r.delta)+'</span>' +
+         (r.status==='stale'
+           ? '<span class="track-gap">last weighed '+r.stale+' days ago</span>'
+           : '<span class="track-gap"><b>'+r.avg.toFixed(1)+'kg</b> vs plan '+r.plan.toFixed(1)+'kg &middot; '+fmtKgDelta(r.delta)+'</span>') +
          '</div>');
 
   H.push('<dl class="track-rows">');
-  H.push('<dt>Stage</dt><dd>'+(r.phase? r.phase.label : 'Between stages')+'</dd>');
+  H.push('<dt>Stage today</dt><dd>'+(r.phase? r.phase.label : 'Between stages')+
+         (r.planToday!=null? ', plan says <span class="mono">'+r.planToday.toFixed(1)+'kg</span>' : '')+'</dd>');
+  H.push('<dt>Last weighed</dt><dd><span class="mono">'+r.latest.toFixed(1)+'kg</span> on '+fmtDateShort(r.asOf)+
+         (r.stale>0 ? ' &mdash; '+r.stale+' day'+(r.stale===1?'':'s')+' ago' : ' (today)')+'</dd>');
   H.push('<dt>7-day average</dt><dd><span class="mono">'+r.avg.toFixed(1)+'kg</span> from '+r.n7+' weigh-in'+(r.n7===1?'':'s')+
-         ', latest <span class="mono">'+r.latest.toFixed(1)+'kg</span> on '+fmtDateShort(r.asOf)+'</dd>');
+         (r.thin? ' &mdash; too few to average honestly' : '')+'</dd>');
+  if(r.status!=='stale'){
   H.push('<dt>On-plan band</dt><dd><span class="mono">'+(r.plan-r.tol).toFixed(1)+'–'+(r.plan+r.tol).toFixed(1)+'kg</span> this week'+
          (r.tol > ((projSpec().tolerance||{}).kg==null?1.0:projSpec().tolerance.kg)+0.05
             ? ' &mdash; wider than usual, because water is moving on purpose' : '')+'</dd>');
@@ -7026,6 +7066,7 @@ function renderPlanTrack(){
            fmtRate(r.rate.planned)+'</span> planned</dd>');
   } else {
     H.push('<dt>Rate</dt><dd>Not enough history yet — needs about a fortnight of weigh-ins either side.</dd>');
+  }
   }
   var td = projTargetDate();
   if(td) H.push('<dt>Target</dt><dd>'+PLAN.targetKg.toFixed(1)+'kg projected '+fmtDateLong(td)+'</dd>');
@@ -7040,7 +7081,14 @@ function renderPlanTrack(){
      out loud, because a scale going the wrong way is exactly when people stop
      doing the thing that was working. */
   var act;
-  if(r.status==='on'){
+  if(r.status==='stale'){
+    act = 'No weigh-in for ' + r.stale + ' days, so there is nothing to judge the plan against \u2014 and the line has moved on without you. '
+        + 'Weigh yourself tomorrow morning, then daily for a week: the seven-day average is what this reads, and it needs about four mornings before it means anything. '
+        + 'Expect a high number rather than being alarmed by one \u2014 check the stage above for what the plan already allows for.';
+  } else if(r.thin){
+    act = 'Only ' + r.n7 + ' weigh-in' + (r.n7===1?'':'s') + ' in the last seven days, so treat this verdict as provisional \u2014 one heavy morning is carrying most of the average. '
+        + 'Weigh daily for a week and it will settle into something worth acting on.';
+  } else if(r.status==='on'){
     act = 'Nothing to change. The scale is where the plan put it, so judge the next fortnight on whether the working weights are still climbing rather than on the number.';
   } else if(r.status==='drift'){
     act = 'Worth watching, not worth acting on yet. Keep weighing daily and give it two more weeks — if the gap is still opening by then it is real, and this will say so.';

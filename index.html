@@ -987,7 +987,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-19-8';
+var BUILD = '2026-09-19-9';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -1034,26 +1034,25 @@ var DEFAULT_PLAN = {
   totalProgramDays: 84,
   profile: {heightCm: 178, age: 45, sex: 'male'},
   "weightProjection": {
-      "note": "Revised 19 Sep: target 88kg on 15 July, reached on the date rather than before it, building block first and the cut last. The deficit is 350kcal a day \u2014 0.32kg a week, about 0.34% of bodyweight \u2014 which is gentle, and gentle costs time: the cut has to run thirty weeks from 13 Dec to land on the date, and that time comes out of the building block, which is eight weeks rather than seventeen. That is the trade, stated plainly. Nothing before 13 Dec is a deficit: the post-op fortnight, the return ramp and the build block are all at maintenance, because coming back from a layoff on a new program is the one window for adding muscle that expires. Because maintenance falls as you get lighter, holding a true 350 means the calories step down once, in April, rather than sitting at one number for thirty weeks. Still no surplus: at this body fat it would land mostly as fat.",
+      "note": "Revised 19 Sep: target 88kg on 15 July, reached on the date rather than before it, building block first and the cut last. The deficit starts on 1 January \u2014 Christmas and New Year are spent at maintenance, which is both realistic and free, since nothing before then was ever a deficit anyway. That buys a longer building block, ten weeks rather than eight, and costs two weeks of cutting: the deficit works out at about 385kcal a day, 0.35kg a week, 0.38% of bodyweight. Gentle enough that the bar should not notice it. Everything before 1 Jan is maintenance on purpose \u2014 the post-op fortnight, the return ramp and the build block \u2014 because coming back from a layoff on a new program is the one window for adding muscle that expires. Because maintenance falls as you get lighter, the calories step down once, in April, so the deficit stays the size it says it is. Still no surplus: at this body fat it would land mostly as fat.",
       "points": [
           ["2026-09-08", 96.70],
           ["2026-09-19", 96.51],
           ["2026-10-03", 96.63],
-          ["2026-12-13", 96.63],
-          ["2027-01-01", 95.76],
-          ["2027-02-01", 94.36],
-          ["2027-03-01", 93.08],
-          ["2027-04-01", 91.67],
-          ["2027-05-01", 90.31],
-          ["2027-06-01", 88.90],
-          ["2027-07-01", 87.54],
+          ["2026-12-31", 96.63],
+          ["2027-02-01", 95.09],
+          ["2027-03-01", 93.69],
+          ["2027-04-01", 92.15],
+          ["2027-05-01", 90.66],
+          ["2027-06-01", 89.12],
+          ["2027-07-01", 87.62],
           ["2027-07-15", 86.93]
       ],
       "peakKg": 98.3,
       "peakDate": "2026-09-26",
-      "cutRateKgPerWeek": 0.32,
-      "cutStarts": "2026-12-13",
-      "rev": 6,
+      "cutRateKgPerWeek": 0.35,
+      "cutStarts": "2027-01-01",
+      "rev": 7,
       "modelNote": "The planned line is the committed points above with the water laid over the top: creatine loading in from 31 Aug to late September, and surgical fluid through the rest fortnight. So it reads as a scale weight rather than as fat, and a week that is heavy for a reason can be told apart from a week that has drifted. About 1.1kg of the line from October on is creatine water, which is why 88kg on the scale with creatine on board is nearer 87kg of you.",
       /* Creatine pulls water into muscle. None of it is fat, so it belongs on
          the projected line as a step the scale is expected to take rather than
@@ -1128,21 +1127,21 @@ var DEFAULT_PLAN = {
           {"from": "2026-10-04", "to": "2026-10-18", "kind": "hold",
            "label": "Return ramp — hold at maintenance",
            "note": "Back under the bar at 70–90% for two weeks, eating 2700. A deficit here would waste the fastest regain of the year. Weight sits around 97.7kg."},
-          {"from": "2026-10-19", "to": "2026-12-12", "kind": "hold",
-           "label": "Build block — maintenance, 8 weeks",
+          {"from": "2026-10-19", "to": "2026-12-31", "kind": "hold",
+           "label": "Build block — maintenance, 10 weeks",
            "note": "The part of the plan that adds muscle, and it is taken first on purpose. Coming back from a layoff on a new program with body fat to spare is the most productive window you get, and it closes by spring whether it is used or not — leanness, by contrast, keeps. So: 2700kcal, 200g protein, weight flat at 97.7, and progress read entirely off the strength log. Flat scale with climbing loads is the whole objective here. No surplus: at this body fat it would land mostly as fat and buy very little the maintenance does not."},
-          {"from": "2026-12-13", "to": "2027-03-31", "kind": "cut",
-           "label": "Cut — 350kcal, first half",
-           "note": "0.32kg a week on 2300kcal, protein held at 200g. A 350kcal deficit is gentle enough that training should not notice it, which is the point — but gentle costs time, and thirty weeks of it is what pushed the build block down to eight. Judge it on the 7-day average, and expect the first fortnight to move oddly: glycogen and water go before fat does."},
+          {"from": "2027-01-01", "to": "2027-03-31", "kind": "cut",
+           "label": "Cut — first half",
+           "note": "0.35kg a week on 2270kcal, protein held at 200g. That is about 385 under maintenance — gentle enough that training should not notice it, and starting on 1 Jan rather than mid-December is what makes Christmas cost nothing. Judge it on the 7-day average, and expect the first fortnight to move oddly: glycogen and water go before fat does, and after a fortnight of eating freely there will be a good deal of both."},
           {"from": "2027-04-01", "to": "2027-07-14", "kind": "cut",
-           "label": "Cut — 350kcal, second half",
-           "note": "Same 350kcal deficit, but 2200 rather than 2300, because a lighter body burns less and holding the old number would quietly shrink the deficit to nothing by June. This is the step-down that keeps the rate honest. Check the rate here against the planned 0.32: under 0.2kg/wk take 150 more off, over 0.45 put 150 back."},
+           "label": "Cut — second half",
+           "note": "The same deficit at a lighter bodyweight, so 2175 rather than 2270. A lighter body burns less, and holding the old number would quietly shrink the deficit towards nothing by June. Check the rate here against the planned 0.35: under 0.2kg/wk take 150 more off, over 0.5 put 150 back."},
           {"from": "2027-07-15", "to": "2027-07-15", "kind": "target",
            "label": "At target — 88kg on the day",
            "note": "88kg on the scale with creatine on board, which is nearer 87kg of you without it. If the strength log has held through the cut, that is the whole job done."}
       ]
   },
-  planVersion: '2026-09-19-build-then-cut-88kg-350',
+  planVersion: '2026-09-19-build-then-cut-88kg-jan',
   /* The first day the new program applies. Anything before it is training that
      already happened and must be taken from the stored plan, not from here. */
   programChangeover: '2026-09-09',
@@ -1280,12 +1279,12 @@ var DEFAULT_PLAN = {
   /* Rest-phase macros run to the end of the post-op window (3 Oct); training
      resumes on the 5th, so the build numbers come back with it. */
   /* Day 0 is programStart, 24 Aug. 27 = 20 Sep (op), 41 = 4 Oct (return ramp),
-     111 = 13 Dec 2026, where the deficit starts, and 220 = 1 Apr 2027, where the
+     130 = 1 Jan 2027, where the deficit starts, and 220 = 1 Apr 2027, where the
      calories step down to keep that deficit at a true 350 as bodyweight falls.
-     Everything before 13 Dec is maintenance on purpose — the building block is
+     Everything before 1 Jan is maintenance on purpose — the building block is
      taken first. See weightProjection.phases. */
   dietPhaseBreaks: [ {upto:14,phase:'reset'}, {upto:27,phase:'build'}, {upto:41,phase:'rest'},
-                     {upto:111,phase:'build'}, {upto:220,phase:'cut'}, {upto:999999,phase:'cut2'} ],
+                     {upto:130,phase:'build'}, {upto:220,phase:'cut'}, {upto:999999,phase:'cut2'} ],
   templates: {
     "upperPush1": {
           "label": "Upper Push",
@@ -1890,7 +1889,7 @@ var DEFAULT_PLAN = {
        through the return ramp in October, which is the window this plan most
        wants protected from a deficit. */
     build: {
-      label:'Build — maintenance', dateRange:'7–19 Sep, then 4 Oct – 12 Dec', kcal:2700, protein:200, carbs:270, fat:90,
+      label:'Build — maintenance', dateRange:'7–19 Sep, then 4 Oct – 31 Dec', kcal:2700, protein:200, carbs:270, fat:90,
       meals:[
         {name:'Breakfast', kcal:545, protein:38, food:'4 whole eggs + 2 whites, 2 slices sourdough, ½ avocado', time:'07:30'},
         {name:'Lunch', kcal:680, protein:52, food:'220g chicken/salmon/beef, 260g potato/rice, salad, olive oil', time:'12:30'},
@@ -1918,30 +1917,30 @@ var DEFAULT_PLAN = {
        the calories — in a deficit it is the lever that decides how much of the
        loss is fat, so it is the last thing to cut, not the first. */
     cut: {
-      label:'Cut — 350kcal', dateRange:'13 Dec – 31 Mar', kcal:2300, protein:200, carbs:205, fat:75,
+      label:'Cut — first half', dateRange:'1 Jan – 31 Mar', kcal:2270, protein:200, carbs:199, fat:75,
       meals:[
-        {name:'Breakfast', kcal:460, protein:38, food:'3 whole eggs + 3 whites, 2 slices sourdough', time:'07:30'},
-        {name:'Lunch', kcal:610, protein:52, food:'220g chicken/salmon, 180g potato/rice, big salad, olive oil', time:'12:30'},
-        {name:'Training snack', kcal:270, protein:32, food:'Whey shake + banana', time:'16:00'},
-        {name:'Dinner — Prep Kitchen', kcal:690, protein:55, food:'Filter Higher Protein + Under 500kcal, Regular portion', pk:true, pkTag:'MUSCLE GAIN · REGULAR', time:'19:00'},
-        {name:'Evening', kcal:270, protein:25, food:'300g Greek yoghurt + berries', time:'21:00'}
+        {name:'Breakfast', kcal:455, protein:38, food:'3 whole eggs + 3 whites, 2 slices sourdough', time:'07:30'},
+        {name:'Lunch', kcal:605, protein:52, food:'220g chicken/salmon, 175g potato/rice, big salad, olive oil', time:'12:30'},
+        {name:'Training snack', kcal:265, protein:32, food:'Whey shake + banana', time:'16:00'},
+        {name:'Dinner — Prep Kitchen', kcal:680, protein:55, food:'Filter Higher Protein + Under 500kcal, Regular portion', pk:true, pkTag:'MUSCLE GAIN · REGULAR', time:'19:00'},
+        {name:'Evening', kcal:265, protein:25, food:'300g Greek yoghurt + berries', time:'21:00'}
       ],
-      note: '350kcal under a maintenance near 2650 — 0.32kg a week, gentle enough that the bar should not notice. Protein stays at 200g, which is what keeps the loss fat rather than muscle. Expect the first fortnight to move oddly: glycogen and water shift before fat does, so read the 7-day average and ignore the mornings. Check the rate at four weeks against the planned 0.32 on Progress. Alcohol is the lever that decides this: a heavy weekend is roughly 1000kcal, or three days of the deficit.'
+      note: 'Starts 1 Jan, so Christmas and New Year are eaten at maintenance rather than fought. About 385kcal under a maintenance near 2655 — 0.35kg a week, gentle enough that the bar should not notice. Protein stays at 200g, which is what keeps the loss fat rather than muscle. The first fortnight will drop fast and that is not fat: after two weeks of eating freely there is a lot of glycogen and water to shed first. Read the 7-day average and ignore the mornings. Check the rate at four weeks against the planned 0.35. Alcohol is the lever that decides this: a heavy weekend is roughly 1000kcal, or nearly three days of the deficit.'
     },
     /* A lighter body burns less, so a fixed calorie number quietly shrinks the
-       deficit to nothing over thirty weeks. Maintenance falls from about 2650
-       to about 2550 across the cut, so the intake steps down once to match and
-       the 350 stays a real 350. */
+       deficit over a seven-month cut. Maintenance falls from about 2700 at the
+       start to about 2505 by July, so the intake steps down once to match and
+       the deficit stays the size it claims to be. */
     cut2: {
-      label:'Cut — 350kcal, lighter', dateRange:'1 Apr – 15 Jul', kcal:2200, protein:200, carbs:193, fat:70,
+      label:'Cut — second half', dateRange:'1 Apr – 15 Jul', kcal:2175, protein:200, carbs:186, fat:70,
       meals:[
-        {name:'Breakfast', kcal:440, protein:38, food:'3 whole eggs + 3 whites, 1 slice sourdough', time:'07:30'},
-        {name:'Lunch', kcal:580, protein:52, food:'220g chicken/white fish, 160g potato/rice, big salad, olive oil', time:'12:30'},
-        {name:'Training snack', kcal:260, protein:32, food:'Whey shake + small banana', time:'16:00'},
-        {name:'Dinner — Prep Kitchen', kcal:670, protein:55, food:'Filter Higher Protein + Under 500kcal, Regular portion', pk:true, pkTag:'MUSCLE GAIN · REGULAR', time:'19:00'},
-        {name:'Evening', kcal:250, protein:25, food:'250g 0% Greek yoghurt + berries', time:'21:00'}
+        {name:'Breakfast', kcal:435, protein:38, food:'3 whole eggs + 3 whites, 1 slice sourdough', time:'07:30'},
+        {name:'Lunch', kcal:575, protein:52, food:'220g chicken/white fish, 155g potato/rice, big salad, olive oil', time:'12:30'},
+        {name:'Training snack', kcal:255, protein:32, food:'Whey shake + small banana', time:'16:00'},
+        {name:'Dinner — Prep Kitchen', kcal:665, protein:55, food:'Filter Higher Protein + Under 500kcal, Regular portion', pk:true, pkTag:'MUSCLE GAIN · REGULAR', time:'19:00'},
+        {name:'Evening', kcal:245, protein:25, food:'250g 0% Greek yoghurt + berries', time:'21:00'}
       ],
-      note: 'The same 350kcal deficit as before, at a lighter bodyweight. The 100kcal drop is not extra dieting — it is what stops the deficit fading as maintenance falls. Same rate, same protein, same instrument: 0.32kg a week off the 7-day average. Under 0.2kg/wk take another 150 off; over 0.45 put 150 back.'
+      note: 'The same deficit as the first half, at a lighter bodyweight. The 95kcal drop is not extra dieting — it is what stops the deficit fading as maintenance falls with you. Same rate, same protein, same instrument: 0.35kg a week off the 7-day average. Under 0.2kg/wk take another 150 off; over 0.5 put 150 back.'
     }
   },
   prepKitchenNote: 'Plan: <b style="color:var(--ink)">Muscle Gain</b>. Portion: <b style="color:var(--ink)">Large</b> on training/build weeks, <b style="color:var(--ink)">Regular</b> or a lower-carb swap on the post-op rest fortnight. Filter every week for <b style="color:var(--ink)">Higher Protein</b> + <b style="color:var(--ink)">Under 500kcal</b> tags.',

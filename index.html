@@ -821,7 +821,13 @@ steps | 8400"></textarea>
   </div>
 
   <div class="card">
-    <div class="card-h"><h2>Weight trend</h2><span class="badge" id="weightReadDate">tap the chart</span></div>
+    <div class="card-h"><h2>Weight trend</h2>
+      <select id="weightRange" style="font-size:12px;padding:5px 8px;width:auto">
+        <option value="full" selected>Whole plan</option>
+        <option value="m6">6 months</option>
+        <option value="w6">6 weeks</option>
+      </select>
+      <span class="badge" id="weightReadDate">tap the chart</span></div>
     <div class="chart-box"><canvas id="weightChart"></canvas></div>
     <div class="wt-read" id="weightRead"></div>
     <div class="legend">
@@ -981,7 +987,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-19-4';
+var BUILD = '2026-09-19-5';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -1023,82 +1029,36 @@ var DEFAULT_PLAN = {
   programStart: '2026-08-24',
   trackingStart: '2026-08-25',
   programEnd: '2027-07-15',
-  targetKg: 87.0,
+  targetKg: 90.0,
   startKg: 96.0,
   totalProgramDays: 84,
   profile: {heightCm: 178, age: 45, sex: 'male'},
   "weightProjection": {
-      "note": "Revised 8 Sep: hold rather than bulk. A surplus adds little muscle at this training age and would have to be dieted back off in a long cut that risks the muscle it bought, with 9.7kg still to lose. Flat through the operation and the recovery fortnight, then roughly 0.24kg/week off — gentle enough to keep training hard through it. Expect the scale to move slower than fat does if muscle is being gained at the same time, so read this alongside the strength trend rather than on its own.",
+      "note": "Revised 19 Sep: target moved from 87kg to 90kg, and the shape changed to hold-then-cut. Nothing comes off until the cut starts on 2 Nov — the fortnight after the operation and the four weeks of the return ramp are both held at maintenance, because the weeks you come back to training in are the ones where muscle is most readily regained and a deficit is the one thing that would waste them. From 2 Nov it is 0.21kg/week, which is about a kilo a month and gentle enough that training does not suffer for it. No bulk: at this body fat a surplus lands mostly as fat and would have to be dieted back off, and at thirty years of training age it buys very little muscle that maintenance does not. Read this against the strength log, not on its own — flat weight with climbing loads is the outcome to want.",
       "points": [
-          [
-              "2026-09-08",
-              96.7
-          ],
-          [
-              "2026-09-19",
-              96.5
-          ],
-          [
-              "2026-10-05",
-              96.5
-          ],
-          [
-              "2026-11-01",
-              96.0
-          ],
-          [
-              "2026-12-01",
-              95.2
-          ],
-          [
-              "2027-01-01",
-              94.3
-          ],
-          [
-              "2027-02-01",
-              93.2
-          ],
-          [
-              "2027-03-01",
-              92.1
-          ],
-          [
-              "2027-04-01",
-              91.0
-          ],
-          [
-              "2027-05-01",
-              89.9
-          ],
-          [
-              "2027-06-01",
-              88.7
-          ],
-          [
-              "2027-07-01",
-              87.5
-          ],
-          [
-              "2027-07-15",
-              87.0
-          ]
+          ["2026-09-08", 96.70],
+          ["2026-09-19", 96.51],
+          ["2026-10-03", 96.63],
+          ["2026-11-01", 96.63],
+          ["2026-12-01", 95.72],
+          ["2027-01-01", 94.78],
+          ["2027-02-01", 93.85],
+          ["2027-03-01", 93.00],
+          ["2027-04-01", 92.07],
+          ["2027-05-01", 91.16],
+          ["2027-06-01", 90.23],
+          ["2027-07-01", 89.32],
+          ["2027-07-15", 88.93]
       ],
-      "peakKg": 96.7,
-      "peakDate": "2026-09-08",
-      "cutRateKgPerWeek": 0.24,
-      /* Bumped whenever anything below changes, so a stored plan picks the new
-         model up without waiting on the program-update banner. The points above
-         are the committed plan and are never overwritten — see
-         mergeProjectionForward(). */
-      "rev": 2,
-      "modelNote": "The planned line is the committed points above with the water laid over the top: creatine loading in from 31 Aug to late September, surgical fluid through the rest fortnight, and creatine coming back off near the end. So it reads as a scale weight rather than as fat, and a week that is heavy for a reason can be told apart from a week that has drifted. The line runs above the committed points from November on, and that gap is the creatine water — which is why 87kg on the scale while on creatine is about 86kg of you.",
-      /* Creatine pulls water into muscle. It is about a kilo on a 5g/day
-         protocol, it arrives over the first month, and it leaves again over
-         about a month if you stop. None of it is fat, in either direction, so
-         it belongs on the projected line as a step the scale is expected to
-         take rather than as a surprise a fortnight later. Started the second
-         week of August, which puts saturation within a day of the 8 Sep peak
-         above — most of that peak is this. */
+      "peakKg": 98.3,
+      "peakDate": "2026-09-26",
+      "cutRateKgPerWeek": 0.21,
+      "cutStarts": "2026-11-02",
+      "rev": 3,
+      "modelNote": "The planned line is the committed points above with the water laid over the top: creatine loading in from 31 Aug to late September, and surgical fluid through the rest fortnight. So it reads as a scale weight rather than as fat, and a week that is heavy for a reason can be told apart from a week that has drifted. About 1.1kg of the line from October on is creatine water, which is why 90kg on the scale with creatine on board is nearer 89kg of you.",
+      /* Creatine pulls water into muscle. None of it is fat, so it belongs on
+         the projected line as a step the scale is expected to take rather than
+         as a surprise a fortnight later. */
       "creatine": {
           /* 31 Aug, from the note logged that day — "Started creatine
              monohydrate 7g/day. Expect ~1-2kg water-weight increase over the
@@ -1109,7 +1069,7 @@ var DEFAULT_PLAN = {
           "dose": "7g/day, no loading phase",
           /* Fitted to the scale rather than taken from a textbook. The 7-day
              average ran 95.9kg over the four mornings before 31 Aug and 97.2kg
-             over the four most recent, which is +1.3kg in twenty days \u2014 on an
+             over the four most recent, which is +1.3kg in twenty days — on an
              intake averaging about 2790kcal, near enough maintenance, so there
              is almost no tissue change in that number. Extrapolated over the
              full ramp it points at roughly 1.8kg, which is above what creatine
@@ -1126,11 +1086,13 @@ var DEFAULT_PLAN = {
              not the water since zero. Get this wrong and the whole line is out
              by the amount already on board when the plan was written. */
           "anchorDate": "2026-09-08",
-          /* Stopping is a scale decision, not a training one: it hands back
-             roughly a kilo of water and brings the target forward by about a
-             month, at the cost of what creatine was doing for the training.
-             Set to null to model staying on it to the end. */
-          "stopDate": "2027-05-15",
+          /* Deliberately null — staying on it to the end. Stopping would hand
+             back a kilo of water and flatter the scale, but creatine is one of
+             the few things that measurably protects lean mass in a deficit,
+             and giving that up in the last weeks of a cut to make a number
+             look better is optimising the wrong thing. The target accounts for
+             the water instead: 90kg on creatine is nearer 89kg without it. */
+          "stopDate": null,
           "washoutDays": 28
       },
       /* One-off fluid the scale shows and the plan should expect. Each is a
@@ -1156,29 +1118,26 @@ var DEFAULT_PLAN = {
          rather than leaving it to be read off the curve. */
       "phases": [
           {"from": "2026-08-25", "to": "2026-08-30", "kind": "hold",
-           "label": "Baseline \u2014 before creatine",
-           "note": "Maintenance calories, no supplement water. This is the cleanest read on the scale you get all program."},
+           "label": "Baseline — before creatine",
+           "note": "Maintenance calories, no supplement water. The cleanest read on the scale you get all program, and what everything since is measured against: 95.9kg."},
           {"from": "2026-08-31", "to": "2026-09-18", "kind": "water",
            "label": "Creatine loading in",
-           "note": "Started 7g/day on 31 Aug. Roughly a kilo of water pulled into muscle over four weeks, so the scale rises without a gram of fat being added. Your own note that day said not to read it as fat gain \u2014 that still stands."},
+           "note": "7g/day from 31 Aug. Around 1.5kg of water pulled into muscle over four weeks, so the scale rises without a gram of fat being added. Your own note that day said not to read it as fat gain — that still stands."},
           {"from": "2026-09-19", "to": "2026-10-03", "kind": "water",
-           "label": "Post-op fluid, creatine still loading",
-           "note": "The two overlap, which is why the highest number of the whole program falls here. Surgical fluid and a fortnight off your feet on top of creatine water that has not finished arriving. All of it is water. Hold the 2500kcal rest-phase intake even as the number climbs, and do not cut to chase it."},
-          {"from": "2026-10-04", "to": "2026-10-31", "kind": "hold",
-           "label": "Return ramp \u2014 flat, creatine saturated",
-           "note": "Fluid gone, creatine levelled off, back under the bar at 70\u201380% building to normal progression by 19 Oct. Weight is meant to sit flat here, not fall \u2014 the deficit waits until training is back to full."},
-          {"from": "2026-11-01", "to": "2027-05-14", "kind": "cut",
-           "label": "Slow cut \u2014 0.24kg/wk",
-           "note": "About a kilo a month, gentle enough to keep training hard through it. Note the line runs a little above the plan's committed points for this whole stretch: that gap is the creatine water, and it comes off at the end rather than during."},
-          {"from": "2027-05-15", "to": "2027-07-04", "kind": "cut",
-           "label": "Final cut \u2014 creatine off",
-           "note": "Same 0.24kg/wk of tissue, plus the creatine water coming back off over four weeks. Worth knowing: while you are on creatine, 87kg on the scale is about 86kg of you."},
-          {"from": "2027-07-05", "to": "2027-07-15", "kind": "target",
-           "label": "At target \u2014 hold",
-           "note": "87kg. Nothing left to lose \u2014 the line holds here rather than carrying on down."}
+           "label": "Post-op — fluid up, weight held",
+           "note": "Nothing is meant to come off here. Surgical fluid and creatine that has not finished arriving both push the scale up, and the highest number of the whole program falls in this fortnight — around 98.3kg. Eat to 2400 and hold: that is maintenance without training to fuel, and protein stays at 200g because healing needs it. Do not cut to chase the number."},
+          {"from": "2026-10-04", "to": "2026-11-01", "kind": "hold",
+           "label": "Return ramp — hold at maintenance",
+           "note": "The most valuable four weeks in the plan and the worst possible place for a deficit. Coming back from a fortnight off is when muscle is regained fastest, so this holds flat at 2700 and spends the window on training rather than on the scale. Weight sits around 97.7kg. The cut waits."},
+          {"from": "2026-11-02", "to": "2027-07-14", "kind": "cut",
+           "label": "Slow cut — 0.21kg/wk",
+           "note": "About a kilo a month on 2450kcal, protein held at 200g. Gentle by design: a bigger deficit would come off faster and take muscle with it, and there is no deadline pressure that justifies that. Judge it on the 7-day average and on whether the working weights are still climbing."},
+          {"from": "2027-07-15", "to": "2027-07-15", "kind": "target",
+           "label": "At target — 90kg",
+           "note": "90kg on the scale with creatine on board, which is nearer 89kg of you without it. If the strength log has held through the cut, that is the whole job done."}
       ]
   },
-  planVersion: '2026-09-17-hypertrophy-r11-suitcase',
+  planVersion: '2026-09-19-hold-then-cut-90kg',
   /* The first day the new program applies. Anything before it is training that
      already happened and must be taken from the stored plan, not from here. */
   programChangeover: '2026-09-09',
@@ -1315,7 +1274,11 @@ var DEFAULT_PLAN = {
   },
   /* Rest-phase macros run to the end of the post-op window (3 Oct); training
      resumes on the 5th, so the build numbers come back with it. */
-  dietPhaseBreaks: [ {upto:14,phase:'reset'}, {upto:27,phase:'build'}, {upto:41,phase:'rest'}, {upto:999999,phase:'build'} ],
+  /* Day 0 is programStart, 24 Aug. 27 = 20 Sep (op), 41 = 4 Oct (return ramp),
+     70 = 2 Nov, where the deficit finally starts. Everything before that day is
+     held at maintenance on purpose — see weightProjection.phases. */
+  dietPhaseBreaks: [ {upto:14,phase:'reset'}, {upto:27,phase:'build'}, {upto:41,phase:'rest'},
+                     {upto:70,phase:'build'}, {upto:999999,phase:'cut'} ],
   templates: {
     "upperPush1": {
           "label": "Upper Push",
@@ -1899,7 +1862,7 @@ var DEFAULT_PLAN = {
     opDay:{label:'Operation day', op:true, note:'No training. Follow hospital pre/post-op instructions exactly.'},
     postOpWalk:{label:'Post-op recovery', postop:true, note:'No lifting, no jogging/running unless your surgeon has cleared it. Default: short, easy walking only if comfortable. Stretching waits for the same clearance — a hold that pulls on a healing site is not a gentle option, it is just a slower one.'}
   },
-  dietPhaseOrder: ['reset','build','rest'],
+  dietPhaseOrder: ['reset','build','rest','cut'],
   dietPhases: {
     reset: {
       label:'Reset — Wk 1–2', dateRange:'24 Aug – 6 Sep', kcal:2800, protein:190, carbs:300, fat:90,
@@ -1912,34 +1875,51 @@ var DEFAULT_PLAN = {
       ],
       note: null
     },
-    /* 2800 rather than the original 3050: a surplus buys very little muscle at
-       thirty years of training age and fifty, and it is hard to justify while
-       still 9.7kg above target — the fat would only have to come back off in a
-       long cut that puts the new muscle at risk. Protein is held at 200g,
-       since that is the lever that actually drives growth; the calories come
-       off carbs and fat. Weight should sit flat or drift down very slowly,
-       and progress gets read off the strength ladder instead of the scale. */
+    /* Maintenance, not a surplus and not a deficit. Costed against what the
+       scale has actually done: 2789kcal/day across the nineteen days to 18 Sep
+       left roughly a quarter of a kilo of tissue on, once the creatine water
+       is taken out of the number, so maintenance sits near 2700 at this weight
+       and training load. It runs twice — the pre-op fortnight, and again
+       through the return ramp in October, which is the window this plan most
+       wants protected from a deficit. */
     build: {
-      label:'Recomp — hold weight', dateRange:'7 Sep onward', kcal:2800, protein:200, carbs:295, fat:90,
+      label:'Hold — maintenance', dateRange:'7–19 Sep, then 4 Oct – 1 Nov', kcal:2700, protein:200, carbs:270, fat:90,
       meals:[
-        {name:'Breakfast', kcal:570, protein:38, food:'4 whole eggs + 2 whites, 2 slices sourdough, ½ avocado', time:'07:30'},
-        {name:'Lunch', kcal:700, protein:52, food:'220g chicken/salmon/beef, 275g potato/rice, salad, olive oil', time:'12:30'},
+        {name:'Breakfast', kcal:545, protein:38, food:'4 whole eggs + 2 whites, 2 slices sourdough, ½ avocado', time:'07:30'},
+        {name:'Lunch', kcal:680, protein:52, food:'220g chicken/salmon/beef, 260g potato/rice, salad, olive oil', time:'12:30'},
         {name:'Training snack', kcal:340, protein:34, food:'Whey shake + banana + 40g oats', time:'16:00'},
-        {name:'Dinner — Prep Kitchen', kcal:750, protein:55, food:'Same filter — pick the higher-protein dish of the week', pk:true, pkTag:'MUSCLE GAIN · LARGE', time:'19:00'},
-        {name:'Evening', kcal:440, protein:21, food:'300g Greek yoghurt, 40g granola (nut-free), banana', time:'21:00'}
+        {name:'Dinner — Prep Kitchen', kcal:735, protein:55, food:'Same filter — pick the higher-protein dish of the week', pk:true, pkTag:'MUSCLE GAIN · LARGE', time:'19:00'},
+        {name:'Evening', kcal:400, protein:21, food:'300g Greek yoghurt, 30g granola (nut-free), banana', time:'21:00'}
       ],
-      note: 'Around maintenance, not a surplus. Judge this by the 7-day weight average and by whether working weights are still climbing — flat weight with rising loads is the outcome to want. Sat 19 Sep (op day): ignore these numbers and follow the hospital\'s pre-op fasting instructions instead.'
+      note: 'Around maintenance, deliberately. Flat weight with climbing working weights is the outcome to want, and it is the only outcome that says muscle is going on while fat comes off. Judge it on the 7-day average, not on any single morning. Sat 19 Sep (op day): ignore these numbers and follow the hospital\'s pre-op fasting instructions instead.'
     },
     rest: {
-      label:'Post-Op Rest — 2wk', dateRange:'20 Sep – 3 Oct', kcal:2500, protein:200, carbs:240, fat:90,
+      label:'Post-Op Rest — 2wk', dateRange:'20 Sep – 3 Oct', kcal:2400, protein:200, carbs:210, fat:85,
       meals:[
         {name:'Breakfast', kcal:400, protein:35, food:'3 whole eggs + 3 whites, 1 slice sourdough', time:'07:30'},
-        {name:'Lunch', kcal:700, protein:48, food:'200g chicken/fish, 250g rice/potato, big salad, olive oil', time:'12:30'},
-        {name:'Snack', kcal:300, protein:32, food:'Whey shake + apple', time:'16:00'},
-        {name:'Dinner — Prep Kitchen', kcal:700, protein:55, food:'Protein target doesn\'t drop just because training has stopped', pk:true, pkTag:'MUSCLE GAIN · LARGE', time:'19:00'},
-        {name:'Evening', kcal:400, protein:30, food:'300g Greek yoghurt + berries', time:'21:00'}
+        {name:'Lunch', kcal:660, protein:48, food:'200g chicken/fish, 220g rice/potato, big salad, olive oil', time:'12:30'},
+        {name:'Snack', kcal:280, protein:32, food:'Whey shake + apple', time:'16:00'},
+        {name:'Dinner — Prep Kitchen', kcal:700, protein:55, food:'Protein target does not drop just because training has stopped', pk:true, pkTag:'MUSCLE GAIN · LARGE', time:'19:00'},
+        {name:'Evening', kcal:360, protein:30, food:'300g Greek yoghurt + berries', time:'21:00'}
       ],
-      note: 'Calories drop here because there\'s no training to fuel — hold this even if the scale ticks up. That\'s post-surgical fluid, not fat.'
+      note: 'Lower than the training weeks because there is no training to fuel — this is maintenance for a fortnight of walking, not a diet. Protein stays at 200g: healing is the one job on, and it is built from protein. The scale will go UP through this fortnight, by as much as a kilo and a half, on surgical fluid and creatine that is still arriving. That is in the plan. Hold these numbers anyway and do not cut to chase it.'
+    },
+    /* The only phase with a deficit in it, and it is a small one: about
+       250kcal/day, which is a kilo a month. Anything faster would come off
+       quicker and take muscle with it, and nothing about a target ten months
+       out justifies that. Protein is held at 200g rather than scaled down with
+       the calories — in a deficit it is the lever that decides how much of the
+       loss is fat, so it is the last thing to cut, not the first. */
+    cut: {
+      label:'Cut — 0.21kg/wk', dateRange:'2 Nov onward', kcal:2450, protein:200, carbs:230, fat:80,
+      meals:[
+        {name:'Breakfast', kcal:480, protein:38, food:'3 whole eggs + 3 whites, 2 slices sourdough', time:'07:30'},
+        {name:'Lunch', kcal:640, protein:52, food:'220g chicken/salmon, 200g potato/rice, big salad, olive oil', time:'12:30'},
+        {name:'Training snack', kcal:300, protein:34, food:'Whey shake + banana', time:'16:00'},
+        {name:'Dinner — Prep Kitchen', kcal:700, protein:55, food:'Filter Higher Protein + Under 500kcal, Regular portion rather than Large', pk:true, pkTag:'MUSCLE GAIN · REGULAR', time:'19:00'},
+        {name:'Evening', kcal:330, protein:30, food:'300g Greek yoghurt + berries', time:'21:00'}
+      ],
+      note: 'Check the rate after four weeks, not after four days. The app compares your actual kg/week against the planned 0.21 on the Progress tab — if it is running under 0.1kg/wk take another 150kcal off, if it is over 0.35kg/wk put 150 back on. Maintenance is an estimate with about ±150kcal of slack in it, and this is how that gets resolved. Alcohol is the other lever and the cheaper one: the two heavy weekends in the log cost roughly 1000kcal each, which is four days of this deficit apiece.'
     }
   },
   prepKitchenNote: 'Plan: <b style="color:var(--ink)">Muscle Gain</b>. Portion: <b style="color:var(--ink)">Large</b> on training/build weeks, <b style="color:var(--ink)">Regular</b> or a lower-carb swap on the post-op rest fortnight. Filter every week for <b style="color:var(--ink)">Higher Protein</b> + <b style="color:var(--ink)">Under 500kcal</b> tags.',
@@ -2134,10 +2114,17 @@ function mergeAlternatesForward(plan){
    altogether, and every stored plan already carries a weightProjection — so a
    revised model would have sat in the defaults forever, invisible.
 
-   Narrow, like the alternates merge. `points` is the committed plan and is
-   never touched: if the projection has been edited, those edits are what the
-   line is drawn from. Only the model around them travels. */
-var PROJECTION_MODEL_KEYS = ['rev','modelNote','creatine','events','tolerance','phases'];
+   A rev bump is a revision of the plan's weight decision, so it carries the
+   curve itself as well as the model around it — a replan that left the old
+   points in place would draw the old plan with the new physiology over it,
+   which is nobody's plan. targetKg travels with them for the same reason: the
+   target line and the curve that lands on it have to agree, or the chart
+   contradicts itself between one merge and the next.
+
+   Still narrow. It touches nothing else, and a plan already at this rev is
+   left alone entirely. */
+var PROJECTION_MODEL_KEYS = ['rev','note','modelNote','points','peakKg','peakDate',
+                             'cutRateKgPerWeek','cutStarts','creatine','events','tolerance','phases'];
 function mergeProjectionForward(plan){
   var dp = DEFAULT_PLAN.weightProjection;
   if(!dp || !plan) return 0;
@@ -2146,6 +2133,20 @@ function mergeProjectionForward(plan){
   if((sp.rev||0) >= (dp.rev||0)) return 0;
   PROJECTION_MODEL_KEYS.forEach(function(k){
     if(dp[k]!==undefined) sp[k] = JSON.parse(JSON.stringify(dp[k]));
+    else delete sp[k];
+  });
+  if(DEFAULT_PLAN.targetKg!=null) plan.targetKg = DEFAULT_PLAN.targetKg;
+  /* The calories travel with the curve, because they are the same decision
+     written twice. A projection that cuts from 2 Nov beside a diet tab still
+     prescribing maintenance is an app arguing with itself, and the person
+     holding it cannot tell which half to believe. That is worse than the small
+     risk this carries of overwriting a hand-edited meal.
+
+     The program-update banner remains the fuller path — it takes sessions and
+     templates too, and it backs the old plan up first. This only keeps the two
+     halves of the weight plan in step in the meantime. */
+  ['dietPhases','dietPhaseBreaks','dietPhaseOrder'].forEach(function(k){
+    if(DEFAULT_PLAN[k]!==undefined) plan[k] = JSON.parse(JSON.stringify(DEFAULT_PLAN[k]));
   });
   return 1;
 }
@@ -2628,9 +2629,9 @@ function planVsActual(){
      it worthless while it still looks confident, and both have to be said out
      loud rather than folded into the number:
 
-     the record has stopped \u2014 the average is from whenever you last stood on
+     the record has stopped — the average is from whenever you last stood on
      the scale, and against a line that has moved since; and the window is thin
-     \u2014 a "7-day average" built from two mornings is one of those mornings plus
+     — a "7-day average" built from two mornings is one of those mornings plus
      an opinion, and a single salty weekend inside it drags the whole thing.
 
      Staleness wins over the gap. Reporting ON PLAN off a fortnight-old number
@@ -6793,17 +6794,31 @@ function drawLineChart(canvas, series, labels, opts){
        beats "11-02" at a glance. The year rides along each January so a line
        running into next summer cannot be misread. */
     ctx.font='11px sans-serif'; ctx.fillStyle='#9AA4B0';
+    var lastRight = -1e9;
     for(var i=0;i<n;i++){
-      var dd = labels[i];
-      if(dd.slice(8) !== '01' && i !== 0) continue;
-      var dt = new Date(dd+'T00:00:00');
+      /* The first column of each month. Testing for the 1st would miss every
+         month on a weekly axis, where the 1st usually isn't a column. */
+      if(i>0 && labels[i].slice(0,7) === labels[i-1].slice(0,7)) continue;
+      var dt = new Date(labels[i]+'T00:00:00');
       var txt = dt.toLocaleDateString('en-GB',{month:'short'});
       if(dt.getMonth()===0 || i===0) txt += ' ' + String(dt.getFullYear()).slice(2);
+      var px = X(i);
       /* Don't draw a label the plot area would clip in half. */
-      if(X(i) < padL+10 || X(i) > W-padR-10) continue;
-      ctx.fillText(txt, X(i), H-4);
+      if(px < padL+10 || px > W-padR-10) continue;
+      /* A January carries its year and is half again as wide, which is exactly
+         where a month-per-tick axis runs out of room. Rather than dropping the
+         year, drop whichever neighbour it would collide with — the gridline
+         still marks the month, so nothing is lost but the word. */
+      var half = ctx.measureText(txt).width/2;
+      if(px - half < lastRight + 6){
+        ctx.save(); ctx.strokeStyle='#232A31'; ctx.lineWidth=1;
+        ctx.beginPath(); ctx.moveTo(px, padT); ctx.lineTo(px, H-padB); ctx.stroke(); ctx.restore();
+        continue;
+      }
+      lastRight = px + half;
+      ctx.fillText(txt, px, H-4);
       ctx.save(); ctx.strokeStyle='#232A31'; ctx.lineWidth=1;
-      ctx.beginPath(); ctx.moveTo(X(i), padT); ctx.lineTo(X(i), H-padB); ctx.stroke(); ctx.restore();
+      ctx.beginPath(); ctx.moveTo(px, padT); ctx.lineTo(px, H-padB); ctx.stroke(); ctx.restore();
     }
     ctx.font='9px sans-serif'; ctx.fillStyle='#8A94A0';
   } else {
@@ -7046,7 +7061,7 @@ function rollingAvg7(sorted){
 
    Weighing is every other day at best, so most columns of the chart have no
    reading of their own. Between two that do, a straight line between them is
-   the honest answer \u2014 it is what the trend did, even if no morning recorded
+   the honest answer — it is what the trend did, even if no morning recorded
    it. Outside that range there is nothing to interpolate from and saying so
    beats inventing a number: before the first weigh-in, and after the last,
    the answer is that there isn't one. */
@@ -7074,7 +7089,7 @@ function renderWeightRead(dateStr){
   if(!box) return;
   if(!dateStr){
     badge.textContent = 'tap the chart';
-    box.innerHTML = '<div class="hint">Tap any point on the chart for that day\u2019s weight against the plan.</div>';
+    box.innerHTML = '<div class="hint">Tap any point on the chart for that day’s weight against the plan.</div>';
     return;
   }
   var today = todayStr();
@@ -7082,22 +7097,22 @@ function renderWeightRead(dateStr){
                     .sort(function(a,b){return a.date.localeCompare(b.date);});
   var plan = projectedKgOn(dateStr);
   var H = [];
-  badge.textContent = fmtDate(dateStr) + (dateStr===today? ' \u00b7 today' : '');
+  badge.textContent = fmtDate(dateStr) + (dateStr===today? ' · today' : '');
 
   if(dateStr > today){
     H.push('<div class="cell"><div class="k">Planned</div><div class="v" style="color:var(--plan)">'+
-           (plan==null?'\u2014':plan.toFixed(1)+'kg')+'<small>'+daysBetween(today,dateStr)+' days from now</small></div></div>');
+           (plan==null?'—':plan.toFixed(1)+'kg')+'<small>'+daysBetween(today,dateStr)+' days from now</small></div></div>');
     var ph = projPhaseOn(dateStr);
     H.push('<div class="cell"><div class="k">Stage</div><div class="v" style="font-size:12.5px;font-family:var(--f-body);font-weight:600">'+
-           (ph? ph.label : '\u2014')+'</div></div>');
+           (ph? ph.label : '—')+'</div></div>');
   } else {
     var act = actualKgOn(dateStr, sorted);
     H.push('<div class="cell"><div class="k">Actual</div><div class="v" style="color:#4FB6C9">'+
-           (act? act.kg.toFixed(1)+'kg' : '\u2014')+
+           (act? act.kg.toFixed(1)+'kg' : '—')+
            '<small>'+(act? (act.exact? 'weighed' : 'est, '+act.gap+'-day gap')
                           : 'not weighed')+'</small></div></div>');
     H.push('<div class="cell"><div class="k">Planned</div><div class="v" style="color:var(--plan)">'+
-           (plan==null?'\u2014':plan.toFixed(1)+'kg')+'<small>\u00b1'+projToleranceOn(dateStr).toFixed(1)+'kg band</small></div></div>');
+           (plan==null?'—':plan.toFixed(1)+'kg')+'<small>±'+projToleranceOn(dateStr).toFixed(1)+'kg band</small></div></div>');
     if(act && plan!=null){
       var d = act.kg - plan, t = projToleranceOn(dateStr);
       var col = Math.abs(d)<=t ? 'var(--green)' : (Math.abs(d)<=t*2 ? 'var(--amber)' : 'var(--red)');
@@ -7119,15 +7134,39 @@ function renderWeightRead(dateStr){
    program. Logged weights land on their own day and days without one are null,
    which leaves the gaps visible where they are. The box scrolls, and it opens
    on today rather than on the end, because the end is ten months away. */
+/* How much of the plan to show. Ten months of daily columns is 1.3 metres of
+   chart, which is right for reading this week and useless for the question the
+   whole projection exists to answer — where does this end up. So the default
+   is the whole plan at weekly resolution, where the arc and the target fit on
+   one screen with no scrolling, and the shorter ranges are there when the last
+   fortnight is what you want instead.
+
+   At weekly resolution the individual weigh-ins are dropped and only the
+   7-day average is drawn. Plotting a single Tuesday morning as though it were
+   the week would put the noise back into the one view that has no room for it. */
+var WT_RANGES = {
+  full: {label:'Whole plan', step:7, back:null,  fwd:null, slot:5},
+  m6:   {label:'6 months',   step:2, back:45,    fwd:135,  slot:4},
+  w6:   {label:'6 weeks',    step:1, back:28,    fwd:14,   slot:9}
+};
+var wtRange = 'full';
 function renderWeightChart(){
   var canvas=document.getElementById('weightChart');
+  var sel = document.getElementById('weightRange');
+  if(sel){ if(sel.value) wtRange = sel.value; sel.onchange = function(){ wtRange = sel.value; canvas._wtSel = null; renderWeightChart(); }; }
+  var R = WT_RANGES[wtRange] || WT_RANGES.full;
+
   var logged = bwLog.filter(function(e){return e.date>=PLAN.trackingStart;})
                     .sort(function(a,b){return a.date.localeCompare(b.date);});
   var today = todayStr();
   var lastLogged = logged.length ? logged[logged.length-1].date : today;
-  var start = PLAN.trackingStart;
   var pts = projPoints();
-  var end = PLAN.programEnd || (pts.length ? pts[pts.length-1][0] : lastLogged);
+  var planEnd = PLAN.programEnd || (pts.length ? pts[pts.length-1][0] : lastLogged);
+
+  var start = R.back==null ? PLAN.trackingStart : addDays(today, -R.back);
+  var end   = R.fwd==null  ? planEnd            : addDays(today,  R.fwd);
+  if(start < PLAN.trackingStart) start = PLAN.trackingStart;
+  if(end > planEnd) end = planEnd;
   if(end < lastLogged) end = lastLogged;
   if(end < today) end = today;
 
@@ -7137,32 +7176,39 @@ function renderWeightChart(){
   var avg = rollingAvg7(logged);
   logged.forEach(function(e,i){ avgByDate[e.date] = avg[i]; });
 
-  var labels=[], kgs=[], avg7=[], plan=[], hi=[], lo=[], target=[], markIndex=-1;
-  var d = start, guard = 0;
-  while(d <= end && guard++ < 4000){
-    if(d === today || (markIndex<0 && d > today)) markIndex = labels.length;
+  var labels=[], kgs=[], avg7=[], interp=[], plan=[], hi=[], lo=[], target=[], markIndex=-1;
+  var d = start, guard = 0, stepped = false;
+  while(guard++ < 4000){
+    /* Sampling every nth day usually steps straight over the end date, which on
+       the whole-plan view is the one column anybody actually wants to tap — the
+       day the target is reached. So the last column is always the end itself. */
+    if(d > end){ if(stepped && labels[labels.length-1] !== end) d = end; else break; }
+    if(d === end) stepped = false;
+    if(markIndex<0 && d >= today) markIndex = labels.length;
     labels.push(d);
-    kgs.push(byDate[d]==null ? null : byDate[d]);
-    avg7.push(avgByDate[d]==null ? null : avgByDate[d]);
+    /* On a sampled axis the average is carried forward from the most recent
+       weigh-in at or before the column, so a week whose readings fall between
+       two columns still lands on the line instead of punching a hole in it. */
+    var a7 = avgByDate[d];
+    if(a7==null && R.step>1){
+      for(var q=0;q<R.step;q++){ var pd=addDays(d,-q); if(avgByDate[pd]!=null){ a7=avgByDate[pd]; break; } }
+    }
+    avg7.push(a7==null? null : a7);
+    kgs.push(R.step>1 ? null : (byDate[d]==null ? null : byDate[d]));
+    var ia = R.step>1 ? null : actualKgOn(d, logged);
+    interp.push((ia && !ia.exact) ? ia.kg : null);
     var pv = projectedKgOn(d);
     plan.push(pv);
     var t = projToleranceOn(d);
     hi.push(pv==null?null:pv+t);
     lo.push(pv==null?null:pv-t);
     target.push(PLAN.targetKg);
-    d = addDays(d,1);
+    if(d === end) break;
+    d = addDays(d, R.step); stepped = true;
   }
+  if(markIndex<0) markIndex = labels.length-1;
 
-  /* Every column is a day, so the actual weight the readout quotes for a day
-     between weigh-ins is drawn too \u2014 otherwise the marker lands on a gap and
-     the number appears to come from nowhere. Faint, and behind the real
-     readings, because it is inference rather than a morning on the scale. */
-  var interp = labels.map(function(d){
-    var a = actualKgOn(d, logged);
-    return (a && !a.exact) ? a.kg : null;
-  });
-
-  sizeChart(canvas, labels.length, 4);
+  sizeChart(canvas, labels.length, R.slot);
   var series = [
     {data:plan, color:'#B48EE8', dashed:true,
      band:{hi:hi, lo:lo}, fill:'rgba(180,142,232,.13)'},
@@ -7171,12 +7217,13 @@ function renderWeightChart(){
     {data:kgs, color:'#4FB6C9', pointsOnly:true, dotR:2.2},
     {data:avg7, color:'#6FCF97', width:2.2}
   ];
-  function paint(sel){
+  function paint(s2){
     drawLineChart(canvas, series, labels,
-      {markIndex:markIndex, markLabel:'today', monthTicks:true, selectIndex:sel});
+      {markIndex:markIndex, markLabel:'today', monthTicks:true, selectIndex:s2});
   }
+  if(canvas._wtSel!=null && canvas._wtSel>=labels.length) canvas._wtSel = null;
   paint(canvas._wtSel==null? null : canvas._wtSel);
-  scrollChartToIndex(canvas, markIndex<0?labels.length-1:markIndex, labels.length, 0.55);
+  scrollChartToIndex(canvas, markIndex, labels.length, 0.55);
 
   /* Tap, or drag along the chart to scrub through it. Pointer events cover
      finger and mouse alike; the touch-action rule is what stops a horizontal

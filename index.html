@@ -33,6 +33,9 @@
     --amber:#E8A33D;
     --green:#6FCF97;
     --red:#E2574C;
+    /* The planned line is neither a measurement nor a goal, so it takes neither
+       the blue of the scale nor the amber of the target. */
+    --plan:#B48EE8;
     --f-display:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
     --f-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
     --f-body:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
@@ -493,6 +496,23 @@
   .log-tbl th,.log-tbl td{white-space:nowrap;}
   .log-tbl td.name{white-space:normal;min-width:90px;}
   .chart-tip{font-size:11px;color:var(--ink-dim);margin:6px 0 0;}
+  /* The plan verdict. One word you can read from across the room, the two
+     numbers behind it, and then the reason — in that order, because the word
+     is what you came for and the reason is what you stay for. */
+  .track-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+  .track-verdict{font-family:var(--f-display);font-size:22px;font-weight:700;letter-spacing:.01em;line-height:1.1;}
+  .track-gap{font-family:var(--f-mono);font-size:14px;color:var(--ink-dim);}
+  .track-gap b{color:var(--ink);font-weight:600;}
+  .track-rows{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin-top:10px;
+    font-size:12.5px;line-height:1.45;}
+  .track-rows dt{color:var(--ink-dim);white-space:nowrap;}
+  .track-rows dd{margin:0;color:var(--ink);}
+  .track-rows dd .mono{font-family:var(--f-mono);}
+  .track-why{font-size:12.5px;color:var(--ink-dim);line-height:1.5;margin:10px 0 0;
+    border-left:2px solid var(--line);padding-left:10px;}
+  .track-why b{color:var(--ink);font-weight:600;}
+  .track-act{margin:10px 0 0;padding:9px 11px;border-radius:6px;font-size:12.5px;line-height:1.5;
+    border:1px solid;background:rgba(0,0,0,.18);}
 
   #summaryOut{width:100%;min-height:180px;font-family:var(--f-mono);font-size:11.5px;line-height:1.5;resize:vertical;}
   #planEditorTextarea{font-family:var(--f-mono);font-size:11px;line-height:1.5;resize:vertical;}
@@ -805,15 +825,23 @@ steps | 8400"></textarea>
     <div id="dayDetailBody"></div>
   </div>
 
+  <div class="card" id="planTrackCard">
+    <div class="card-h"><h2>Weight vs plan</h2><span class="badge" id="planTrackBadge">—</span></div>
+    <div id="planTrackBody"></div>
+  </div>
+
   <div class="card">
     <div class="card-h"><h2>Weight trend</h2></div>
     <div class="chart-box"><canvas id="weightChart"></canvas></div>
     <div class="legend">
       <span><i style="background:#4FB6C9"></i>Weight</span>
       <span><i style="background:#6FCF97"></i>7-day avg</span>
+      <span><i style="background:var(--plan)"></i>Planned</span>
+      <span><i style="background:rgba(180,142,232,.30)"></i>On-plan band</span>
       <span><i style="background:#E8A33D"></i>Target</span>
     </div>
-    <p class="chart-tip">Tap a point to open that day in the log.</p>
+    <p class="chart-tip" id="weightChartNote"></p>
+    <p class="chart-tip">Tap a logged point to open that day in the log. The chart runs to the end of the program — scroll right for the rest of the plan.</p>
   </div>
   <div class="card">
     <div class="card-h"><h2>Lift trend</h2>
@@ -964,7 +992,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-18-2';
+var BUILD = '2026-09-19-1';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -1068,7 +1096,75 @@ var DEFAULT_PLAN = {
       ],
       "peakKg": 96.7,
       "peakDate": "2026-09-08",
-      "cutRateKgPerWeek": 0.24
+      "cutRateKgPerWeek": 0.24,
+      /* Bumped whenever anything below changes, so a stored plan picks the new
+         model up without waiting on the program-update banner. The points above
+         are the committed plan and are never overwritten — see
+         mergeProjectionForward(). */
+      "rev": 2,
+      "modelNote": "The planned line is the committed points above with the water laid over the top: creatine coming on through August, surgical fluid through the rest fortnight, and creatine coming back off near the end. So it reads as a scale weight rather than as fat, and a week that is heavy for a reason can be told apart from a week that has drifted.",
+      /* Creatine pulls water into muscle. It is about a kilo on a 5g/day
+         protocol, it arrives over the first month, and it leaves again over
+         about a month if you stop. None of it is fat, in either direction, so
+         it belongs on the projected line as a step the scale is expected to
+         take rather than as a surprise a fortnight later. Started the second
+         week of August, which puts saturation within a day of the 8 Sep peak
+         above — most of that peak is this. */
+      "creatine": {
+          "startDate": "2026-08-10",
+          "kg": 1.0,
+          "rampDays": 28,
+          /* Stopping is a scale decision, not a training one: it hands back
+             roughly a kilo of water and brings the target forward by about a
+             month, at the cost of what creatine was doing for the training.
+             Set to null to model staying on it to the end. */
+          "stopDate": "2027-05-15",
+          "washoutDays": 28
+      },
+      /* One-off fluid the scale shows and the plan should expect. Each is a
+         trapezoid: up over inDays, flat for holdDays, back to nothing over
+         outDays. */
+      "events": [
+          {
+              "date": "2026-09-19",
+              "kg": 0.8,
+              "inDays": 3,
+              "holdDays": 4,
+              "outDays": 7,
+              "label": "Post-op fluid",
+              "note": "Surgical fluid plus a fortnight off your feet. Up to a kilo, gone again by the end of the rest fortnight. Do not read it as fat and do not cut calories to chase it."
+          }
+      ],
+      /* How far the 7-day average can sit from the line and still be on plan.
+         A single weigh-in swings a kilo on salt and sleep alone, so nothing is
+         judged on one morning, and the band opens to wideKg through any stretch
+         where water is moving on purpose. */
+      "tolerance": {"kg": 1.0, "wideKg": 1.8},
+      /* What the line is doing and why, so the app can name today's stage
+         rather than leaving it to be read off the curve. */
+      "phases": [
+          {"from": "2026-08-25", "to": "2026-09-07", "kind": "water",
+           "label": "Creatine loading in",
+           "note": "The rise here is mostly intramuscular water, not fat. Expect roughly a kilo between the second week of August and the first week of September."},
+          {"from": "2026-09-08", "to": "2026-09-18", "kind": "hold",
+           "label": "Peak — holding at maintenance",
+           "note": "96.7kg is the planned high point of the whole program. Weight flat, working weights climbing, is the outcome to want."},
+          {"from": "2026-09-19", "to": "2026-10-03", "kind": "water",
+           "label": "Post-op fluid & rest fortnight",
+           "note": "The scale is expected to go up here, by up to a kilo, and then come back down on its own. Calories drop to 2500 because there is no training to fuel — hold that even if the number ticks up."},
+          {"from": "2026-10-04", "to": "2026-10-31", "kind": "hold",
+           "label": "Return ramp — still flat",
+           "note": "Back under the bar at 70–80% and building to normal progression by 19 Oct. Weight is meant to sit flat through this, not fall — the deficit waits until training is back to full."},
+          {"from": "2026-11-01", "to": "2027-05-14", "kind": "cut",
+           "label": "Slow cut — 0.24kg/wk",
+           "note": "About a kilo a month. Gentle enough to keep training hard through it, which is the whole point of going this slowly. Read it alongside the strength trend, not on its own."},
+          {"from": "2027-05-15", "to": "2027-06-17", "kind": "cut",
+           "label": "Final cut — creatine off",
+           "note": "Same 0.24kg/wk of tissue, plus about a kilo of creatine water coming back off over four weeks. That water is what brings the target forward."},
+          {"from": "2027-06-18", "to": "2027-07-15", "kind": "target",
+           "label": "At target — hold",
+           "note": "87kg. Nothing left to lose — the line holds here rather than carrying on down."}
+      ]
   },
   planVersion: '2026-09-17-hypertrophy-r11-suitcase',
   /* The first day the new program applies. Anything before it is training that
@@ -2021,6 +2117,26 @@ function mergeAlternatesForward(plan){
   });
   return added;
 }
+/* The projection is the other thing that has to travel to a stored plan on its
+   own. mergeWithDefaults() only ever fills in top-level keys that are missing
+   altogether, and every stored plan already carries a weightProjection — so a
+   revised model would have sat in the defaults forever, invisible.
+
+   Narrow, like the alternates merge. `points` is the committed plan and is
+   never touched: if the projection has been edited, those edits are what the
+   line is drawn from. Only the model around them travels. */
+var PROJECTION_MODEL_KEYS = ['rev','modelNote','creatine','events','tolerance','phases'];
+function mergeProjectionForward(plan){
+  var dp = DEFAULT_PLAN.weightProjection;
+  if(!dp || !plan) return 0;
+  var sp = plan.weightProjection;
+  if(!sp) return 0;                                   /* absent — the top-level merge has it */
+  if((sp.rev||0) >= (dp.rev||0)) return 0;
+  PROJECTION_MODEL_KEYS.forEach(function(k){
+    if(dp[k]!==undefined) sp[k] = JSON.parse(JSON.stringify(dp[k]));
+  });
+  return 1;
+}
 function mergeWithDefaults(stored){
   var merged = {};
   var missing = false;
@@ -2033,6 +2149,7 @@ function mergeWithDefaults(stored){
   }
   for(var k2 in stored){ if(merged[k2]===undefined) merged[k2]=stored[k2]; }
   if(mergeAlternatesForward(merged)) missing = true;
+  if(mergeProjectionForward(merged)) missing = true;
   return {plan:merged, patched:missing};
 }
 async function loadPlan(){
@@ -2242,6 +2359,7 @@ function startTodayAutoRefresh(){
 function renderProgress(){
   renderWeekStats();
   renderAdherenceCalendars();
+  renderPlanTrack();
   renderWeightChart();
   populateLiftChartSelect();
   renderLiftChart();
@@ -2320,6 +2438,179 @@ function fmtDateShort(dateStr){
 function fmtDateLong(dateStr){
   var d=new Date(dateStr+'T00:00:00');
   return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+}
+
+/* ================= WEIGHT PROJECTION =================
+   Where the scale is meant to be, on any given day, and how far off it can sit
+   before that means something.
+
+   PLAN.weightProjection.points is the committed spine: the plan's own decision
+   about weight, expressed as a handful of anchors and read as a scale weight
+   with creatine on board and nothing surgical going on. Everything the body
+   does to the scale that is neither fat nor muscle is modelled on top of that
+   spine as an overlay — creatine loading in over August, surgical fluid over
+   the rest fortnight, creatine washing back out near the end.
+
+   Keeping the two apart is the point. A fortnight that reads a kilo heavy
+   because of an operation is on plan; the same kilo with no reason behind it
+   is not, and the app should be able to tell you which one you are looking at
+   rather than leaving you to guess from a single line. */
+function daysBetween(a,b){
+  return Math.round((new Date(b+'T00:00:00') - new Date(a+'T00:00:00'))/DAY_MS);
+}
+function projSpec(){ return (PLAN && PLAN.weightProjection) || {}; }
+function projPoints(){
+  return (projSpec().points||[])
+    .filter(function(pt){ return pt && pt.length===2 && pt[1]!=null; })
+    .slice()
+    .sort(function(a,b){ return a[0].localeCompare(b[0]); });
+}
+/* Straight lines between the anchors, flat before the first and after the
+   last. The plan states a weight for a date, not a curve, and inventing one
+   between them would be precision the plan does not have. */
+function spineKgOn(dateStr){
+  var pts = projPoints();
+  if(!pts.length) return null;
+  if(dateStr <= pts[0][0]) return pts[0][1];
+  var last = pts[pts.length-1];
+  if(dateStr >= last[0]) return last[1];
+  for(var i=1;i<pts.length;i++){
+    if(dateStr <= pts[i][0]){
+      var span = daysBetween(pts[i-1][0], pts[i][0]);
+      if(!span) return pts[i][1];
+      var f = daysBetween(pts[i-1][0], dateStr)/span;
+      return pts[i-1][1] + (pts[i][1]-pts[i-1][1])*f;
+    }
+  }
+  return last[1];
+}
+/* How much creatine water is on board on a given day: nothing before you
+   start, the full amount once saturated, and back down again over the washout
+   if there is a stop date. */
+function creatineWaterOn(dateStr){
+  var c = projSpec().creatine;
+  if(!c || !c.startDate) return 0;
+  var kg = (c.kg==null ? 1.0 : c.kg);
+  if(dateStr < c.startDate) return 0;
+  var w = kg * Math.min(1, daysBetween(c.startDate, dateStr)/(c.rampDays||28));
+  if(c.stopDate && dateStr > c.stopDate){
+    w = w * Math.max(0, 1 - daysBetween(c.stopDate, dateStr)/(c.washoutDays||28));
+  }
+  return w;
+}
+/* The spine already reads as a saturated scale weight — its first anchor sits
+   a day after creatine saturates — so what goes on top is the difference from
+   saturation, not the raw amount. Negative before the first month is up, and
+   negative again once it washes out. */
+function creatineDeltaOn(dateStr){
+  var c = projSpec().creatine;
+  if(!c || !c.startDate) return 0;
+  return creatineWaterOn(dateStr) - (c.kg==null ? 1.0 : c.kg);
+}
+/* One-off fluid: up, hold, and back to nothing. */
+function eventWaterOn(dateStr){
+  var total = 0;
+  (projSpec().events||[]).forEach(function(ev){
+    if(!ev.date || dateStr < ev.date) return;
+    var d = daysBetween(ev.date, dateStr);
+    var up = ev.inDays||3, hold = ev.holdDays||4, out = ev.outDays||7, kg = ev.kg||0;
+    if(d <= up) total += kg * (up? d/up : 1);
+    else if(d <= up+hold) total += kg;
+    else if(d <= up+hold+out) total += kg * (1 - (d-up-hold)/out);
+  });
+  return total;
+}
+/* The number the scale is expected to read. */
+function projectedKgOn(dateStr){
+  var spine = spineKgOn(dateStr);
+  if(spine==null) return null;
+  var v = spine + creatineDeltaOn(dateStr) + eventWaterOn(dateStr);
+  /* Below target there is nothing left to lose, so the line holds there.
+     Stopping creatine is what usually brings this forward — that last kilo is
+     water, and it arrives without a day of extra deficit. */
+  if(PLAN.targetKg!=null && v < PLAN.targetKg) v = PLAN.targetKg;
+  return v;
+}
+/* The first day the projection is at target, if it gets there inside the plan. */
+function projTargetDate(){
+  var pts = projPoints();
+  if(!pts.length || PLAN.targetKg==null) return null;
+  var d = pts[0][0], end = PLAN.programEnd || pts[pts.length-1][0];
+  while(d <= end){
+    var v = projectedKgOn(d);
+    if(v!=null && v <= PLAN.targetKg + 0.05) return d;
+    d = addDays(d, 1);
+  }
+  return null;
+}
+/* All the water on board on a day, creatine and one-offs together. */
+function totalWaterOn(dateStr){ return creatineDeltaOn(dateStr) + eventWaterOn(dateStr); }
+/* How far the 7-day average can sit from the line and still be on plan. One
+   morning swings a kilo on salt and sleep alone, so nothing is judged on a
+   single weigh-in — and the band opens through any stretch where water is
+   moving on purpose, because there is genuinely less to read in those weeks.
+
+   It opens by how fast the water is moving rather than by a flag, so the band
+   has no cliffs in it. A hard step would look like a fault in the chart, and
+   would claim a precision the model does not have about the day a phase ends. */
+function projToleranceOn(dateStr){
+  var t = projSpec().tolerance || {};
+  var base = t.kg==null ? 1.0 : t.kg, wide = t.wideKg==null ? 1.8 : t.wideKg;
+  var motion = Math.abs(totalWaterOn(addDays(dateStr,3)) - totalWaterOn(addDays(dateStr,-3)));
+  return base + (wide-base) * Math.min(1, motion/0.6);
+}
+function projPhaseOn(dateStr){
+  var ph = projSpec().phases||[];
+  for(var i=0;i<ph.length;i++){
+    if(dateStr >= ph[i].from && (!ph[i].to || dateStr <= ph[i].to)) return ph[i];
+  }
+  return null;
+}
+/* The 7-day average ending on a date, from whatever was actually logged in
+   that window. Null when the window is empty rather than zero — a week with
+   no weigh-ins is missing data, not a weight. */
+function avgKgEnding(sorted, dateStr){
+  var from = addDays(dateStr, -6);
+  var vals = sorted.filter(function(e){ return e.date>=from && e.date<=dateStr; })
+                   .map(function(e){ return e.kg; });
+  if(!vals.length) return null;
+  return vals.reduce(function(a,b){return a+b;},0)/vals.length;
+}
+/* Plan versus scale, as a verdict rather than two numbers to subtract in your
+   head. The gap says where you are; the rate says where you are going, and the
+   rate is what turns first — a fortnight of the wrong slope shows up here
+   while the gap is still inside the band. */
+function planVsActual(){
+  var sorted = bwLog.slice().sort(function(a,b){ return a.date.localeCompare(b.date); });
+  if(!sorted.length) return null;
+  var asOf = sorted[sorted.length-1].date;
+  var avg = avgKgEnding(sorted, asOf);
+  var plan = projectedKgOn(asOf);
+  if(avg==null || plan==null) return null;
+
+  var tol = projToleranceOn(asOf), delta = avg - plan, mag = Math.abs(delta);
+  var status = mag <= tol ? 'on' : (mag <= tol*2 ? 'drift' : 'off');
+
+  /* Rates over the longest window up to 28 days that has an average at both
+     ends. Early in the program there simply isn't 28 days of history yet, and
+     a shorter honest window beats a long one padded out. */
+  var rate = null;
+  for(var back=28; back>=14; back--){
+    var then = addDays(asOf, -back);
+    var a0 = avgKgEnding(sorted, then);
+    if(a0==null) continue;
+    var p0 = projectedKgOn(then);
+    if(p0==null) continue;
+    rate = {days:back, actual:(avg-a0)/(back/7), planned:(plan-p0)/(back/7)};
+    break;
+  }
+  /* A gap inside the band still counts as off plan if the slope is heading the
+     wrong way hard enough to put it outside within the month. */
+  if(rate && status==='on' && Math.abs(rate.actual-rate.planned)*4 > tol) status = 'drift';
+
+  return {asOf:asOf, avg:avg, plan:plan, delta:delta, tol:tol, status:status,
+          rate:rate, phase:projPhaseOn(asOf), latest:sorted[sorted.length-1].kg,
+          n7:sorted.filter(function(e){return e.date>=addDays(asOf,-6) && e.date<=asOf;}).length};
 }
 
 /* ================= PROGRESSION PHASE =================
@@ -6403,6 +6694,19 @@ function scrollChartToEnd(canvas){
   var box = canvas.parentNode;
   requestAnimationFrame(function(){ box.scrollLeft = box.scrollWidth; });
 }
+/* Put a particular column of the chart at `place` across the visible box (0 is
+   the left edge, 1 the right). A chart that runs months into the future has no
+   useful "end" to scroll to — what you want on screen is today, with enough
+   of the past behind it to see the trend and enough of the plan ahead of it to
+   see where it is going. */
+function scrollChartToIndex(canvas, i, n, place){
+  var box = canvas.parentNode;
+  requestAnimationFrame(function(){
+    var w = box.scrollWidth, vis = box.clientWidth;
+    if(w<=vis || n<=1) return;
+    box.scrollLeft = Math.max(0, Math.min(w-vis, w*(i/(n-1)) - vis*(place==null?0.5:place)));
+  });
+}
 function prepCanvas(canvas){
   var dpr = window.devicePixelRatio || 1;
   var w = canvas.clientWidth, h = canvas.clientHeight;
@@ -6412,13 +6716,22 @@ function prepCanvas(canvas){
   ctx.setTransform(dpr,0,0,dpr,0,0);
   return {ctx:ctx, W:w, H:h};
 }
-function drawLineChart(canvas, series, labels){
+function drawLineChart(canvas, series, labels, opts){
+  opts = opts || {};
   var p = prepCanvas(canvas);
   var ctx=p.ctx, W=p.W, H=p.H;
   ctx.clearRect(0,0,W,H);
   var padL=34,padR=8,padT=8,padB=16;
   var allVals=[];
-  series.forEach(function(s){ s.data.forEach(function(v){ if(v!=null) allVals.push(v); }); });
+  series.forEach(function(s){
+    s.data.forEach(function(v){ if(v!=null) allVals.push(v); });
+    /* A band has to be inside the scale too, or the plot clips its own
+       tolerance off at the top of the chart. */
+    if(s.band){
+      s.band.hi.forEach(function(v){ if(v!=null) allVals.push(v); });
+      s.band.lo.forEach(function(v){ if(v!=null) allVals.push(v); });
+    }
+  });
   if(!allVals.length){
     ctx.fillStyle='#8A94A0'; ctx.font='12px sans-serif'; ctx.textAlign='center';
     ctx.fillText('No data logged yet', W/2, H/2);
@@ -6441,27 +6754,64 @@ function drawLineChart(canvas, series, labels){
     ctx.fillText(val.toFixed(0), padL-4, gy+3);
   }
   ctx.textAlign='center';
-  var step=Math.max(1, Math.floor(n/5));
+  /* Five labels is right for a chart that fits the screen and far too few for
+     one that scrolls for a metre. Take whichever rule gives more of them, so a
+     wide chart gets a date roughly every 90px and nothing else loses any. */
+  var step=Math.min(Math.max(1, Math.floor(n/5)),
+                    Math.max(1, Math.round(n/Math.max(2, Math.floor((W-padL-padR)/90)))));
   for(var i=0;i<n;i+=step){
     ctx.fillText(labels[i].slice(5), X(i), H-3);
   }
+  /* Where the record stops and the plan takes over. Without it a projection
+     drawn on the same axes reads as history. */
+  if(opts.markIndex!=null && opts.markIndex>=0 && opts.markIndex<n){
+    ctx.save();
+    ctx.strokeStyle='#8A94A0'; ctx.lineWidth=1; ctx.setLineDash([2,3]);
+    ctx.beginPath(); ctx.moveTo(X(opts.markIndex), padT); ctx.lineTo(X(opts.markIndex), H-padB); ctx.stroke();
+    ctx.restore();
+    if(opts.markLabel){
+      ctx.save(); ctx.fillStyle='#8A94A0'; ctx.font='9px sans-serif';
+      ctx.textAlign = opts.markIndex > n*0.8 ? 'right' : 'left';
+      ctx.fillText(opts.markLabel, X(opts.markIndex) + (opts.markIndex > n*0.8 ? -3 : 3), padT+8);
+      ctx.restore();
+    }
+  }
+  /* Bands go down before the lines, so a line always reads on top of its own
+     tolerance rather than being hidden under it. */
   series.forEach(function(s){
-    ctx.strokeStyle=s.color; ctx.lineWidth=2;
-    ctx.setLineDash(s.dashed? [5,4]:[]);
+    if(!s.band) return;
+    ctx.save(); ctx.fillStyle = s.fill || 'rgba(138,148,160,.14)';
     ctx.beginPath();
-    var started=false;
-    s.data.forEach(function(v,i){
-      if(v==null) return;
-      var px=X(i), py=Y(v);
-      if(!started){ ctx.moveTo(px,py); started=true; } else { ctx.lineTo(px,py); }
-    });
-    ctx.stroke();
-    ctx.setLineDash([]);
-    if(s.points){
+    var open=false, k;
+    for(k=0;k<n;k++){ if(s.band.hi[k]==null) continue;
+      if(!open){ ctx.moveTo(X(k),Y(s.band.hi[k])); open=true; } else ctx.lineTo(X(k),Y(s.band.hi[k])); }
+    for(k=n-1;k>=0;k--){ if(s.band.lo[k]==null) continue; ctx.lineTo(X(k),Y(s.band.lo[k])); }
+    if(open){ ctx.closePath(); ctx.fill(); }
+    ctx.restore();
+  });
+  series.forEach(function(s){
+    if(!s.data.length) return;
+    /* A series can be dots alone. Daily weigh-ins joined up are a zigzag that
+       buries the average running through them, and the average is the line
+       anything is actually judged on. */
+    if(!s.pointsOnly){
+      ctx.strokeStyle=s.color; ctx.lineWidth=s.width||2;
+      ctx.setLineDash(s.dashed? [5,4]:[]);
+      ctx.beginPath();
+      var started=false;
+      s.data.forEach(function(v,i){
+        if(v==null) return;
+        var px=X(i), py=Y(v);
+        if(!started){ ctx.moveTo(px,py); started=true; } else { ctx.lineTo(px,py); }
+      });
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    if(s.points || s.pointsOnly){
       ctx.fillStyle=s.color;
       s.data.forEach(function(v,i){
         if(v==null) return;
-        ctx.beginPath(); ctx.arc(X(i),Y(v),2.5,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(X(i),Y(v),s.dotR||2.5,0,Math.PI*2); ctx.fill();
       });
     }
   });
@@ -6622,21 +6972,145 @@ function rollingAvg7(sorted){
     return vals.reduce(function(a,b){return a+b;},0)/vals.length;
   });
 }
+/* "Is this going to plan?" is the question the scale is actually being asked,
+   and two lines on a chart answer it only if you already know what the gap
+   between them means. So the app says it: where you are against where the plan
+   put you, whether that gap is inside the week's tolerance, and — when it is
+   not — what would have to change.
+
+   The deliberate part is that a gap is never reported without its reason. A
+   fortnight of surgical fluid and a fortnight of overeating look identical on
+   the scale and are not remotely the same thing, and a tracker that cannot tell
+   you which one you are in will have you cutting calories through a recovery. */
+var TRACK_STYLE = {
+  on:    {word:'On plan',   color:'var(--green)', badge:'tracking'},
+  drift: {word:'Drifting',  color:'var(--amber)', badge:'watch'},
+  off:   {word:'Off plan',  color:'var(--red)',   badge:'reassess'}
+};
+function fmtKgDelta(v){ return (v>=0?'+':'−') + Math.abs(v).toFixed(1) + 'kg'; }
+function fmtRate(v){ return (v>=0?'+':'−') + Math.abs(v).toFixed(2) + 'kg/wk'; }
+function renderPlanTrack(){
+  var card = document.getElementById('planTrackCard');
+  var body = document.getElementById('planTrackBody');
+  var badge = document.getElementById('planTrackBadge');
+  var note = document.getElementById('weightChartNote');
+  if(!card || !body) return;
+  if(note) note.textContent = projSpec().modelNote || '';
+
+  var r = planVsActual();
+  if(!r){
+    badge.textContent = 'no data';
+    badge.style.color = badge.style.borderColor = 'var(--ink-dim)';
+    body.innerHTML = '<p class="lead" style="margin:0">Log a few days of bodyweight and this will say whether the scale is where the plan put it.</p>';
+    return;
+  }
+  var st = TRACK_STYLE[r.status];
+  badge.textContent = st.badge;
+  badge.style.color = badge.style.borderColor = st.color;
+
+  var H = [];
+  H.push('<div class="track-head">' +
+         '<span class="track-verdict" style="color:'+st.color+'">'+st.word+'</span>' +
+         '<span class="track-gap"><b>'+r.avg.toFixed(1)+'kg</b> vs plan '+r.plan.toFixed(1)+'kg &middot; '+fmtKgDelta(r.delta)+'</span>' +
+         '</div>');
+
+  H.push('<dl class="track-rows">');
+  H.push('<dt>Stage</dt><dd>'+(r.phase? r.phase.label : 'Between stages')+'</dd>');
+  H.push('<dt>7-day average</dt><dd><span class="mono">'+r.avg.toFixed(1)+'kg</span> from '+r.n7+' weigh-in'+(r.n7===1?'':'s')+
+         ', latest <span class="mono">'+r.latest.toFixed(1)+'kg</span> on '+fmtDateShort(r.asOf)+'</dd>');
+  H.push('<dt>On-plan band</dt><dd><span class="mono">'+(r.plan-r.tol).toFixed(1)+'–'+(r.plan+r.tol).toFixed(1)+'kg</span> this week'+
+         (r.tol > ((projSpec().tolerance||{}).kg==null?1.0:projSpec().tolerance.kg)+0.05
+            ? ' &mdash; wider than usual, because water is moving on purpose' : '')+'</dd>');
+  if(r.rate){
+    H.push('<dt>Last '+r.rate.days+' days</dt><dd><span class="mono">'+fmtRate(r.rate.actual)+'</span> actual vs <span class="mono">'+
+           fmtRate(r.rate.planned)+'</span> planned</dd>');
+  } else {
+    H.push('<dt>Rate</dt><dd>Not enough history yet — needs about a fortnight of weigh-ins either side.</dd>');
+  }
+  var td = projTargetDate();
+  if(td) H.push('<dt>Target</dt><dd>'+PLAN.targetKg.toFixed(1)+'kg projected '+fmtDateLong(td)+'</dd>');
+  H.push('</dl>');
+
+  if(r.phase && r.phase.note){
+    H.push('<p class="track-why"><b>Why the line does this now.</b> '+r.phase.note+'</p>');
+  }
+
+  /* What to do about it. Only ever one instruction, and for the two statuses
+     that are fine the instruction is to leave it alone — which is worth saying
+     out loud, because a scale going the wrong way is exactly when people stop
+     doing the thing that was working. */
+  var act;
+  if(r.status==='on'){
+    act = 'Nothing to change. The scale is where the plan put it, so judge the next fortnight on whether the working weights are still climbing rather than on the number.';
+  } else if(r.status==='drift'){
+    act = 'Worth watching, not worth acting on yet. Keep weighing daily and give it two more weeks — if the gap is still opening by then it is real, and this will say so.';
+  } else {
+    var over = r.delta > 0;
+    act = 'The gap is more than twice this week’s tolerance, which is past what water and weighing noise explain. ' +
+      (over ? 'Check the intake against 2800kcal for a fortnight before changing anything — an unlogged few hundred a day is the usual cause, and the fix is logging, not cutting.'
+            : 'Losing faster than planned puts the muscle at risk, which is the one thing this plan was built to avoid. Check protein is landing at 200g and that the working weights have not stalled.') +
+      ' If it holds after that, the plan needs reassessing rather than more discipline.';
+  }
+  H.push('<p class="track-act" style="border-color:'+st.color+';color:var(--ink)">'+act+'</p>');
+
+  body.innerHTML = H.join('');
+}
+
+/* The weight chart is the one chart with a future. Everything else here plots
+   what happened; this one has to put what happened next to what was supposed to
+   happen, months past the last weigh-in, which means the x-axis cannot be "the
+   days you logged" any more — on that axis a projection would be squeezed into
+   the last pixel and the gaps in the record would silently close up.
+
+   So: one row per calendar day from the start of tracking to the end of the
+   program. Logged weights land on their own day and days without one are null,
+   which leaves the gaps visible where they are. The box scrolls, and it opens
+   on today rather than on the end, because the end is ten months away. */
 function renderWeightChart(){
   var canvas=document.getElementById('weightChart');
-  var sorted = bwLog.filter(function(e){return e.date>=PLAN.trackingStart;}).sort(function(a,b){return a.date.localeCompare(b.date);});
-  var labels = sorted.map(function(e){return e.date;});
-  var kgs = sorted.map(function(e){return e.kg;});
-  var avg7 = rollingAvg7(sorted);
-  var target = labels.map(function(){return PLAN.targetKg;});
-  sizeChart(canvas, labels.length, 12);
+  var logged = bwLog.filter(function(e){return e.date>=PLAN.trackingStart;})
+                    .sort(function(a,b){return a.date.localeCompare(b.date);});
+  var today = todayStr();
+  var lastLogged = logged.length ? logged[logged.length-1].date : today;
+  var start = PLAN.trackingStart;
+  var pts = projPoints();
+  var end = PLAN.programEnd || (pts.length ? pts[pts.length-1][0] : lastLogged);
+  if(end < lastLogged) end = lastLogged;
+  if(end < today) end = today;
+
+  var byDate = {};
+  logged.forEach(function(e){ byDate[e.date] = e.kg; });
+  var avgByDate = {};
+  var avg = rollingAvg7(logged);
+  logged.forEach(function(e,i){ avgByDate[e.date] = avg[i]; });
+
+  var labels=[], kgs=[], avg7=[], plan=[], hi=[], lo=[], target=[], markIndex=-1;
+  var d = start, guard = 0;
+  while(d <= end && guard++ < 4000){
+    if(d === today || (markIndex<0 && d > today)) markIndex = labels.length;
+    labels.push(d);
+    kgs.push(byDate[d]==null ? null : byDate[d]);
+    avg7.push(avgByDate[d]==null ? null : avgByDate[d]);
+    var pv = projectedKgOn(d);
+    plan.push(pv);
+    var t = projToleranceOn(d);
+    hi.push(pv==null?null:pv+t);
+    lo.push(pv==null?null:pv-t);
+    target.push(PLAN.targetKg);
+    d = addDays(d,1);
+  }
+
+  sizeChart(canvas, labels.length, 4);
   drawLineChart(canvas, [
-    {data:kgs, color:'#4FB6C9', points:true},
-    {data:avg7, color:'#6FCF97', dashed:true},
-    {data:target, color:'#E8A33D', dashed:true}
-  ], labels);
-  scrollChartToEnd(canvas);
-  attachChartTap(canvas, function(hit){ openLogFor('bw', hit.key); });
+    {data:plan, color:'#B48EE8', dashed:true,
+     band:{hi:hi, lo:lo}, fill:'rgba(180,142,232,.13)'},
+    {data:target, color:'#E8A33D', dashed:true},
+    {data:kgs, color:'#4FB6C9', pointsOnly:true, dotR:2.2},
+    {data:avg7, color:'#6FCF97', width:2.2}
+  ], labels, {markIndex:markIndex, markLabel:'today'});
+  scrollChartToIndex(canvas, markIndex<0?labels.length-1:markIndex, labels.length, 0.55);
+  /* Tapping a day that hasn't happened yet has nothing to open. */
+  attachChartTap(canvas, function(hit){ if(hit.key <= today) openLogFor('bw', hit.key); });
 }
 function populateLiftChartSelect(){
   var sel = document.getElementById('liftChartSelect');
@@ -7273,9 +7747,29 @@ function generateSummary(){
   L.push('  Rate this week    '+(weeklyRate!=null? (weeklyRate>=0?'+':'')+weeklyRate.toFixed(2)+'kg/wk' : 'need 2 weeks of data'));
   L.push('  Since start       '+(first&&latest? ((latest.kg-first.kg>=0?'+':'')+(latest.kg-first.kg).toFixed(1)+'kg from '+first.kg.toFixed(1)+'kg on '+first.date) : 'n/a'));
   L.push('  To target         '+(toGo!=null? toGo.toFixed(1)+'kg over ~'+weeksLeft+' weeks' : 'n/a'));
-  L.push('  Required rate     '+(neededRate!=null? (neededRate>=0?'+':'')+neededRate.toFixed(2)+'kg/wk' : 'n/a')+
-         (weeklyRate!=null && neededRate!=null ? '   → currently '+(weeklyRate<=neededRate? 'ON or AHEAD of pace':'BEHIND pace') : ''));
+  L.push('  Straight-line     '+(neededRate!=null? (neededRate>=0?'+':'')+neededRate.toFixed(2)+'kg/wk needed from here' : 'n/a')+
+         (weeklyRate!=null && neededRate!=null ? '   → '+(weeklyRate<=neededRate? 'ON or AHEAD of that pace':'BEHIND that pace') : ''));
   L.push('  Entries logged    '+bw.length);
+  /* The straight line above ignores everything the plan actually says: that
+     weight is meant to sit flat until November, that an operation puts a kilo
+     of fluid on in September, and that creatine comes off at the end. This is
+     the same question asked against the real projected line. */
+  var pv = planVsActual();
+  if(pv){
+    var word = {on:'ON PLAN', drift:'DRIFTING — watch', off:'OFF PLAN — reassess'}[pv.status];
+    L.push('');
+    L.push('  VS PLANNED LINE');
+    L.push('    Stage           '+(pv.phase? pv.phase.label : 'between stages'));
+    L.push('    Planned today   '+pv.plan.toFixed(1)+'kg   (on-plan band '+(pv.plan-pv.tol).toFixed(1)+'–'+(pv.plan+pv.tol).toFixed(1)+'kg)');
+    L.push('    Actual 7-day    '+pv.avg.toFixed(1)+'kg   '+(pv.delta>=0?'+':'−')+Math.abs(pv.delta).toFixed(1)+'kg vs plan');
+    if(pv.rate){
+      L.push('    Rate, '+pv.rate.days+' days    '+(pv.rate.actual>=0?'+':'−')+Math.abs(pv.rate.actual).toFixed(2)+
+             'kg/wk actual vs '+(pv.rate.planned>=0?'+':'−')+Math.abs(pv.rate.planned).toFixed(2)+'kg/wk planned');
+    }
+    L.push('    Verdict         '+word);
+    var ptd = projTargetDate();
+    if(ptd) L.push('    Target          '+PLAN.targetKg.toFixed(1)+'kg projected '+fmtDateLong(ptd));
+  }
   L.push('');
   L.push('DIET   (target '+(tgt? tgt.kcal+' kcal / '+tgt.protein+'P / '+tgt.carbs+'C / '+tgt.fat+'F':'n/a')+')');
   function row(label,a,b){ return '  '+pad(label,20)+pad(a,14)+b; }

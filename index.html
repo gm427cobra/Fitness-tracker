@@ -987,7 +987,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-19-9';
+var BUILD = '2026-09-19-10';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -1034,7 +1034,7 @@ var DEFAULT_PLAN = {
   totalProgramDays: 84,
   profile: {heightCm: 178, age: 45, sex: 'male'},
   "weightProjection": {
-      "note": "Revised 19 Sep: target 88kg on 15 July, reached on the date rather than before it, building block first and the cut last. The deficit starts on 1 January \u2014 Christmas and New Year are spent at maintenance, which is both realistic and free, since nothing before then was ever a deficit anyway. That buys a longer building block, ten weeks rather than eight, and costs two weeks of cutting: the deficit works out at about 385kcal a day, 0.35kg a week, 0.38% of bodyweight. Gentle enough that the bar should not notice it. Everything before 1 Jan is maintenance on purpose \u2014 the post-op fortnight, the return ramp and the build block \u2014 because coming back from a layoff on a new program is the one window for adding muscle that expires. Because maintenance falls as you get lighter, the calories step down once, in April, so the deficit stays the size it says it is. Still no surplus: at this body fat it would land mostly as fat.",
+      "note": "Revised 19 Sep: target 88kg on 15 July, reached on the date rather than before it, building block first and the cut last. The deficit starts on 1 January — Christmas and New Year are spent at maintenance, which is both realistic and free, since nothing before then was ever a deficit anyway. That buys a longer building block, nine weeks of it, and costs two weeks of cutting: the deficit works out at about 385kcal a day, 0.35kg a week, 0.38% of bodyweight. Gentle enough that the bar should not notice it. Two water bumps are modelled rather than left to surprise you — surgical fluid through the post-op fortnight, and about 1.2kg of glycogen and salt water over Christmas that washes out by mid-January. Neither is fat and neither changes where the line ends. Because maintenance falls as you get lighter, the calories step down once in April so the deficit stays the size it says it is. Still no surplus: at this body fat it would land mostly as fat.",
       "points": [
           ["2026-09-08", 96.70],
           ["2026-09-19", 96.51],
@@ -1048,11 +1048,11 @@ var DEFAULT_PLAN = {
           ["2027-07-01", 87.62],
           ["2027-07-15", 86.93]
       ],
-      "peakKg": 98.3,
-      "peakDate": "2026-09-26",
+      "peakKg": 98.9,
+      "peakDate": "2027-01-01",
       "cutRateKgPerWeek": 0.35,
       "cutStarts": "2027-01-01",
-      "rev": 7,
+      "rev": 8,
       "modelNote": "The planned line is the committed points above with the water laid over the top: creatine loading in from 31 Aug to late September, and surgical fluid through the rest fortnight. So it reads as a scale weight rather than as fat, and a week that is heavy for a reason can be told apart from a week that has drifted. About 1.1kg of the line from October on is creatine water, which is why 88kg on the scale with creatine on board is nearer 87kg of you.",
       /* Creatine pulls water into muscle. None of it is fat, so it belongs on
          the projected line as a step the scale is expected to take rather than
@@ -1105,6 +1105,15 @@ var DEFAULT_PLAN = {
               "outDays": 7,
               "label": "Post-op fluid",
               "note": "Surgical fluid plus a fortnight off your feet. Up to a kilo, gone again by the end of the rest fortnight. Do not read it as fat and do not cut calories to chase it."
+          },
+          {
+              "date": "2026-12-20",
+              "kg": 1.2,
+              "inDays": 12,
+              "holdDays": 2,
+              "outDays": 14,
+              "label": "Christmas water",
+              "note": "Glycogen, sodium and gut content, not fat. Festive eating runs far higher in carbohydrate and salt than the build block does, and each gram of glycogen stored drags about three grams of water in with it. Peaks around New Year and is gone by mid-January. Budgeted at 1.2kg on the assumption Christmas lands near maintenance \u2014 a genuine surplus adds fat on top of this, and that part does not wash out in January."
           }
       ],
       /* How far the 7-day average can sit from the line and still be on plan.
@@ -1127,12 +1136,15 @@ var DEFAULT_PLAN = {
           {"from": "2026-10-04", "to": "2026-10-18", "kind": "hold",
            "label": "Return ramp — hold at maintenance",
            "note": "Back under the bar at 70–90% for two weeks, eating 2700. A deficit here would waste the fastest regain of the year. Weight sits around 97.7kg."},
-          {"from": "2026-10-19", "to": "2026-12-31", "kind": "hold",
-           "label": "Build block — maintenance, 10 weeks",
+          {"from": "2026-10-19", "to": "2026-12-19", "kind": "hold",
+           "label": "Build block — maintenance, 9 weeks",
            "note": "The part of the plan that adds muscle, and it is taken first on purpose. Coming back from a layoff on a new program with body fat to spare is the most productive window you get, and it closes by spring whether it is used or not — leanness, by contrast, keeps. So: 2700kcal, 200g protein, weight flat at 97.7, and progress read entirely off the strength log. Flat scale with climbing loads is the whole objective here. No surplus: at this body fat it would land mostly as fat and buy very little the maintenance does not."},
+          {"from": "2026-12-20", "to": "2026-12-31", "kind": "water",
+           "label": "Christmas — the bump is water",
+           "note": "The line rises about 1.2kg here and none of it is fat. Festive food is higher in carbohydrate and much higher in salt than the build block, and stored glycogen carries roughly three times its own weight in water. Still eating to maintenance on paper, so enjoy it and do not weigh yourself into a bad mood. What matters is that it comes back off in the first fortnight of January, which the line already assumes."},
           {"from": "2027-01-01", "to": "2027-03-31", "kind": "cut",
            "label": "Cut — first half",
-           "note": "0.35kg a week on 2270kcal, protein held at 200g. That is about 385 under maintenance — gentle enough that training should not notice it, and starting on 1 Jan rather than mid-December is what makes Christmas cost nothing. Judge it on the 7-day average, and expect the first fortnight to move oddly: glycogen and water go before fat does, and after a fortnight of eating freely there will be a good deal of both."},
+           "note": "0.35kg a week on 2270kcal, protein held at 200g. That is about 385 under maintenance — gentle enough that training should not notice it, and starting on 1 Jan rather than mid-December is what makes Christmas cost nothing. The first fortnight will fall far faster than 0.35 a week and the line says so on purpose: the Christmas water is coming back off, about 1.2kg of it, and it is gone by the 17th. Do not read that as the diet working unusually well, and do not panic when it stops. The real rate only becomes readable from about the 20th."},
           {"from": "2027-04-01", "to": "2027-07-14", "kind": "cut",
            "label": "Cut — second half",
            "note": "The same deficit at a lighter bodyweight, so 2175 rather than 2270. A lighter body burns less, and holding the old number would quietly shrink the deficit towards nothing by June. Check the rate here against the planned 0.35: under 0.2kg/wk take 150 more off, over 0.5 put 150 back."},

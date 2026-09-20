@@ -1003,7 +1003,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-20-1';
+var BUILD = '2026-09-20-2';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -1068,7 +1068,7 @@ var DEFAULT_PLAN = {
       "peakDate": "2027-01-01",
       "cutRateKgPerWeek": 0.35,
       "cutStarts": "2027-01-01",
-      "rev": 8,
+      "rev": 9,
       "modelNote": "The planned line is the committed points above with the water laid over the top: creatine loading in from 31 Aug to late September, and surgical fluid through the rest fortnight. So it reads as a scale weight rather than as fat, and a week that is heavy for a reason can be told apart from a week that has drifted. About 1.1kg of the line from October on is creatine water, which is why 88kg on the scale with creatine on board is nearer 87kg of you.",
       /* Creatine pulls water into muscle. None of it is fat, so it belongs on
          the projected line as a step the scale is expected to take rather than
@@ -1154,7 +1154,7 @@ var DEFAULT_PLAN = {
            "note": "Back under the bar at 70–90% for two weeks, eating 2700. A deficit here would waste the fastest regain of the year. Weight sits around 97.7kg."},
           {"from": "2026-10-19", "to": "2026-12-19", "kind": "hold",
            "label": "Build block — maintenance, 9 weeks",
-           "note": "The part of the plan that adds muscle, and it is taken first on purpose. Coming back from a layoff on a new program with body fat to spare is the most productive window you get, and it closes by spring whether it is used or not — leanness, by contrast, keeps. So: 2700kcal, 200g protein, weight flat at 97.7, and progress read entirely off the strength log. Flat scale with climbing loads is the whole objective here. No surplus: at this body fat it would land mostly as fat and buy very little the maintenance does not."},
+           "note": "The part of the plan that adds muscle, and it is taken first on purpose. Coming back from a layoff on a new program with body fat to spare is the most productive window you get, and it closes by spring whether it is used or not — leanness, by contrast, keeps. The flat line here is a target, not a prediction that nothing happens: a kilo of muscle on and a kilo of fat off is zero change on the scale, so flat at 97.7 with climbing loads IS the muscle being added. Worth knowing that holding flat while genuinely gaining is a slight deficit rather than dead-level maintenance — muscle is mostly water and cheap by weight, fat is energy-dense, so trading them evenly releases about 80kcal a day. 2700 is the opening estimate and the scale is the feedback. If it drifts up half a kilo while the loads climb, that is mostly muscle and it is fine; drifting up while the loads sit still is fat, and 150kcal comes off."},
           {"from": "2026-12-20", "to": "2026-12-31", "kind": "water",
            "label": "Christmas — the bump is water",
            "note": "The line rises about 1.2kg here and none of it is fat. Festive food is higher in carbohydrate and much higher in salt than the build block, and stored glycogen carries roughly three times its own weight in water. Still eating to maintenance on paper, so enjoy it and do not weigh yourself into a bad mood. What matters is that it comes back off in the first fortnight of January, which the line already assumes."},
@@ -1925,7 +1925,7 @@ var DEFAULT_PLAN = {
         {name:'Dinner — Prep Kitchen', kcal:735, protein:55, food:'Same filter — pick the higher-protein dish of the week', pk:true, pkTag:'MUSCLE GAIN · LARGE', time:'19:00'},
         {name:'Evening', kcal:400, protein:21, food:'300g Greek yoghurt, 30g granola (nut-free), banana', time:'21:00'}
       ],
-      note: 'Around maintenance, deliberately, and this is where the muscle is meant to come from — nineteen weeks of it from the return ramp through to mid-February. Flat weight with climbing working weights is the whole objective, and it is the only combination that says muscle is going on while fat comes off. Judge it on the strength log and the 7-day average together, never on one morning. No surplus: at this body fat it would land mostly as fat. Sat 19 Sep (op day): ignore these numbers and follow the hospital\'s pre-op fasting instructions instead.'
+      note: 'Around maintenance, deliberately, and this is where the muscle is meant to come from — nineteen weeks of it from the return ramp through to the end of December. Flat weight with climbing working weights is the whole objective, and it is the only combination that shows muscle going on while fat comes off: the scale reads the same whether the block worked perfectly or did nothing, which is why the Strength trend card on Progress exists. Read the two together. A flat scale and rising loads is the block working. A rising scale with rising loads is acceptable — some of it is muscle. A rising scale with flat loads is fat, and 150kcal comes off. No surplus: at this body fat it would land mostly as fat. Sat 19 Sep (op day): ignore these numbers and follow the hospital\'s pre-op fasting instructions instead.'
     },
     rest: {
       label:'Post-Op Rest — 2wk', dateRange:'20 Sep – 3 Oct', kcal:2400, protein:200, carbs:210, fat:85,

@@ -1003,7 +1003,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-20-2';
+var BUILD = '2026-09-24-1';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -1050,7 +1050,7 @@ var DEFAULT_PLAN = {
   totalProgramDays: 84,
   profile: {heightCm: 178, age: 45, sex: 'male'},
   "weightProjection": {
-      "note": "Revised 19 Sep: target 88kg on 15 July, reached on the date rather than before it, building block first and the cut last. The deficit starts on 1 January — Christmas and New Year are spent at maintenance, which is both realistic and free, since nothing before then was ever a deficit anyway. That buys a longer building block, nine weeks of it, and costs two weeks of cutting: the deficit works out at about 385kcal a day, 0.35kg a week, 0.38% of bodyweight. Gentle enough that the bar should not notice it. Two water bumps are modelled rather than left to surprise you — surgical fluid through the post-op fortnight, and about 1.2kg of glycogen and salt water over Christmas that washes out by mid-January. Neither is fat and neither changes where the line ends. Because maintenance falls as you get lighter, the calories step down once in April so the deficit stays the size it says it is. Still no surplus: at this body fat it would land mostly as fat.",
+      "note": "Revised 19 Sep: target 88kg on 15 July, reached on the date rather than before it, building block first and the cut last. The deficit starts on 1 January — Christmas and New Year are spent at maintenance, which is both realistic and free, since nothing before then was ever a deficit anyway. That buys a longer building block, nine weeks of it, and costs two weeks of cutting: the deficit works out at about 385kcal a day, 0.35kg a week, 0.38% of bodyweight. Gentle enough that the bar should not notice it. One water bump is modelled rather than left to surprise you: about 1.2kg of glycogen and salt water over Christmas that washes out by mid-January. It is not fat and it does not change where the line ends. (A second, for surgical fluid after the op, was taken out on 24 Sep — the scale fell through the fortnight it was meant to rise in.) Because maintenance falls as you get lighter, the calories step down once in April so the deficit stays the size it says it is. Still no surplus: at this body fat it would land mostly as fat.",
       "points": [
           ["2026-09-08", 96.70],
           ["2026-09-19", 96.51],
@@ -1068,8 +1068,8 @@ var DEFAULT_PLAN = {
       "peakDate": "2027-01-01",
       "cutRateKgPerWeek": 0.35,
       "cutStarts": "2027-01-01",
-      "rev": 9,
-      "modelNote": "The planned line is the committed points above with the water laid over the top: creatine loading in from 31 Aug to late September, and surgical fluid through the rest fortnight. So it reads as a scale weight rather than as fat, and a week that is heavy for a reason can be told apart from a week that has drifted. About 1.1kg of the line from October on is creatine water, which is why 88kg on the scale with creatine on board is nearer 87kg of you.",
+      "rev": 10,
+      "modelNote": "The planned line is the committed points above with the water laid over the top: creatine loading in from 31 Aug to late September, and Christmas water over the festive fortnight. So it reads as a scale weight rather than as fat, and a week that is heavy for a reason can be told apart from a week that has drifted. About 1.1kg of the line from October on is creatine water, which is why 88kg on the scale with creatine on board is nearer 87kg of you.",
       /* Creatine pulls water into muscle. None of it is fat, so it belongs on
          the projected line as a step the scale is expected to take rather than
          as a surprise a fortnight later. */
@@ -1113,15 +1113,16 @@ var DEFAULT_PLAN = {
          trapezoid: up over inDays, flat for holdDays, back to nothing over
          outDays. */
       "events": [
-          {
-              "date": "2026-09-19",
-              "kg": 0.8,
-              "inDays": 3,
-              "holdDays": 4,
-              "outDays": 7,
-              "label": "Post-op fluid",
-              "note": "Surgical fluid plus a fortnight off your feet. Up to a kilo, gone again by the end of the rest fortnight. Do not read it as fat and do not cut calories to chase it."
-          },
+          /* There was a post-op fluid event here: 0.8kg in from op day, gone by
+             3 Oct. Taken out on 24 Sep because the scale refuted it. The 7-day
+             average was 97.2kg going in and the mornings since read 97.4,
+             96.7, 96.0 — down 1.7kg through the days it was meant to be at its
+             highest. Surgical fluid from a procedure this size may simply not
+             be enough to see under day-to-day noise, and whatever there was is
+             swamped by what the rest fortnight does the other way: about 300kcal
+             and 50g of carbohydrate a day less than the fortnight before, and
+             so a little less glycogen and gut content on board. Drawing a bump
+             the scale is visibly not taking only teaches you to ignore the line. */
           {
               "date": "2026-12-20",
               "kg": 1.2,
@@ -1147,8 +1148,8 @@ var DEFAULT_PLAN = {
            "label": "Creatine loading in",
            "note": "7g/day from 31 Aug. Around 1.5kg of water pulled into muscle over four weeks, so the scale rises without a gram of fat being added. Your own note that day said not to read it as fat gain — that still stands."},
           {"from": "2026-09-19", "to": "2026-10-03", "kind": "water",
-           "label": "Post-op — fluid up, weight held",
-           "note": "Nothing is meant to come off here. Surgical fluid and creatine that has not finished arriving both push the scale up, and the highest number of the whole program falls in this fortnight — around 98.3kg. Eat to 2400 and hold: that is maintenance without training to fuel, and protein stays at 200g because healing needs it. Do not cut to chase the number."},
+           "label": "Post-op — weight held",
+           "note": "Nothing is meant to come off here, and nothing is meant to go on either. The line creeps up about half a kilo on creatine that is still finishing arriving, and was drawn with a surgical-fluid bump on top until 24 Sep, when the scale showed it was not happening. What it has done instead is drift down — less food, fewer carbs and no training empties a little glycogen, and glycogen carries water. That is water, not fat, and expect most of it back when the return ramp puts the carbs back. Eat to 2400 and hold: that is maintenance without training to fuel, and protein stays at 200g because healing needs it. Do not cut to chase the number, and do not read a low one as a head start."},
           {"from": "2026-10-04", "to": "2026-10-18", "kind": "hold",
            "label": "Return ramp — hold at maintenance",
            "note": "Back under the bar at 70–90% for two weeks, eating 2700. A deficit here would waste the fastest regain of the year. Weight sits around 97.7kg."},
@@ -1936,7 +1937,7 @@ var DEFAULT_PLAN = {
         {name:'Dinner — Prep Kitchen', kcal:700, protein:55, food:'Protein target does not drop just because training has stopped', pk:true, pkTag:'MUSCLE GAIN · LARGE', time:'19:00'},
         {name:'Evening', kcal:360, protein:30, food:'300g Greek yoghurt + berries', time:'21:00'}
       ],
-      note: 'Lower than the training weeks because there is no training to fuel — this is maintenance for a fortnight of walking, not a diet. Protein stays at 200g: healing is the one job on, and it is built from protein. The scale will go UP through this fortnight, by as much as a kilo and a half, on surgical fluid and creatine that is still arriving. That is in the plan. Hold these numbers anyway and do not cut to chase it.'
+      note: 'Lower than the training weeks because there is no training to fuel — this is maintenance for a fortnight of walking, not a diet. Protein stays at 200g: healing is the one job on, and it is built from protein. The scale may well come DOWN through this fortnight — fewer carbs and no training hold less glycogen, and glycogen holds water — and it comes back when the training weeks do. That is water either way. Hold these numbers and do not read it as the diet starting early.'
     },
     /* The only phase with a deficit in it, and it is a small one: about
        250kcal/day, which is a kilo a month. Anything faster would come off
@@ -2510,8 +2511,8 @@ function fmtDateLong(dateStr){
    about weight, expressed as a handful of anchors and read as a scale weight
    with creatine on board and nothing surgical going on. Everything the body
    does to the scale that is neither fat nor muscle is modelled on top of that
-   spine as an overlay — creatine loading in over August, surgical fluid over
-   the rest fortnight, creatine washing back out near the end.
+   spine as an overlay — creatine loading in over September, water over
+   Christmas, creatine washing back out near the end.
 
    Keeping the two apart is the point. A fortnight that reads a kilo heavy
    because of an operation is on plan; the same kilo with no reason behind it

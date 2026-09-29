@@ -526,6 +526,60 @@
   h3.section{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);margin:16px 0 8px;font-weight:600;}
   .divider{height:1px;background:var(--line);margin:14px 0;}
 
+  /* ---- Reference text folds away -----------------------------------------
+     What you act on stays on the screen; why it is that way opens on a tap.
+     The plan's notes, the phase reasoning and the how-this-works paragraphs
+     were read once and then scrolled past every session after. */
+  details.more{margin:8px 0 0;}
+  details.more summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+    font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-dim);font-weight:600;
+    padding:4px 0;-webkit-user-select:none;user-select:none;}
+  details.more summary::-webkit-details-marker{display:none;}
+  details.more summary::before{content:"▸";font-size:10px;transition:transform .15s;}
+  details.more[open] summary::before{transform:rotate(90deg);}
+  details.more summary:active{color:var(--blue);}
+  details.more .body{font-size:12.5px;color:var(--ink-dim);line-height:1.5;margin-top:4px;}
+  details.more .body b{color:var(--ink);}
+  details.more .body .field{margin-top:8px;}
+  .note-strip details.more{margin:2px 0 0;}
+  .note-strip details.more summary{padding:2px 0;}
+  /* A whole card that folds: header stays, body opens under it. */
+  .card-h.toggle{cursor:pointer;margin-bottom:0;}
+  .card-h.toggle.open{margin-bottom:10px;}
+  .card-h-r{display:inline-flex;align-items:center;gap:8px;}
+  /* Stretch cues: the hold and the name are what you follow on the floor; the
+     coaching sentence under each is there the first few times and then not. */
+  .st-block .stnote,.st-block .st-routine-note{display:none;}
+  .st-block.cues .stnote,.st-block.cues .st-routine-note{display:block;}
+  .block-h .r{display:inline-flex;align-items:baseline;gap:8px;}
+  .cue-btn{background:none;border:1px solid var(--line);border-radius:12px;color:var(--ink-dim);
+    font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;cursor:pointer;
+    font-family:var(--f-body);line-height:1.4;}
+  .cue-btn.on{color:var(--blue);border-color:var(--blue);}
+  /* Target, logged and left as one table rather than three grids and three
+     headings: the comparison is read down a column. */
+  .macro-tbl{width:100%;border-collapse:collapse;margin:0 0 4px;}
+  .macro-tbl th{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-dim);
+    font-weight:600;text-align:left;padding:5px 4px;border-bottom:1px solid var(--line);white-space:nowrap;}
+  .macro-tbl thead th{text-align:right;}
+  .macro-tbl thead th:first-child{text-align:left;}
+  .macro-tbl td{font-family:var(--f-mono);text-align:right;padding:6px 4px;border-bottom:1px solid var(--line);font-size:14px;}
+  .macro-tbl tr.rem td{font-weight:700;}
+  .macro-tbl tbody tr:last-child td,.macro-tbl tbody tr:last-child th{border-bottom:none;}
+  /* One log form at a time. Five open forms was a screen and a half of empty
+     fields to scroll past before the history. */
+  .seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-bottom:12px;background:rgba(0,0,0,.15);}
+  .seg button{flex:1;background:none;border:none;border-right:1px solid var(--line);color:var(--ink-dim);
+    padding:9px 2px;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;font-weight:600;
+    font-family:var(--f-body);cursor:pointer;}
+  .seg button:last-child{border-right:none;}
+  .seg button.on{background:rgba(79,182,201,.14);color:var(--blue);}
+  .log-form{display:none;}
+  .log-form.on{display:block;}
+  /* Weeks already gone by fold under one line so today is near the top. */
+  details.past-weeks{margin:0 0 4px;}
+  details.past-weeks summary{padding:8px 0;}
+
   .login-screen{
     position:fixed;inset:0;background:var(--bg);z-index:200;
     display:flex;align-items:center;justify-content:center;padding:20px;
@@ -533,7 +587,6 @@
   .login-card{width:100%;max-width:340px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:22px;}
   .login-card .plate-title{margin-bottom:2px;}
   .login-card .plate-name{margin-bottom:16px;}
-  .signout{position:absolute;top:16px;right:16px;background:none;border:1px solid var(--line);color:var(--ink-dim);border-radius:20px;padding:4px 11px;font-size:10px;letter-spacing:.05em;cursor:pointer;font-family:var(--f-body);}
   .qa-card{border-color:var(--blue) !important;}  /* No horizontal padding: sticky pins to the scrollport's padding edge, so a
      14px inset left a strip beside the label that cells scrolled through. */
   .wk-scroll-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;}
@@ -566,8 +619,6 @@
 </div>
 
 <div id="appRoot" style="display:none">
-
-<button class="signout" onclick="doSignOut()">Sign out</button>
 
 <div id="storageWarning" class="note-strip red" style="display:none;margin:12px 16px 0;">Saved entries aren't persisting, so anything you log will be lost on reload.</div>
 
@@ -615,45 +666,61 @@
 
 <div class="view" id="view-plan">
   <div class="note-strip" id="planUpdateStrip" style="display:none"></div>
-  <div class="note-strip blue" id="planNote"></div>
+  <details class="more" id="planNoteWrap" style="display:none;margin:0 0 10px">
+    <summary>About this program</summary>
+    <div class="body" id="planNote"></div>
+  </details>
   <div id="planList"></div>
 
   <div class="card">
-    <div class="card-h"><h2>Machine inventory</h2><span class="badge" id="equipCount">—</span></div>
-    <p class="lead">The machines available to you, and nothing else — your plan's movements are on the Plan
-      and Today tabs. Add a machine's photo here; exercise photos go on the Today tab. Drives the
-      "if it's busy" swaps, and exports for Claude.</p>
-    <button class="btn full" style="margin-bottom:8px" onclick="copyEquipmentPrompt()">Copy prompt to build the inventory</button>
-    <button class="btn full" style="margin-bottom:8px" onclick="copyEquipment()">Copy inventory for Claude</button>
-    <button class="btn ghost full" style="margin-bottom:8px" onclick="downloadEquipment()">Download inventory (.txt)</button>
-    <input type="text" id="equipSearch" placeholder="Search machines…" oninput="renderEquipment()">
-    <p class="lead" id="equipTally" style="margin:8px 0 0"></p>
-    <div id="equipList" style="margin-top:10px"></div>
-    <div class="divider"></div>
-    <h3 class="section" style="margin-top:0">Add or update a machine</h3>
-    <div class="field"><label>Name</label><input type="text" id="equipName" placeholder="Cybex Eagle NX Arm Curl"></div>
-    <div class="field"><label>Trains (semicolon separated)</label><input type="text" id="equipMuscles" placeholder="biceps; elbow flexion"></div>
-    <div class="field"><label>Used for</label><input type="text" id="equipExercises" placeholder="Machine Arm Curl"></div>
-    <div class="field"><label>Loads in</label><input type="text" id="equipUnit" placeholder="kg"></div>
-    <div class="field"><label>Notes</label><input type="text" id="equipNotes" placeholder="Stack maxes at 103kg"></div>
-    <button class="btn full" style="margin-top:8px" onclick="addEquipment()">Save machine</button>
+    <div class="card-h toggle" onclick="toggleCard('equipBody','equipChev')">
+      <h2>Machine inventory</h2>
+      <span class="card-h-r"><span class="badge" id="equipCount">—</span><span class="chev" id="equipChev">▾</span></span>
+    </div>
+    <div id="equipBody" style="display:none">
+      <input type="text" id="equipSearch" placeholder="Search machines…" oninput="renderEquipment()">
+      <p class="lead" id="equipTally" style="margin:8px 0 0"></p>
+      <div id="equipList" style="margin-top:10px"></div>
+      <p class="lead" id="equipMsg" style="margin:8px 0 0"></p>
 
-    <div class="divider"></div>
-    <h3 class="section" style="margin-top:0">Load machines from Claude</h3>
-    <p class="lead">Paste one machine, a list of them, or pipe lines. Keyed by name, so re-pasting a
-      machine corrects it rather than adding a second one.</p>
-    <textarea id="equipPaste" rows="4" placeholder='{"type":"equipment","name":"Pit Shark Belt Squat","muscles":"quads; glutes","exercises":"Belt Squat","unit":"kg","notes":"Plate-loaded"}'></textarea>
-    <button class="btn full" style="margin-top:8px" onclick="importEquipmentPaste()">Load machines</button>
+      <details class="more">
+        <summary>Add or update a machine</summary>
+        <div class="body">
+          <div class="field"><label>Name</label><input type="text" id="equipName" placeholder="Cybex Eagle NX Arm Curl"></div>
+          <div class="field"><label>Trains (semicolon separated)</label><input type="text" id="equipMuscles" placeholder="biceps; elbow flexion"></div>
+          <div class="field"><label>Used for</label><input type="text" id="equipExercises" placeholder="Machine Arm Curl"></div>
+          <div class="field"><label>Loads in</label><input type="text" id="equipUnit" placeholder="kg"></div>
+          <div class="field"><label>Notes</label><input type="text" id="equipNotes" placeholder="Stack maxes at 103kg"></div>
+          <button class="btn full" style="margin-top:4px" onclick="addEquipment()">Save machine</button>
+        </div>
+      </details>
 
-    <p class="lead" id="equipMsg" style="margin:8px 0 0"></p>
+      <details class="more">
+        <summary>Load machines from Claude</summary>
+        <div class="body">
+          Paste one machine, a list, or pipe lines. Keyed by name, so re-pasting a machine corrects it rather than adding a second one.
+          <textarea id="equipPaste" rows="4" style="margin-top:8px" placeholder='{"type":"equipment","name":"Pit Shark Belt Squat","muscles":"quads; glutes","exercises":"Belt Squat","unit":"kg","notes":"Plate-loaded"}'></textarea>
+          <button class="btn full" style="margin-top:8px" onclick="importEquipmentPaste()">Load machines</button>
+        </div>
+      </details>
+
+      <details class="more">
+        <summary>Export for Claude</summary>
+        <div class="body">
+          <button class="btn full" style="margin:6px 0 8px" onclick="copyEquipmentPrompt()">Copy prompt to build the inventory</button>
+          <button class="btn full" style="margin-bottom:8px" onclick="copyEquipment()">Copy inventory for Claude</button>
+          <button class="btn ghost full" onclick="downloadEquipment()">Download inventory (.txt)</button>
+        </div>
+      </details>
+    </div>
   </div>
 
   <div class="card">
-    <div class="card-h" onclick="togglePlanEditor()" style="cursor:pointer">
-      <h2>Edit Plan Data</h2><span class="chev" id="planEditorChev">▾</span>
+    <div class="card-h toggle" id="planEditorHead" onclick="togglePlanEditor()">
+      <h2>Edit plan data</h2><span class="chev" id="planEditorChev">▾</span>
     </div>
     <div id="planEditorBody" style="display:none">
-      <p class="lead">Paste an updated plan from Claude here, or edit directly, then save. Writes straight to your synced storage — no file, no GitHub.</p>
+      <p class="lead">Paste an updated plan from Claude, or edit directly. Saves straight to your account.</p>
       <textarea id="planEditorTextarea" rows="16"></textarea>
       <div id="planEditorMsg" class="note-strip" style="display:none;margin-top:8px"></div>
       <button class="btn full" style="margin-top:8px" onclick="savePlanFromEditor()">Save plan</button>
@@ -676,16 +743,89 @@
     <div id="sheetBody"></div>
   </div>
 
-  <div class="card">
-    <div class="card-h"><h2>Paste from Claude</h2></div>
-    <p class="lead">Paste a block and check it before it saves. No length limit, unlike a link.</p>
-    <textarea id="pasteBox" rows="6" placeholder="2026-08-29
-food | Oats 40g (dry) | 150 | 5 | 24 | 3
-lift | Leg Press | 160 | 10,10,9,8
-steps | 8400"></textarea>
-    <button class="btn full" style="margin-top:8px" onclick="previewPaste()">Check what this will add</button>
-    <div id="pasteOut" style="display:none;margin-top:10px"></div>
+  <div class="card" id="logEntryCard">
+    <div class="card-h"><h2>Log an entry</h2></div>
+    <div class="seg" id="logSeg">
+      <button type="button" data-form="bw" onclick="showLogForm('bw')">Weight</button>
+      <button type="button" data-form="steps" onclick="showLogForm('steps')">Steps</button>
+      <button type="button" data-form="food" onclick="showLogForm('food')">Food</button>
+      <button type="button" data-form="lift" onclick="showLogForm('lift')">Lift</button>
+      <button type="button" data-form="note" onclick="showLogForm('note')">Note</button>
+    </div>
+
+    <div class="log-form" data-form="bw">
+      <div class="row2">
+        <div class="field"><label>Date</label><input type="date" id="bwDate"></div>
+        <div class="field"><label>Weight (kg)</label><input type="number" step="0.1" id="bwVal" placeholder="93.4"></div>
+      </div>
+      <button class="btn full" onclick="addBodyweight()">Save weight</button>
+    </div>
+
+    <div class="log-form" data-form="steps">
+      <div class="row2">
+        <div class="field"><label>Date</label><input type="date" id="stepDate"></div>
+        <div class="field"><label>Steps</label><input type="number" step="100" id="stepVal"></div>
+      </div>
+      <button class="btn full" onclick="addSteps()">Save steps</button>
+    </div>
+
+    <div class="log-form" data-form="food">
+      <div class="row2">
+        <div class="field"><label>Date</label><input type="date" id="foodDate"></div>
+        <div class="field"><label>Meal</label><select id="foodMeal"></select></div>
+      </div>
+      <div class="field"><label>Item</label><input type="text" id="foodName" placeholder="Chicken breast 200g"></div>
+      <div class="row4">
+        <div class="field"><label>Kcal</label><input type="number" id="foodKcal"></div>
+        <div class="field"><label>Protein</label><input type="number" id="foodProtein"></div>
+        <div class="field"><label>Carbs</label><input type="number" id="foodCarbs"></div>
+        <div class="field"><label>Fat</label><input type="number" id="foodFat"></div>
+      </div>
+      <button class="btn full" onclick="addFood()">Save food</button>
+
+      <div class="divider"></div>
+      <div class="card-h"><h2>Repeat a meal</h2>
+        <select id="mealLibDate" style="font-size:12px;padding:5px 8px;width:auto"></select>
+      </div>
+      <input type="text" id="mealLibSearch" placeholder="Search past meals and items…" oninput="renderMealLibrary()">
+      <div id="mealLibOut" style="margin-top:10px"></div>
+      <details class="more">
+        <summary>How this works</summary>
+        <div class="body">Anything logged before, ready to add again — whole meals first, then single items. Change the quantity before you add and the macros scale with it.</div>
+      </details>
+    </div>
+
+    <div class="log-form" data-form="lift">
+      <div class="field"><label>Date</label><input type="date" id="liftDate"></div>
+      <div class="field"><label>Exercise</label>
+        <!-- Options are built from the plan at runtime — see populateLiftExerciseSelect(). -->
+        <select id="liftExercise"></select>
+      </div>
+      <div id="liftExerciseOther" class="field" style="display:none"><label>Exercise name</label><input type="text" id="liftExerciseOtherVal"></div>
+      <div class="row4">
+        <div class="field"><label>Weight</label><input type="number" step="0.5" id="liftWeight"></div>
+        <div class="field"><label>Unit</label>
+          <!-- Preselected from the plan by syncLiftUnit() when the exercise changes. -->
+          <select id="liftUnit"><option value="kg">kg</option><option value="lb">lb</option></select>
+        </div>
+        <!-- Relabelled from the plan by syncLiftUnit(): a carry is metres, a hold seconds. -->
+        <div class="field"><label id="liftRepsLabel">Reps</label><input type="number" id="liftReps"></div>
+        <div class="field"><label>Sets</label><input type="number" id="liftSets"></div>
+      </div>
+      <button class="btn full" onclick="addLift()">Save lift</button>
+      <p class="chart-tip">The session sheet above logs today's planned lifts set by set; this is for anything else.</p>
+    </div>
+
+    <div class="log-form" data-form="note">
+      <div class="row2">
+        <div class="field"><label>Date</label><input type="date" id="noteDate"></div>
+        <div class="field"><label>Shoulder (0–10 pain)</label><input type="number" min="0" max="10" id="notePain"></div>
+      </div>
+      <div class="field"><label>Notes</label><textarea id="noteText" rows="2" placeholder="Energy, hunger, training quality..."></textarea></div>
+      <button class="btn full ghost" onclick="addNote()">Save note</button>
+    </div>
   </div>
+
   <div class="card" id="logHistoryCard">
     <div class="card-h"><h2>History</h2>
       <select id="histType" onchange="setHistType(this.value)" style="font-size:12px;padding:5px 8px;width:auto">
@@ -704,83 +844,21 @@ steps | 8400"></textarea>
   </div>
 
   <div class="card">
-    <div class="card-h"><h2>Repeat a meal</h2>
-      <select id="mealLibDate" style="font-size:12px;padding:5px 8px;width:auto"></select>
+    <div class="card-h toggle" onclick="toggleCard('pasteBody','pasteChev')">
+      <h2>Paste from Claude</h2><span class="chev" id="pasteChev">▾</span>
     </div>
-    <p class="lead">Anything logged before, ready to add again. Whole meals first, then single items.
-      Change the quantity before you add and the macros come with it — three dates last week, four tonight.</p>
-    <input type="text" id="mealLibSearch" placeholder="Search meals and items…" oninput="renderMealLibrary()">
-    <div id="mealLibOut" style="margin-top:10px"></div>
-  </div>
-
-  <div class="card">
-    <div class="card-h"><h2>Log bodyweight</h2></div>
-    <div class="row2">
-      <div class="field"><label>Date</label><input type="date" id="bwDate"></div>
-      <div class="field"><label>Weight (kg)</label><input type="number" step="0.1" id="bwVal" placeholder="93.4"></div>
+    <div id="pasteBody" style="display:none">
+      <textarea id="pasteBox" rows="6" placeholder="2026-08-29
+food | Oats 40g (dry) | 150 | 5 | 24 | 3
+lift | Leg Press | 160 | 10,10,9,8
+steps | 8400"></textarea>
+      <button class="btn full" style="margin-top:8px" onclick="previewPaste()">Check what this will add</button>
+      <div id="pasteOut" style="display:none;margin-top:10px"></div>
     </div>
-    <button class="btn full" onclick="addBodyweight()">Save weight</button>
-  </div>
-
-  <div class="card">
-    <div class="card-h"><h2>Log steps</h2></div>
-    <div class="row2">
-      <div class="field"><label>Date</label><input type="date" id="stepDate"></div>
-      <div class="field"><label>Steps</label><input type="number" step="100" id="stepVal"></div>
-    </div>
-    <button class="btn full" onclick="addSteps()">Save steps</button>
-  </div>
-
-  <div class="card">
-    <div class="card-h"><h2>Log food</h2></div>
-    <div class="row2">
-      <div class="field"><label>Date</label><input type="date" id="foodDate"></div>
-      <div class="field"><label>Meal</label><select id="foodMeal"></select></div>
-    </div>
-    <div class="field"><label>Item</label><input type="text" id="foodName" placeholder="Chicken breast 200g"></div>
-    <div class="row4">
-      <div class="field"><label>Kcal</label><input type="number" id="foodKcal"></div>
-      <div class="field"><label>Protein</label><input type="number" id="foodProtein"></div>
-      <div class="field"><label>Carbs</label><input type="number" id="foodCarbs"></div>
-      <div class="field"><label>Fat</label><input type="number" id="foodFat"></div>
-    </div>
-    <button class="btn full" onclick="addFood()">Save food</button>
-  </div>
-
-  <div class="card">
-    <div class="card-h"><h2>Log a lift</h2></div>
-    <div class="field"><label>Date</label><input type="date" id="liftDate"></div>
-    <div class="field"><label>Exercise</label>
-      <!-- Options are built from the plan at runtime — see populateLiftExerciseSelect(). -->
-      <select id="liftExercise"></select>
-    </div>
-    <div id="liftExerciseOther" class="field" style="display:none"><label>Exercise name</label><input type="text" id="liftExerciseOtherVal"></div>
-    <div class="row4">
-      <div class="field"><label>Weight</label><input type="number" step="0.5" id="liftWeight"></div>
-      <div class="field"><label>Unit</label>
-        <!-- Preselected from the plan by syncLiftUnit() when the exercise changes. -->
-        <select id="liftUnit"><option value="kg">kg</option><option value="lb">lb</option></select>
-      </div>
-      <!-- Relabelled from the plan by syncLiftUnit(): a carry is metres, a hold seconds. -->
-      <div class="field"><label id="liftRepsLabel">Reps</label><input type="number" id="liftReps"></div>
-      <div class="field"><label>Sets</label><input type="number" id="liftSets"></div>
-    </div>
-    <button class="btn full" onclick="addLift()">Save lift</button>
-  </div>
-
-  <div class="card">
-    <div class="card-h"><h2>Check-in note</h2></div>
-    <div class="row2">
-      <div class="field"><label>Date</label><input type="date" id="noteDate"></div>
-      <div class="field"><label>Shoulder (0–10 pain)</label><input type="number" min="0" max="10" id="notePain"></div>
-    </div>
-    <div class="field"><label>Notes</label><textarea id="noteText" rows="2" placeholder="Energy, hunger, training quality..."></textarea></div>
-    <button class="btn full ghost" onclick="addNote()">Save note</button>
   </div>
 </div>
 
 <div class="view" id="view-drinks">
-  <div class="note-strip">Watch point: the run-up to Christmas tends to be where units creep. Jan–Mar is usually dry for you — logging both makes that pattern visible rather than assumed.</div>
   <div class="card">
     <div class="card-h"><h2>Log units</h2></div>
     <div class="field"><label>Drink</label><input type="text" id="alcName" placeholder="e.g. Guinness pint"></div>
@@ -789,8 +867,12 @@ steps | 8400"></textarea>
       <div class="field"><label>Units</label><input type="number" step="0.5" id="alcVal"></div>
       <div class="field"><label>kcal (opt)</label><input type="number" step="10" id="alcKcal" placeholder="auto"></div>
     </div>
-    <p class="lead" style="margin:6px 0 8px">Leave kcal blank and it's estimated at 56 kcal per unit (pure alcohol). Enter it yourself for beer, cider or mixers, where the sugars add a lot on top.</p>
     <button class="btn full amber" onclick="addAlcohol()">Save</button>
+    <details class="more">
+      <summary>About the kcal estimate</summary>
+      <div class="body">Left blank, kcal is estimated at 56 per unit — pure alcohol only. Enter it yourself for beer, cider or mixers, where the sugars add a lot on top.
+      Watch point: the run-up to Christmas is where units tend to creep, and Jan–Mar is usually dry — logging both makes the pattern visible rather than assumed.</div>
+    </details>
   </div>
   <div class="card">
     <div class="card-h"><h2>This week</h2><span class="badge" style="color:var(--amber);border-color:var(--amber)" id="weekUnitsBadge">0 units</span></div>
@@ -822,8 +904,11 @@ steps | 8400"></textarea>
       <span><i style="background:var(--amber)"></i>Partial</span>
       <span><i style="background:var(--red)"></i>Off / missed</span>
     </div>
-    <p class="lead" style="margin:8px 0 0">Scroll left for earlier days. Tap any cell for the full breakdown.
-      Alcohol is units drunk that day, green up to the guideline&rsquo;s daily share of 2 — a blank day is a dry day, not a missing one.</p>
+    <p class="chart-tip">Scroll left for earlier days · tap a cell for the breakdown.</p>
+    <details class="more">
+      <summary>How days are scored</summary>
+      <div class="body">Alcohol is units drunk that day, green up to the guideline&rsquo;s daily share of 2 — a blank day is a dry day, not a missing one.</div>
+    </details>
   </div>
 
   <div class="card" id="dayDetailCard" style="display:none">
@@ -860,7 +945,7 @@ steps | 8400"></textarea>
     </div>
     <div class="chart-box"><canvas id="liftChart"></canvas></div>
     <p class="chart-tip" id="liftChartUnit"></p>
-    <p class="chart-tip">Tap a point for that session in the log.</p>
+    <p class="chart-tip">Tap a point to open that session in the log.</p>
   </div>
 
   <div class="card">
@@ -880,7 +965,11 @@ steps | 8400"></textarea>
       <span><i style="background:#6FCF97"></i>Resting + exercise</span>
     </div>
     <p class="lead" id="calorieChartNote" style="margin:8px 0 0"></p>
-    <p class="chart-tip">Tap the blue or amber part of a bar for that day's food or drinks; tap elsewhere in the column for everything logged that day.</p>
+    <details class="more">
+      <summary>How this is worked out</summary>
+      <div class="body">Bars are what went in, lines what went out. Resting is Mifflin-St Jeor from your details on the Tools tab; exercise is estimated from volume and steps, with no heart rate, so read it as a direction rather than a budget.
+      Tap the blue or amber part of a bar for that day's food or drinks; tap elsewhere in the column for everything logged that day.</div>
+    </details>
   </div>
 
   <div class="card">
@@ -892,54 +981,67 @@ steps | 8400"></textarea>
       <span><i style="background:#E2574C"></i>UK guideline (14/wk)</span>
     </div>
     <p class="lead" id="alcTrendNote" style="margin:8px 0 0"></p>
-    <p class="chart-tip">Tap a bar to see those drinks in the log.</p>
+    <details class="more">
+      <summary>About the guideline</summary>
+      <div class="body">The UK low-risk guideline is 14 units a week for men and women alike, best spread over three or more days. The blue line is your trailing seven-day total, so it is directly comparable. Tap a bar to see those drinks in the log.</div>
+    </details>
   </div>
 </div>
 
 
 <div class="view" id="view-tools">
   <div class="card">
+    <div class="card-h"><h2>Check-in summary</h2></div>
+    <button class="btn full" onclick="generateSummary()">Generate summary for Claude</button>
+    <textarea id="summaryOut" readonly placeholder="Tap generate…" style="margin-top:8px"></textarea>
+    <button class="btn ghost full" style="margin-top:8px" onclick="copySummary()">Copy to clipboard</button>
+  </div>
+
+  <div class="card">
     <div class="card-h"><h2>Your details</h2></div>
-    <p class="lead">Used for the resting-calorie estimate on the Progress chart (Mifflin-St Jeor). Nothing else reads them.</p>
     <div class="row3">
       <div class="field"><label>Height (cm)</label><input type="number" id="profHeight"></div>
       <div class="field"><label>Age</label><input type="number" id="profAge"></div>
       <div class="field"><label>Sex</label><select id="profSex"><option value="male">Male</option><option value="female">Female</option></select></div>
     </div>
-    <button class="btn full" style="margin-top:8px" onclick="saveProfile()">Save details</button>
+    <button class="btn full" onclick="saveProfile()">Save details</button>
     <p class="lead" id="profileMsg" style="margin:8px 0 0"></p>
+    <p class="chart-tip">Only used for the resting-calorie estimate on Progress (Mifflin-St Jeor).</p>
   </div>
 
   <div class="card">
-    <div class="card-h"><h2>Check-in summary</h2></div>
-    <p class="lead">Generates a text block to copy and paste to Claude for your regular check-in.</p>
-    <button class="btn full" onclick="generateSummary()">Generate summary</button>
-    <div class="divider"></div>
-    <textarea id="summaryOut" readonly placeholder="Tap generate..."></textarea>
-    <button class="btn ghost full" style="margin-top:8px" onclick="copySummary()">Copy to clipboard</button>
-  </div>
-
-  <div class="card">
-    <div class="card-h"><h2>Data &amp; import format</h2></div>
-    <p class="lead">Hand the spec to Claude so it builds links this version can read. Regenerated from the app itself, so it stays correct as the app changes.</p>
+    <div class="card-h"><h2>Data &amp; import</h2></div>
     <button class="btn full" style="margin-bottom:8px" onclick="copyImportSpec()">Copy import spec for Claude</button>
     <button class="btn ghost full" style="margin-bottom:8px" onclick="downloadImportSpec()">Download spec (.txt)</button>
-    <button class="btn ghost full" style="margin-bottom:8px" onclick="downloadMyData()">Download all my data (.json)</button>
-    <p class="lead" id="exportMsg" style="margin:0"></p>
+    <button class="btn ghost full" onclick="downloadMyData()">Download all my data (.json)</button>
+    <p class="lead" id="exportMsg" style="margin:8px 0 0"></p>
+    <details class="more">
+      <summary>What the spec is for</summary>
+      <div class="body">Hand it to Claude so it builds links and paste blocks this version can read. It is generated from the app itself, so it stays correct as the app changes.</div>
+    </details>
   </div>
 
   <div class="card">
-    <p class="lead" style="margin:0 0 8px">Build <span id="buildStamp"></span></p>
-    <p class="lead" id="diagLine" style="margin:0 0 8px;font-family:var(--f-mono);font-size:11px"></p>
-    <button class="btn ghost full" style="margin-bottom:8px" onclick="reportSessionLengths()">Check session lengths</button>
-    <button class="btn ghost full" style="margin-bottom:8px" onclick="reportExercisePhotos()">Check exercise photos</button>
-    <button class="btn ghost full" style="margin-bottom:8px" onclick="runPlanDiagnostics()">Check plan in cloud</button>
-    <button class="btn full" style="margin-bottom:8px" onclick="pushPlanToCloud()">Push this device's plan to my account</button>
-    <button class="btn ghost full" style="margin-bottom:8px" onclick="restoreLocalPlan()">Restore the plan saved on this device</button>
-    <button class="btn ghost full" style="margin-bottom:8px" onclick="restorePlanBackup()">Undo the last program update</button>
-    <button class="btn ghost full" style="margin-bottom:8px" onclick="resetPlanToBuiltIn()">Replace plan with the app's built-in program</button>
-    <pre id="planDiagOut" style="display:none;white-space:pre-wrap;word-break:break-word;font-family:var(--f-mono);font-size:11px;color:var(--ink-dim);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:6px;padding:9px;margin:0 0 8px"></pre>
-    <button class="btn ghost full" onclick="applyUpdate()">Force reload latest version</button>
+    <div class="card-h"><h2>App</h2><span class="badge" id="buildStamp"></span></div>
+    <p class="lead" id="diagLine" style="margin:0 0 10px;font-family:var(--f-mono);font-size:11px"></p>
+    <div style="display:flex;gap:8px">
+      <button class="btn ghost" style="flex:1" onclick="applyUpdate()">Reload latest version</button>
+      <button class="btn ghost" style="flex:1" onclick="doSignOut()">Sign out</button>
+    </div>
+    <details class="more">
+      <summary>Diagnostics &amp; plan recovery</summary>
+      <div class="body">
+        <button class="btn ghost full" style="margin:6px 0 8px" onclick="reportSessionLengths()">Check session lengths</button>
+        <button class="btn ghost full" style="margin-bottom:8px" onclick="reportExercisePhotos()">Check exercise photos</button>
+        <button class="btn ghost full" style="margin-bottom:8px" onclick="runPlanDiagnostics()">Check plan in cloud</button>
+        <pre id="planDiagOut" style="display:none;white-space:pre-wrap;word-break:break-word;font-family:var(--f-mono);font-size:11px;color:var(--ink-dim);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:6px;padding:9px;margin:0 0 8px"></pre>
+        <div class="divider"></div>
+        <button class="btn full" style="margin-bottom:8px" onclick="pushPlanToCloud()">Push this device's plan to my account</button>
+        <button class="btn ghost full" style="margin-bottom:8px" onclick="restoreLocalPlan()">Restore the plan saved on this device</button>
+        <button class="btn ghost full" style="margin-bottom:8px" onclick="restorePlanBackup()">Undo the last program update</button>
+        <button class="btn ghost full" onclick="resetPlanToBuiltIn()">Replace plan with the app's built-in program</button>
+      </div>
+    </details>
   </div>
 </div>
 
@@ -2365,11 +2467,8 @@ function renderHomeScreenHint(){
   if(!iOS || isStandaloneApp() || dismissed){ el.style.display = 'none'; return; }
   el.style.display = 'block';
   el.innerHTML =
-    '<b>Tap the tabs twice down there?</b><br>' +
-    'That is Safari, not the app: a tap near the bottom edge opens its toolbar first. ' +
-    'The buttons now sit clear of that strip, but the real fix is to add this to your ' +
-    'Home Screen — Share → <b>Add to Home Screen</b>. It then opens with no browser bars ' +
-    'at all, and the tabs are exactly where you put your thumb.' +
+    '<b>Tabs need two taps?</b> That is Safari\'s toolbar, not the app. ' +
+    'Share → <b>Add to Home Screen</b> and it opens with no browser bars at all.' +
     '<button class="btn ghost full" style="margin-top:8px" onclick="dismissHomeScreenHint()">Got it</button>';
 }
 function dismissHomeScreenHint(){
@@ -2404,6 +2503,33 @@ function showView(name){
   if(name==='progress'){ renderProgress(); }
   if(name==='tools'){ renderTools(); }
   if(name==='drinks'){ renderAlcoholChart(); }
+}
+/* A card whose body folds under its header. The chevron and the header's
+   spacing follow the body, so a closed card reads as one line. */
+function toggleCard(bodyId, chevId){
+  var body = document.getElementById(bodyId);
+  if(!body) return;
+  var opening = body.style.display === 'none';
+  body.style.display = opening ? 'block' : 'none';
+  var chev = chevId ? document.getElementById(chevId) : null;
+  if(chev) chev.classList.toggle('open', opening);
+  var head = body.previousElementSibling;
+  if(head && head.classList.contains('toggle')) head.classList.toggle('open', opening);
+}
+/* One manual log form on screen at a time. The choice sticks, since the one
+   you log by hand tends to be the same one every day. */
+function showLogForm(key){
+  var forms = document.querySelectorAll('#logEntryCard .log-form');
+  var found = false;
+  for(var i=0;i<forms.length;i++){
+    var on = forms[i].getAttribute('data-form') === key;
+    forms[i].classList.toggle('on', on);
+    if(on) found = true;
+  }
+  if(!found){ showLogForm('bw'); return; }
+  var btns = document.querySelectorAll('#logSeg button');
+  for(var j=0;j<btns.length;j++) btns[j].classList.toggle('on', btns[j].getAttribute('data-form') === key);
+  try{ if(hasLocalStorage()) localStorage.setItem('buildlog_log_form', key); }catch(e){}
 }
 /* Pace is time-of-day sensitive, so tick the Today tab over while it's open.
    Only re-renders when that view is actually visible. */
@@ -2731,7 +2857,9 @@ function phaseStripHtml(dateStr){
   var head = 'Phase ' + p.id + ' — ' + p.label;
   if(p.loadPct)    head += ' · ' + Math.round(p.loadPct*100) + '% of your Phase A weights';
   if(p.rirTarget)  head += ' · RIR ' + p.rirTarget;
-  return '<div class="note-strip'+cls+'"><b>'+head+'</b><br>'+p.note+'</div>';
+  return '<div class="note-strip'+cls+'"><b>'+head+'</b>'+
+         (p.note ? '<details class="more"><summary>Why</summary><div class="body">'+p.note+'</div></details>' : '')+
+         '</div>';
 }
 
 /* ================= HEADER RING ================= */
@@ -2904,20 +3032,35 @@ function sessionClockHtml(c){
    innerHTML would rebuild and break them. */
 function renderStretchBlock(routine, containerEl){
   if(!routine || !routine.items || !routine.items.length) return;
+  /* Name and hold are what you follow on the floor. The coaching sentence
+     under each one is there for the first few sessions and then it is noise,
+     so the block opens with them folded and one tap brings them back. */
+  var block = document.createElement('div');
+  block.className = 'st-block';
+  var hasNotes = !!routine.note || routine.items.some(function(it){ return !!it.note; });
   var head = document.createElement('div');
   head.className = 'block-h';
   var t = document.createElement('span'); t.className='t'; t.textContent = routine.label || 'Stretch';
+  var r = document.createElement('span'); r.className='r';
+  if(hasNotes){
+    var cb = document.createElement('button');
+    cb.type = 'button'; cb.className = 'cue-btn'; cb.textContent = 'cues';
+    cb.onclick = function(){ var on = block.classList.toggle('cues'); cb.classList.toggle('on', on); };
+    r.appendChild(cb);
+  }
   var m = document.createElement('span'); m.className='m';
   m.textContent = Math.round(routineSeconds(routine)/60) + ' min';
-  head.appendChild(t); head.appendChild(m);
-  containerEl.appendChild(head);
+  r.appendChild(m);
+  head.appendChild(t); head.appendChild(r);
+  block.appendChild(head);
   if(routine.note){
     var n = document.createElement('div');
-    n.className = 'exnote';
+    n.className = 'exnote st-routine-note';
     n.style.margin = '0 0 6px';
     n.textContent = routine.note;
-    containerEl.appendChild(n);
+    block.appendChild(n);
   }
+  containerEl.appendChild(block);
   routine.items.forEach(function(it){
     var row = document.createElement('div');
     row.className = 'strow';
@@ -2934,7 +3077,7 @@ function renderStretchBlock(routine, containerEl){
     var hold = document.createElement('div');
     hold.className = 'sthold'; hold.textContent = it.hold || '';
     row.appendChild(text); row.appendChild(hold);
-    containerEl.appendChild(row);
+    block.appendChild(row);
   });
 }
 
@@ -3168,7 +3311,7 @@ function renderExerciseBlock(tpl, containerEl, allowUpload, tkey){
   /* Written before anything is appended as an element — see renderStretchBlock. */
   containerEl.innerHTML += sessionClockHtml(sessionClock(tpl, tkey));
   if(tpl.rest){
-    containerEl.innerHTML += '<div class="empty">Full rest day. No training.'+
+    containerEl.innerHTML += '<div class="empty">Rest day.'+
       (coolRoutine? ' The stretch below is optional.' : '')+'</div>';
     renderStretchBlock(coolRoutine, containerEl);
     return;
@@ -3462,7 +3605,7 @@ function buildHistoryBlock(v, e, asRow){
   if(!rows.length){
     var none = document.createElement('div');
     none.className = 'ex-hist-none';
-    none.textContent = 'Nothing logged on this machine yet — the first session sets the starting point.';
+    none.textContent = 'No sessions logged yet — the first one sets the starting point.';
     wrap.appendChild(none);
     return wrap;
   }
@@ -3832,16 +3975,15 @@ function renderBurn(dateStr, tkey){
   var b = estimateDayBurn(dateStr, tpl);
   if(!b.total && !b.steps) {
     return '<h3 class="section">Estimated burn</h3>'+
-           '<p class="lead" style="margin:0">Nothing to estimate yet — '+b.trainingBasis+
-           ', and no steps logged. Add steps on the Log tab.</p>';
+           '<p class="lead" style="margin:0">Nothing to estimate yet — '+b.trainingBasis+', and no steps logged.</p>';
   }
-  return '<h3 class="section">Estimated burn — on top of daily living</h3>'+
+  return '<h3 class="section">Estimated burn · above resting</h3>'+
     '<div class="macro-grid" style="grid-template-columns:repeat(3,1fr)">'+
       '<div class="macro"><div class="n">'+Math.round(b.training)+'</div><div class="l">Training</div></div>'+
       '<div class="macro"><div class="n">'+Math.round(b.stepsKcal)+'</div><div class="l">'+(b.steps? b.steps.toLocaleString()+' steps':'Steps')+'</div></div>'+
       '<div class="macro"><div class="n" style="color:var(--blue)">'+Math.round(b.total)+'</div><div class="l">Total</div></div>'+
     '</div>'+
-    '<p class="lead" style="margin:0">'+b.trainingBasis+'. Rough estimates from bodyweight and volume — no heart rate — so treat them as a direction, not a budget to eat back.</p>';
+    '<details class="more"><summary>How this is estimated</summary><div class="body">'+b.trainingBasis+'. Rough estimates from bodyweight and volume — no heart rate — so treat them as a direction, not a budget to eat back.</div></details>';
 }
 function renderPacing(phase, totals){
   var mp = mealPacing(phase, totals);
@@ -4037,35 +4179,29 @@ function renderToday(){
     var macros = PLAN.dietPhases[diet2];
     var totals = computeFoodTotals(t);
     var rem = {kcal:macros.kcal-totals.kcal, protein:macros.protein-totals.protein, carbs:macros.carbs-totals.carbs, fat:macros.fat-totals.fat};
-    function remCell(val,label){
-      var c = val<0 ? 'var(--red)':'var(--green)';
-      return '<div class="macro"><div class="n" style="color:'+c+'">'+Math.round(val)+(label==='kcal'?'':'g')+'</div><div class="l">'+label+'</div></div>';
+    /* Target, logged and what is left, read down a column. Three grids with a
+       heading each said the same thing in three times the height. */
+    var KEYS = [['kcal',''],['protein','g'],['carbs','g'],['fat','g']];
+    function mrow(label, o, cls, colour){
+      return '<tr'+(cls?' class="'+cls+'"':'')+'><th>'+label+'</th>'+KEYS.map(function(k){
+        var v = Math.round(o[k[0]]);
+        var c = colour ? colour(v) : '';
+        return '<td'+(c?' style="color:'+c+'"':'')+'>'+v+k[1]+'</td>';
+      }).join('')+'</tr>';
     }
     dcard.innerHTML =
-      '<div class="card-h"><h2>Diet — '+macros.label.split('—')[0].trim()+' phase</h2></div>'+
-      '<div class="macro-grid">'+
-        '<div class="macro"><div class="n">'+macros.kcal+'</div><div class="l">kcal</div></div>'+
-        '<div class="macro"><div class="n">'+macros.protein+'g</div><div class="l">Protein</div></div>'+
-        '<div class="macro"><div class="n">'+macros.carbs+'g</div><div class="l">Carbs</div></div>'+
-        '<div class="macro"><div class="n">'+macros.fat+'g</div><div class="l">Fat</div></div>'+
+      '<div class="card-h"><h2>Diet — '+macros.label.split('—')[0].trim()+' phase</h2>'+
+        (totals.alcKcal? '<span class="badge" style="color:var(--amber);border-color:var(--amber)">'+Math.round(totals.alcKcal)+' kcal · '+totals.units+'u alcohol</span>':'')+
       '</div>'+
-      '<h3 class="section" style="margin-top:0">Logged today'+
-        (totals.alcKcal? ' <span style="text-transform:none;letter-spacing:0;color:var(--amber)">· incl. '+Math.round(totals.alcKcal)+' kcal from '+totals.units+'u alcohol</span>':'')+
-      '</h3>'+
-      '<div class="macro-grid">'+
-        '<div class="macro"><div class="n">'+Math.round(totals.kcal)+'</div><div class="l">kcal</div></div>'+
-        '<div class="macro"><div class="n">'+Math.round(totals.protein)+'g</div><div class="l">Protein</div></div>'+
-        '<div class="macro"><div class="n">'+Math.round(totals.carbs)+'g</div><div class="l">Carbs</div></div>'+
-        '<div class="macro"><div class="n">'+Math.round(totals.fat)+'g</div><div class="l">Fat</div></div>'+
-      '</div>'+
+      '<table class="macro-tbl"><thead><tr><th></th><th>kcal</th><th>Protein</th><th>Carbs</th><th>Fat</th></tr></thead><tbody>'+
+        mrow('Target', macros)+
+        mrow('Logged', totals)+
+        mrow('Left', rem, 'rem', function(v){ return v<0 ? 'var(--red)' : 'var(--green)'; })+
+      '</tbody></table>'+
       renderMealBreakdown(t)+
-      '<h3 class="section">Remaining</h3>'+
-      '<div class="macro-grid">'+
-        remCell(rem.kcal,'kcal')+remCell(rem.protein,'Protein')+remCell(rem.carbs,'Carbs')+remCell(rem.fat,'Fat')+
-      '</div>'+
       renderPacing(macros, totals)+
       renderBurn(t, tkey)+
-      '<p class="lead">Dinner: Prep Kitchen — Muscle Gain, '+(diet2==='rest'?'Regular / lower-carb':'Large')+'. Full breakdown on the Diet tab.</p>';
+      '<p class="chart-tip">Dinner: Prep Kitchen — Muscle Gain, '+(diet2==='rest'?'Regular / lower-carb':'Large')+'.</p>';
   }
 }
 
@@ -4083,11 +4219,10 @@ function renderPlanUpdateBanner(){
   strip.className = 'note-strip blue';
   strip.style.display = 'block';
   strip.innerHTML =
-    '<b>A newer program is available.</b><br>You are running ' + histEsc(have) +
-    '; the app ships <b>' + histEsc(latest) + '</b> — the 4-day Upper/Lower split with ' +
-    'stretching built into every session and every day costed against a ' + sessionCapMin() + '-minute cap. ' +
-    'Loading it replaces the sessions, sets, weights and progression phases. ' +
-    'Your training logs, bodyweight, photos and machine inventory are untouched.' +
+    '<b>A newer program is available</b> — ' + histEsc(latest) + '.' +
+    '<details class="more"><summary>What changes</summary><div class="body">You are running ' + histEsc(have) +
+    '. Loading the new program replaces the sessions, sets, weights and progression phases. ' +
+    'Your training logs, bodyweight, photos and machine inventory are untouched.</div></details>' +
     '<button class="btn full" style="margin-top:8px" onclick="loadLatestProgram()">Load the new program</button>';
 }
 /* A revision must never rewrite training that already happened. The days before
@@ -4181,20 +4316,43 @@ async function restorePlanBackup(){
 function renderPlan(){
   renderPlanUpdateBanner();
   document.getElementById('planNote').textContent = PLAN.planNote || '';
+  document.getElementById('planNoteWrap').style.display = PLAN.planNote ? 'block' : 'none';
   var list = document.getElementById('planList');
   list.innerHTML='';
   var t = todayStr();
   var todayIdx = dayIndexFromDate(t);
   var trackStartIdx = dayIndexFromDate(PLAN.trackingStart);
+  /* Weeks that have gone by fold under one line, and so do weeks beyond the
+     next one: this week and next are what you plan around, and the rest of
+     the program is a tap away rather than a scroll of forty identical days. */
+  var past = null, pastWeeks = 0, later = null, laterWeeks = 0;
 
   for(var w=0; w<PLAN.weekPlan.length; w++){
     var groupStart = w*7;
     if(groupStart>=PLAN.totalProgramDays) break;
     if(groupStart+6 < trackStartIdx) continue;
+    var target = list;
+    if(groupStart+6 < todayIdx){
+      if(!past){
+        past = document.createElement('details');
+        past.className = 'more past-weeks';
+        past.innerHTML = '<summary></summary>';
+        list.appendChild(past);
+      }
+      target = past; pastWeeks++;
+    } else if(groupStart > todayIdx + 13){
+      if(!later){
+        later = document.createElement('details');
+        later.className = 'more past-weeks';
+        later.innerHTML = '<summary></summary>';
+        list.appendChild(later);   /* in the DOM before its day bodies are looked up by id */
+      }
+      target = later; laterWeeks++;
+    }
     var lbl=document.createElement('div');
     lbl.className='week-label';
     lbl.textContent=PLAN.weekNames[w] || ('Week '+(w+1));
-    list.appendChild(lbl);
+    target.appendChild(lbl);
 
     for(var d=0; d<7; d++){
       var idx = groupStart+d;
@@ -4218,10 +4376,12 @@ function renderPlan(){
           '<div class="chev" id="chev-'+idx+'">▾</div>'+
         '</div>'+
         '<div class="day-body" id="'+bodyId+'"></div>';
-      list.appendChild(dayCard);
+      target.appendChild(dayCard);
       renderExerciseBlock(tpl, document.getElementById(bodyId), false, tkey);
     }
   }
+  if(past) past.querySelector('summary').textContent = 'Earlier weeks (' + pastWeeks + ')';
+  if(later) later.querySelector('summary').textContent = 'Later weeks (' + laterWeeks + ')';
 }
 function toggleDay(idx){
   var body=document.getElementById('daybody-'+idx);
@@ -4237,6 +4397,7 @@ function togglePlanEditor(){
   var opening = body.style.display==='none';
   body.style.display = opening? 'block':'none';
   chev.classList.toggle('open', opening);
+  document.getElementById('planEditorHead').classList.toggle('open', opening);
   if(opening) resetPlanEditor();
 }
 function resetPlanEditor(){
@@ -4266,33 +4427,43 @@ function renderDiet(){
   var container = document.getElementById('dietList');
   container.innerHTML='';
   var order = PLAN.dietPhaseOrder || Object.keys(PLAN.dietPhases);
+  /* The phase you are eating in opens; the others are a header each. */
+  var todayIdx = dayIndexFromDate(todayStr());
+  var nowKey = (todayIdx>=0 && todayIdx<PLAN.totalProgramDays) ? dietPhaseForIndex(todayIdx) : null;
   order.forEach(function(key){
     var p = PLAN.dietPhases[key];
     if(!p) return;
+    var open = key === nowKey;
     var mealsHtml = p.meals.map(function(m){
       var cls = m.pk? 'meal pk':'meal';
       var tag = m.pk? '<span class="pk-tag">'+(m.pkTag||'PREP KITCHEN')+'</span>':'';
       return '<div class="'+cls+'"><div class="meal-h"><span>'+m.name+tag+'</span><span class="m">'+m.kcal+' kcal · '+m.protein+'P</span></div><div class="meal-food">'+m.food+'</div></div>';
     }).join('');
-    var noteHtml = p.note? '<div class="note-strip">'+p.note+'</div>':'';
+    var noteHtml = p.note? '<details class="more"><summary>Why these numbers</summary><div class="body">'+p.note+'</div></details>':'';
     container.innerHTML +=
       '<div class="card">'+
-        '<div class="card-h"><h2>'+p.label+'</h2><span class="badge '+key+'">'+p.dateRange+'</span></div>'+
-        '<div class="macro-grid">'+
-          '<div class="macro"><div class="n">'+p.kcal+'</div><div class="l">kcal</div></div>'+
-          '<div class="macro"><div class="n">'+p.protein+'g</div><div class="l">Protein</div></div>'+
-          '<div class="macro"><div class="n">'+p.carbs+'g</div><div class="l">Carbs</div></div>'+
-          '<div class="macro"><div class="n">'+p.fat+'g</div><div class="l">Fat</div></div>'+
+        '<div class="card-h toggle'+(open?' open':'')+'" onclick="toggleCard(\'dietbody-'+key+'\',\'dietchev-'+key+'\')">'+
+          '<h2>'+p.label+(open? ' <span class="pk-tag" style="background:var(--green)">NOW</span>':'')+'</h2>'+
+          '<span class="card-h-r"><span class="badge '+key+'">'+p.dateRange+'</span>'+
+            '<span class="chev'+(open?' open':'')+'" id="dietchev-'+key+'">▾</span></span>'+
         '</div>'+
-        mealsHtml + noteHtml +
+        '<div id="dietbody-'+key+'" style="display:'+(open?'block':'none')+'">'+
+          '<div class="macro-grid">'+
+            '<div class="macro"><div class="n">'+p.kcal+'</div><div class="l">kcal</div></div>'+
+            '<div class="macro"><div class="n">'+p.protein+'g</div><div class="l">Protein</div></div>'+
+            '<div class="macro"><div class="n">'+p.carbs+'g</div><div class="l">Carbs</div></div>'+
+            '<div class="macro"><div class="n">'+p.fat+'g</div><div class="l">Fat</div></div>'+
+          '</div>'+
+          mealsHtml + noteHtml +
+        '</div>'+
       '</div>';
   });
   if(PLAN.prepKitchenNote || PLAN.nutAllergyNote){
     container.innerHTML +=
       '<div class="card">'+
-        '<h3 class="section" style="margin-top:0">Prep Kitchen — how to order</h3>'+
-        (PLAN.prepKitchenNote? '<p class="lead" style="margin-bottom:6px">'+PLAN.prepKitchenNote+'</p>':'')+
-        (PLAN.nutAllergyNote? '<div class="note-strip red">'+PLAN.nutAllergyNote+'</div>':'')+
+        '<div class="card-h"><h2>Prep Kitchen — how to order</h2></div>'+
+        (PLAN.nutAllergyNote? '<div class="note-strip red" style="margin-bottom:8px">'+PLAN.nutAllergyNote+'</div>':'')+
+        (PLAN.prepKitchenNote? '<p class="lead" style="margin:0">'+PLAN.prepKitchenNote+'</p>':'')+
       '</div>';
   }
 }
@@ -5198,10 +5369,10 @@ function renderSessionSheet(){
   all.onclick = saveSheetAll;
   body.appendChild(all);
 
-  var hint = document.createElement('p');
-  hint.className = 'lead';
-  hint.style.margin = '8px 0 0';
-  hint.textContent = 'Weight comes from the plan and from what you last lifted — change it if it differed. ' +
+  var hint = document.createElement('details');
+  hint.className = 'more';
+  hint.innerHTML = '<summary>How to fill this in</summary><div class="body"></div>';
+  hint.querySelector('.body').textContent = 'Weight comes from the plan and from what you last lifted — change it if it differed. ' +
     'One box per prescribed set — reps, or the seconds or metres a hold or a carry asks for: ' +
     'fill in what each set actually gave you, and use + or − if you did ' +
     'more or fewer. The lowest set is what moves your working weight, so the boxes are left blank on ' +
@@ -5348,11 +5519,8 @@ function fillSheetRow(i, date){
   if(r.opts[r.sel].kind !== 'plan'){
     /* Same point either way — this is its own ladder — but say which it is, or a
        walked carry is explained as a machine that loads differently. */
-    bits.push('<span style="color:var(--amber)">Logged as “' + histEsc(exName) + '”</span> — a different ' +
-              (r.opts[r.sel].exName ? 'movement asks for different things of you'
-                                    : 'machine loads differently') +
-              ', so it keeps its own history rather than moving the ladder on ' +
-              histEsc(r.ex.name) + '.');
+    bits.push('<span style="color:var(--amber)">Logged as “' + histEsc(exName) + '”</span> — its own ' +
+              (r.opts[r.sel].exName ? 'movement' : 'machine') + ', so its own history.');
   }
   if(v.perSide) bits.push('Log the weight per side.');
   var last = t.last;
@@ -5362,7 +5530,7 @@ function fillSheetRow(i, date){
     bits.push('Last time: ' + repsLabel(last) + ' @ ' + last.weight + liftUnitOf(last) +
               ' on ' + fmtDate(last.date) + '.');
   } else if(!parsed && !logged){
-    bits.push('Nothing logged on this yet — ramp up and record what you actually settle on.');
+    bits.push('No history yet — ramp up and log what you settle on.');
   }
   cue.innerHTML = bits.join(' ');
 }
@@ -7362,7 +7530,7 @@ function renderStrength(){
   if(st.skipped) foot += st.skipped+' session step'+(st.skipped===1?'':'s')+
     ' ignored as a machine change rather than counted as strength — a load that moves more than a quarter in one session is a different machine, not a different you.';
   else foot += 'A load that moves more than a quarter in one session is treated as a machine change, not a gain.';
-  H.push('<p class="st-foot">'+foot+'</p>');
+  H.push('<details class="more"><summary>How this is measured</summary><div class="body">'+foot+'</div></details>');
   body.innerHTML = H.join('');
 }
 
@@ -7568,10 +7736,9 @@ function renderCalorieChart(){
   var note = document.getElementById('calorieChartNote');
   if(note){
     note.textContent = anyIn
-      ? 'Bars are what went in, lines what went out. Average ' + Math.round(avgIn) + ' in over ' + logged +
+      ? 'Average ' + Math.round(avgIn) + ' in over ' + logged +
         ' logged days vs ' + Math.round(avgOut) + ' estimated out — a ' +
-        (avgIn>=avgOut ? 'surplus' : 'deficit') + ' of about ' + Math.abs(Math.round(avgIn-avgOut)) +
-        ' kcal/day. Resting is Mifflin-St Jeor from your details on the Tools tab; exercise is estimated from volume.'
+        (avgIn>=avgOut ? 'surplus' : 'deficit') + ' of about ' + Math.abs(Math.round(avgIn-avgOut)) + ' kcal/day.'
       : 'Nothing logged in this window yet.';
   }
 }
@@ -7606,8 +7773,7 @@ function renderAlcTrendChart(){
         UK_WEEKLY_UNIT_GUIDELINE + ' a week — ' +
         (latest > UK_WEEKLY_UNIT_GUIDELINE
           ? Math.round((latest/UK_WEEKLY_UNIT_GUIDELINE-1)*100) + '% over.'
-          : Math.round((1-latest/UK_WEEKLY_UNIT_GUIDELINE)*100) + '% under.') +
-        ' The guideline is a weekly ceiling for both men and women, best spread over 3 or more days.';
+          : Math.round((1-latest/UK_WEEKLY_UNIT_GUIDELINE)*100) + '% under.');
   }
 }
 function renderAlcoholChart(){
@@ -8239,6 +8405,9 @@ async function startApp(){
   document.getElementById('stepDate').value = todayStr();
   document.getElementById('sheetDate').value = todayStr();
   document.getElementById('foodMeal').innerHTML = mealSlotOptions(defaultMealForNow());
+  var lastForm = 'bw';
+  try{ if(hasLocalStorage()) lastForm = localStorage.getItem('buildlog_log_form') || 'bw'; }catch(e){}
+  showLogForm(lastForm);
   renderEquipment();
 
   applyBottomEdgeGuard();

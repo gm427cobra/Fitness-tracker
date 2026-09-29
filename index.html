@@ -431,7 +431,26 @@
     background:var(--blue);color:#0a0d10;border:none;border-radius:6px;
     padding:10px 14px;font-weight:700;font-size:13px;cursor:pointer;font-family:var(--f-body);
   }
-  button.btn:active{transform:translateY(1px);}
+  /* Every button answers the finger: it dips and brightens while held, and
+     pulses once when the tap lands. Saves then confirm with a toast. */
+  button{touch-action:manipulation;transition:transform .08s ease-out, filter .08s ease-out;}
+  button:active:not(:disabled){transform:scale(.96);filter:brightness(1.3);}
+  button:disabled{opacity:.55;cursor:default;}
+  button.tap{animation:tapPulse .45s ease-out;}
+  @keyframes tapPulse{
+    0%{box-shadow:0 0 0 0 rgba(79,182,201,.7);}
+    100%{box-shadow:0 0 0 12px rgba(79,182,201,0);}
+  }
+  .card-h.toggle:active,.day-head:active{filter:brightness(1.25);}
+  .toast{position:fixed;left:50%;z-index:150;pointer-events:none;
+    bottom:calc(78px + env(safe-area-inset-bottom) + var(--tab-gap) + 12px);
+    transform:translate(-50%,14px);opacity:0;transition:opacity .18s, transform .18s;
+    max-width:calc(100% - 32px);width:max-content;
+    background:#0A0D10;color:var(--ink);border:1px solid var(--line);border-left:4px solid var(--green);
+    border-radius:8px;padding:11px 14px;font-size:14px;font-weight:600;line-height:1.35;
+    box-shadow:0 8px 24px rgba(0,0,0,.55);}
+  .toast.show{opacity:1;transform:translate(-50%,0);}
+  .toast.warn{border-left-color:var(--amber);}
   button.btn.ghost{background:none;border:1px solid var(--line);color:var(--ink);}
   button.btn.amber{background:var(--amber);}
   button.btn.full{width:100%;}
@@ -1097,6 +1116,7 @@ steps | 8400"></textarea>
   <div class="lightbox-actions" id="lightboxActions"></div>
 </div>
 <input type="file" id="exPhotoInput" accept="image/*" style="display:none">
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
 /* ================= BUILD / CACHE ================= 
@@ -1105,7 +1125,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-29-1';
+var BUILD = '2026-09-29-2';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -1149,7 +1169,8 @@ var DEFAULT_PLAN = {
   programEnd: '2027-07-15',
   targetKg: 88.0,
   startKg: 96.0,
-  totalProgramDays: 84,
+  /* Runs to Sun 3 Jan 2027: the end of the week that holds the Christmas break. */
+  totalProgramDays: 133,
   profile: {heightCm: 178, age: 45, sex: 'male'},
   "weightProjection": {
       "note": "Revised 19 Sep: target 88kg on 15 July, reached on the date rather than before it, building block first and the cut last. The deficit starts on 1 January — Christmas and New Year are spent at maintenance, which is both realistic and free, since nothing before then was ever a deficit anyway. That buys a longer building block, nine weeks of it, and costs two weeks of cutting: the deficit works out at about 385kcal a day, 0.35kg a week, 0.38% of bodyweight. Gentle enough that the bar should not notice it. One water bump is modelled rather than left to surprise you: about 1.2kg of glycogen and salt water over Christmas that washes out by mid-January. It is not fat and it does not change where the line ends. (A second, for surgical fluid after the op, was taken out on 24 Sep — the scale fell through the fortnight it was meant to rise in.) Because maintenance falls as you get lighter, the calories step down once in April so the deficit stays the size it says it is. Still no surplus: at this body fat it would land mostly as fat.",
@@ -1272,7 +1293,7 @@ var DEFAULT_PLAN = {
            "note": "88kg on the scale with creatine on board, which is nearer 87kg of you without it. If the strength log has held through the cut, that is the whole job done."}
       ]
   },
-  planVersion: '2026-09-19-build-then-cut-88kg-jan',
+  planVersion: '2026-09-29-christmas-week-off',
   /* The first day the new program applies. Anything before it is training that
      already happened and must be taken from the stored plan, not from here. */
   programChangeover: '2026-09-09',
@@ -1372,7 +1393,10 @@ var DEFAULT_PLAN = {
   weekNames: ['Reset — Week 1','Reset — Week 2','Changeover — new program from Wed 9 Sep',
               'Phase A — Pre-op push','Phase B — Post-op rest 1','Phase B — Post-op rest 2',
               'Phase C1 — Return ramp, week 1','Phase C2 — Return ramp, week 2',
-              'Phase D — Week 1','Phase D — Week 2','Phase D — Week 3','Phase D — Week 4'],
+              'Phase D — Week 1','Phase D — Week 2','Phase D — Week 3','Phase D — Week 4',
+              'Phase D — Week 5','Phase D — Week 6','Phase D — Week 7','Phase D — Week 8',
+              'Phase D — Week 9','Phase D — Week 10 · week off from Sat 26 Dec',
+              'Week off — back Sat 2 Jan'],
   /* Weeks 0–1 and the Mon/Tue of week 2 are training that already happened, so
      they keep the old templates — rewriting them would regrade history in the
      adherence grid. The 9 Sep program starts on the Wednesday of week 2. */
@@ -1388,7 +1412,22 @@ var DEFAULT_PLAN = {
     ['lowerA','upperA','cardioJog','lowerB','upperB','cardioRun','restFull'],
     ['lowerA','upperA','cardioJog','lowerB','upperB','cardioRun','restFull'],
     ['lowerA','upperA','cardioJog','lowerB','upperB','cardioRun','restFull'],
-    ['lowerA','upperA','cardioJog','lowerB','upperB','cardioRun','restFull']
+    ['lowerA','upperA','cardioJog','lowerB','upperB','cardioRun','restFull'],
+    ['lowerA','upperA','cardioJog','lowerB','upperB','cardioRun','restFull'],
+    ['lowerA','upperA','cardioJog','lowerB','upperB','cardioRun','restFull'],
+    ['lowerA','upperA','cardioJog','lowerB','upperB','cardioRun','restFull'],
+    ['lowerA','upperA','cardioJog','lowerB','upperB','cardioRun','restFull'],
+    ['lowerA','upperA','cardioJog','lowerB','upperB','cardioRun','restFull'],
+    /* 21–27 Dec. The week off starts on Boxing Day. */
+    ['lowerA','upperA','cardioJog','lowerB','upperB','xmasBreak','xmasBreak'],
+    /* 28 Dec – 3 Jan. Off to New Year's Day, back with an easy run on the 2nd. */
+    ['xmasBreak','xmasBreak','xmasBreak','xmasBreak','xmasBreak','cardioRun','restFull']
+  ],
+  /* Breaks that have to reach a plan already stored in the cloud, where the
+     program-update banner would otherwise be the only way in. Each one is
+     applied once, by id — see mergeBreaksForward(). */
+  plannedBreaks: [
+    {id:'xmas-2026', from:'2026-12-26', to:'2027-01-01', template:'xmasBreak'}
   ],
   /* Date-driven, so the app can say which rule is running today rather than that
      logic living only in the written plan. Phase C carries a load percentage of
@@ -1403,6 +1442,9 @@ var DEFAULT_PLAN = {
        note:'Get explicit clearance from your surgical team before resuming. Around 70–80% of your Phase A weights, prescribed sets or one fewer on compounds. Re-acclimating tissue and technique — not testing anything.'},
       {id:'C2', label:'Return ramp — week 2', start:'2026-10-12', end:'2026-10-18', loadPct:0.875, rirTarget:'2–3',
        note:'Around 85–90% of Phase A, full prescribed sets. Rebuilding toward normal working intensity. Anything that feels wrong rather than merely hard — stop and check with your surgical team.'},
+      /* Listed before D because D has no end date and the first match wins. */
+      {id:'', breakId:'xmas-2026', label:'Christmas week off', start:'2026-12-26', end:'2027-01-01', rule:'none',
+       note:'A planned week off, nine weeks into normal training. No lifting; walking and the optional stretch are fine. A week away costs little or no strength, so there is no ramp back: on 2 Jan pick up the weights you finished on before Christmas. If the first session feels heavy, repeat those weights rather than dropping them.'},
       {id:'D',  label:'Resume progression',   start:'2026-10-19', rule:'double-progression',
        note:'Back to the Phase A double-progression rule from wherever the return ramp left you.'}
     ]
@@ -1996,6 +2038,8 @@ var DEFAULT_PLAN = {
     /* A rest day is the easiest place in the week to find ten minutes for the
        back, so the routine is offered here — the card marks it optional. */
     restFull:{label:'Rest', rest:true, cool:'deskReset'},
+    xmasBreak:{label:'Week off — Christmas', rest:true, cool:'deskReset',
+               note:'Planned week off — no lifting. Back on Sat 2 Jan.'},
     opDay:{label:'Operation day', op:true, note:'No training. Follow hospital pre/post-op instructions exactly.'},
     postOpWalk:{label:'Post-op recovery', postop:true, note:'No lifting, no jogging/running unless your surgeon has cleared it. Default: short, easy walking only if comfortable. Stretching waits for the same clearance — a hold that pulls on a healing site is not a gentle option, it is just a slower one.'}
   },
@@ -2171,13 +2215,43 @@ async function loadArr(key){
   STORAGE_MODE='none';
   return [];
 }
+/* Saves in flight. While one is going, another tap on a save button is the
+   same tap again rather than a second entry. */
+var SAVES_IN_FLIGHT = 0;
+/* Set when the last write went into Firestore's queue without the server
+   answering yet — no signal at the gym. The next success toast says so. */
+var LAST_SAVE_QUEUED = false;
+var SAVE_WAIT_MS = 2500;
 async function saveArr(key,arr){
+  SAVES_IN_FLIGHT++;
+  try{ return await saveArrNow(key,arr); }
+  finally{ SAVES_IN_FLIGHT--; }
+}
+async function saveArrNow(key,arr){
   try{
     /* Never push a list built on a read the server never answered — that would
        replace the stored history with whatever this device happens to hold. */
     if(currentUser && db && CLOUD_READY){
-      await db.collection('users').doc(currentUser.uid).collection('data').doc(key).set({entries: arr});
+      /* Firestore only resolves a write once the server confirms it, and with
+         no signal that is not until the signal comes back — the button did
+         nothing, as far as anyone holding the phone could tell. The write is
+         already queued by then and goes up on reconnect, so stop waiting after
+         a couple of seconds and say it is queued instead. */
+      var write = db.collection('users').doc(currentUser.uid).collection('data').doc(key).set({entries: arr});
+      var outcome = await Promise.race([
+        write.then(function(){ return 'ok'; }),
+        new Promise(function(r){ setTimeout(function(){ r('slow'); }, SAVE_WAIT_MS); })
+      ]);
       STORAGE_MODE='firebase';
+      if(outcome === 'slow'){
+        LAST_SAVE_QUEUED = true;
+        try{ if(hasLocalStorage()) localStorage.setItem('buildlog_'+key, JSON.stringify(arr)); }catch(e){}
+        write.then(function(){ toast('Synced to your account'); })
+             .catch(function(e){
+               console.error('firestore write error (late)', e);
+               toast('Could not reach your account — kept on this phone', 'warn');
+             });
+      }
       return;
     }
   }catch(e){ console.error('firestore write error', e); }
@@ -2223,7 +2297,7 @@ function planFromDoc(data){
    filled in from the defaults: a plan that kept its own templates but borrowed
    the new stamp would claim to be a program it is not, and the update banner
    would never appear. Absent means "older than any stamped version". */
-var PLAN_IDENTITY_KEYS = {planVersion:1};
+var PLAN_IDENTITY_KEYS = {planVersion:1, plannedBreaks:1};
 /* An alternate movement is additive: it changes nothing the plan prescribes,
    it only adds a choice at the rack. So it travels to a stored plan the way a
    missing top-level key does, instead of waiting on the program-update banner
@@ -2302,6 +2376,68 @@ function mergeProjectionForward(plan){
   });
   return 1;
 }
+/* A planned break reaches a stored plan on its own, once. The program-update
+   banner would bring it too, but that replaces every session from the
+   changeover on, which is far too big an instrument for "take Christmas off".
+
+   The stored program may end before the break does — it stopped at 15 Nov —
+   so any weeks it is missing up to the break are taken from the built-in
+   program first. Weeks it already has are left as they are apart from the
+   break days themselves. */
+var PLAN_VERSION_BEFORE_BREAKS = '2026-09-19-build-then-cut-88kg-jan';
+function mergeBreaksForward(plan){
+  var list = DEFAULT_PLAN.plannedBreaks;
+  if(!list || !list.length || !plan || !plan.weekPlan || !plan.templates) return 0;
+  if(plan.programStart !== DEFAULT_PLAN.programStart) return 0;
+  var start = new Date(plan.programStart + 'T00:00:00');
+  function idxOf(ds){ return Math.round((new Date(ds + 'T00:00:00') - start) / DAY_MS); }
+  function clone(x){ return JSON.parse(JSON.stringify(x)); }
+  var have = Array.isArray(plan.plannedBreaks) ? plan.plannedBreaks.slice() : [];
+  var changed = 0;
+  list.forEach(function(b){
+    if(have.some(function(x){ return x && x.id === b.id; })) return;
+    var tpl = DEFAULT_PLAN.templates[b.template];
+    if(!tpl) return;
+    if(!plan.templates[b.template]) plan.templates[b.template] = clone(tpl);
+    var from = idxOf(b.from), to = idxOf(b.to);
+    var weeks = Math.floor(to/7) + 1;
+    if(!Array.isArray(plan.weekNames)) plan.weekNames = [];
+    for(var w = plan.weekPlan.length; w < weeks; w++){
+      var row = DEFAULT_PLAN.weekPlan[w];
+      if(!row) return;                              /* nothing to fill with — leave it */
+      plan.weekPlan.push(clone(row));
+      if(plan.weekNames[w] === undefined && DEFAULT_PLAN.weekNames[w]) plan.weekNames[w] = DEFAULT_PLAN.weekNames[w];
+      row.forEach(function(k){
+        if(k && !plan.templates[k] && DEFAULT_PLAN.templates[k]) plan.templates[k] = clone(DEFAULT_PLAN.templates[k]);
+      });
+    }
+    for(var i = from; i <= to; i++){
+      var r = plan.weekPlan[Math.floor(i/7)];
+      if(r) r[i%7] = b.template;
+    }
+    plan.totalProgramDays = Math.max(plan.totalProgramDays || 0, weeks * 7);
+    var dph = ((DEFAULT_PLAN.progressionPhase||{}).phases||[]).filter(function(p){ return p.breakId === b.id; })[0];
+    var sp = plan.progressionPhase && plan.progressionPhase.phases;
+    if(dph && Array.isArray(sp) && !sp.some(function(p){ return p.breakId === b.id; })){
+      /* Before whichever phase already covers the break, since the first
+         phase whose dates match is the one that runs. */
+      var at = sp.length;
+      for(var k = 0; k < sp.length; k++){
+        if(sp[k].start <= b.from && (!sp[k].end || sp[k].end >= b.from)){ at = k; break; }
+      }
+      sp.splice(at, 0, clone(dph));
+    }
+    have.push(clone(b));
+    changed++;
+  });
+  if(changed){
+    plan.plannedBreaks = have;
+    /* Only the version this revision was written against is moved on; an
+       older program still gets the update banner. */
+    if(plan.planVersion === PLAN_VERSION_BEFORE_BREAKS) plan.planVersion = DEFAULT_PLAN.planVersion;
+  }
+  return changed;
+}
 function mergeWithDefaults(stored){
   var merged = {};
   var missing = false;
@@ -2315,6 +2451,7 @@ function mergeWithDefaults(stored){
   for(var k2 in stored){ if(merged[k2]===undefined) merged[k2]=stored[k2]; }
   if(mergeAlternatesForward(merged)) missing = true;
   if(mergeProjectionForward(merged)) missing = true;
+  if(mergeBreaksForward(merged)) missing = true;
   return {plan:merged, patched:missing};
 }
 async function loadPlan(){
@@ -2488,6 +2625,44 @@ try{
 }catch(e){}
 window.addEventListener('orientationchange', applyBottomEdgeGuard);
 
+/* ================= TAP FEEDBACK =================
+   A save used to clear its fields and nothing else, and an empty form did
+   nothing at all — so after pressing Add there was no telling whether it had
+   worked, and the natural response was to press it again. */
+/* iOS only applies :active once the page listens for touches. */
+document.addEventListener('touchstart', function(){}, {passive:true});
+var TAP_LAST = {btn:null, t:0};
+document.addEventListener('click', function(ev){
+  var b = ev.target && ev.target.closest ? ev.target.closest('button') : null;
+  if(!b || b.disabled) return;
+  /* A second tap on the same save button inside half a second, or while a
+     save is still going, is a double-tap rather than a second entry. Steppers
+     (+ / −) and tabs are left alone. */
+  var isSave = b.classList.contains('btn') || b.classList.contains('qty-btn') || b.classList.contains('sh-save');
+  var now = Date.now();
+  if(isSave && ((TAP_LAST.btn === b && now - TAP_LAST.t < 500) || SAVES_IN_FLIGHT > 0)){
+    ev.stopImmediatePropagation(); ev.preventDefault(); return;
+  }
+  TAP_LAST = {btn:b, t:now};
+  b.classList.remove('tap'); void b.offsetWidth; b.classList.add('tap');
+  setTimeout(function(){ b.classList.remove('tap'); }, 500);
+}, true);
+var toastTimer = null;
+function toast(msg, kind){
+  var el = document.getElementById('toast');
+  if(!el) return;
+  if(kind !== 'warn' && LAST_SAVE_QUEUED && !/^Synced/.test(msg)){
+    msg += ' · on this phone, syncs when signal returns';
+  }
+  LAST_SAVE_QUEUED = false;
+  el.textContent = (kind === 'warn' ? '' : '✓ ') + msg;
+  el.className = 'toast' + (kind === 'warn' ? ' warn' : '');
+  void el.offsetWidth;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ el.classList.remove('show'); }, kind === 'warn' ? 2800 : 2200);
+}
+
 /* ================= TAB SWITCHING ================= */
 function showView(name){
   var views = document.querySelectorAll('.view');
@@ -2567,13 +2742,14 @@ async function saveProfile(){
   var h = parseFloat(document.getElementById('profHeight').value);
   var a = parseFloat(document.getElementById('profAge').value);
   var sx = document.getElementById('profSex').value;
-  if(isNaN(h) || isNaN(a)){ document.getElementById('profileMsg').textContent = 'Enter both height and age.'; return; }
+  if(isNaN(h) || isNaN(a)){ document.getElementById('profileMsg').textContent = 'Enter both height and age.'; toast('Enter both height and age', 'warn'); return; }
   PLAN.profile = {heightCm:h, age:a, sex:sx};
   await savePlan(PLAN);
   document.getElementById('profileMsg').textContent =
     'Saved. Resting burn at ' + latestWeightKg().toFixed(1) + 'kg is about ' +
     Math.round(restingBurn(latestWeightKg())) + ' kcal/day.';
   refreshProgress();
+  toast('Details saved');
 }
 /* Called after every log edit so the Progress tab reflects the change straight
    away — its grid and charts are derived views over the same logs. */
@@ -2853,8 +3029,9 @@ function phaseAdjustedWeight(weightStr, dateStr){
 function phaseStripHtml(dateStr){
   var p = currentPhase(dateStr);
   if(!p) return '';
-  var cls = p.rule==='none' ? ' red' : (p.loadPct ? '' : ' blue');
-  var head = 'Phase ' + p.id + ' — ' + p.label;
+  /* Red is for rest the body is owed; a planned break is a choice, not a warning. */
+  var cls = p.breakId ? ' blue' : (p.rule==='none' ? ' red' : (p.loadPct ? '' : ' blue'));
+  var head = p.id ? 'Phase ' + p.id + ' — ' + p.label : p.label;
   if(p.loadPct)    head += ' · ' + Math.round(p.loadPct*100) + '% of your Phase A weights';
   if(p.rirTarget)  head += ' · RIR ' + p.rirTarget;
   return '<div class="note-strip'+cls+'"><b>'+head+'</b>'+
@@ -3311,7 +3488,7 @@ function renderExerciseBlock(tpl, containerEl, allowUpload, tkey){
   /* Written before anything is appended as an element — see renderStretchBlock. */
   containerEl.innerHTML += sessionClockHtml(sessionClock(tpl, tkey));
   if(tpl.rest){
-    containerEl.innerHTML += '<div class="empty">Rest day.'+
+    containerEl.innerHTML += '<div class="empty">'+(tpl.note || 'Rest day.')+
       (coolRoutine? ' The stretch below is optional.' : '')+'</div>';
     renderStretchBlock(coolRoutine, containerEl);
     return;
@@ -4704,7 +4881,7 @@ function downloadEquipment(){
 }
 async function addEquipment(){
   var name = document.getElementById('equipName').value.trim();
-  if(!name){ document.getElementById('equipMsg').textContent = 'Give the machine a name first.'; return; }
+  if(!name){ document.getElementById('equipMsg').textContent = 'Give the machine a name first.'; toast('Give the machine a name first', 'warn'); return; }
   var entry = {
     name: name,
     muscles: document.getElementById('equipMuscles').value.trim(),
@@ -4721,6 +4898,7 @@ async function addEquipment(){
   });
   document.getElementById('equipMsg').textContent = existing? 'Updated '+name+'.' : 'Added '+name+'.';
   renderEquipment(); renderToday();
+  toast(existing ? 'Updated ' + name : 'Added ' + name);
 }
 /* The parser the Log tab's paste box uses, narrowed to machines so a stray
    food line pasted in here cannot land silently in the food log. */
@@ -4739,6 +4917,7 @@ async function importEquipmentPaste(){
   box.value = '';
   msg.textContent = 'Loaded '+machines.length+' machine'+(machines.length===1?'':'s')+
     (skipped? ' — ignored '+skipped+' non-equipment '+(skipped===1?'entry':'entries')+'.' : '.');
+  toast('Loaded ' + machines.length + ' machine' + (machines.length===1?'':'s'));
 }
 /* By name, not by index. Name is the key everywhere else in the inventory —
    findEquipment(), the import upsert and the photo key all match on it — and
@@ -5106,13 +5285,16 @@ async function repeatMeal(i){
   if(!m) return;
   var box = document.getElementById('mlmq-'+i);
   var slot = targetMealSlot(m.meal), d = todayStr();
+  var addedKcal = 0;
   scaledMealItems(m, box ? box.value : null).forEach(function(e){
+    addedKcal += e.kcal || 0;
     foodLog.push({date:d, meal:slot, name:e.name, kcal:e.kcal, protein:e.protein, carbs:e.carbs, fat:e.fat});
   });
   foodLog.sort(function(a,b){return a.date.localeCompare(b.date);});
   await saveArr('food-log', foodLog);
   renderHistory(); renderToday(); refreshProgress(); renderMealLibrary();
   showView('today');
+  toast('Added ' + slot + ' · ' + Math.round(addedKcal) + ' kcal');
 }
 async function repeatItem(i){
   var r = (renderMealLibrary._items||[])[i];
@@ -5124,6 +5306,7 @@ async function repeatItem(i){
   foodLog.sort(function(a,b){return a.date.localeCompare(b.date);});
   await saveArr('food-log', foodLog);
   renderHistory(); renderToday(); refreshProgress(); renderMealLibrary();
+  toast('Added ' + e.name + ' · ' + Math.round(e.kcal||0) + ' kcal to ' + slot);
 }
 
 /* ================= LOG ACTIONS ================= */
@@ -5186,18 +5369,20 @@ document.getElementById('liftExerciseOtherVal').addEventListener('input', syncLi
 async function addBodyweight(){
   var date=document.getElementById('bwDate').value || todayStr();
   var kg=parseFloat(document.getElementById('bwVal').value);
-  if(!kg) return;
+  if(!kg){ toast('Enter a weight first', 'warn'); return; }
   bwLog = bwLog.filter(function(e){return e.date!==date;});
   bwLog.push({date:date,kg:kg});
   bwLog.sort(function(a,b){return a.date.localeCompare(b.date);});
   await saveArr('bw-log', bwLog);
   document.getElementById('bwVal').value='';
   renderHistory(); renderHeader(); refreshProgress();
+  toast('Weight saved — ' + kg + 'kg');
 }
 async function deleteBw(date){
   bwLog = bwLog.filter(function(e){return e.date!==date;});
   await saveArr('bw-log', bwLog);
   renderHistory(); renderHeader(); refreshProgress();
+  toast('Weight deleted');
 }
 
 async function addFood(){
@@ -5207,7 +5392,7 @@ async function addFood(){
   var protein=parseFloat(document.getElementById('foodProtein').value)||0;
   var carbs=parseFloat(document.getElementById('foodCarbs').value)||0;
   var fat=parseFloat(document.getElementById('foodFat').value)||0;
-  if(!kcal && !protein) return;
+  if(!kcal && !protein){ toast('Enter kcal or protein first', 'warn'); return; }
   var meal=document.getElementById('foodMeal').value || defaultMealForNow();
   foodLog.push({date:date,meal:meal,name:name,kcal:kcal,protein:protein,carbs:carbs,fat:fat});
   foodLog.sort(function(a,b){return a.date.localeCompare(b.date);});
@@ -5218,11 +5403,13 @@ async function addFood(){
   document.getElementById('foodCarbs').value='';
   document.getElementById('foodFat').value='';
   renderHistory(); renderToday(); refreshProgress(); renderMealLibrary();
+  toast('Added ' + name + ' · ' + Math.round(kcal) + ' kcal to ' + meal);
 }
 async function deleteFood(i){
   foodLog.splice(i,1);
   await saveArr('food-log', foodLog);
   renderHistory(); renderToday(); refreshProgress();
+  toast('Food entry deleted');
 }
 
 /* ================= SESSION SHEET =================
@@ -5889,7 +6076,7 @@ async function saveSheetRow(i, opts){
   var s = summariseSetReps(r.setVals);
   var ru = repUnitOf(r.opts[r.sel].variant.reps);
   if(!s.sets){
-    if(!opts.quiet) flashSheetRow(i, 'Put the ' + ru.noun + ' in, set by set.');
+    if(!opts.quiet){ flashSheetRow(i, 'Put the ' + ru.noun + ' in, set by set.'); toast('Put the ' + ru.noun + ' in first', 'warn'); }
     return false;
   }
   var entry = {
@@ -5909,7 +6096,7 @@ async function saveSheetRow(i, opts){
   liftLog = liftLog.filter(function(x){ return !(x.date===entry.date && x.exercise===entry.exercise); });
   liftLog.push(entry);
   liftLog.sort(function(a,b){ return a.date.localeCompare(b.date); });
-  if(!opts.defer) await commitSheet(i);
+  if(!opts.defer){ await commitSheet(i); toast('Saved ' + entry.exercise); }
   return true;
 }
 async function commitSheet(i){
@@ -5925,6 +6112,7 @@ async function saveSheetAll(){
   }
   if(!saved){
     flashSheetAll('Nothing to save yet — put the reps in first.');
+    toast('Nothing to save yet — put the reps in first', 'warn');
     return;
   }
   btn.disabled = true; btn.textContent = 'Saving…';
@@ -5932,6 +6120,7 @@ async function saveSheetAll(){
   SHEET.rows.forEach(function(_, i){ fillSheetRow(i, SHEET.date); });
   btn.disabled = false;
   btn.textContent = 'Saved ' + saved + ' exercise' + (saved===1?'':'s');
+  toast('Saved ' + saved + ' exercise' + (saved===1?'':'s'));
   setTimeout(function(){
     var b = document.getElementById('sheetSaveAll');
     if(b) b.textContent = 'Save every row you have filled in';
@@ -6028,7 +6217,7 @@ async function addLift(){
   var weight=parseFloat(document.getElementById('liftWeight').value)||0;
   var reps=parseInt(document.getElementById('liftReps').value)||0;
   var sets=parseInt(document.getElementById('liftSets').value)||0;
-  if(!weight && !reps) return;
+  if(!weight && !reps){ toast('Enter a weight or reps first', 'warn'); return; }
   var entry = {date:date, exercise:exercise, weight:weight, reps:reps, sets:sets};
   /* Only stamped when it is not kg, so existing entries stay valid unchanged. */
   if(document.getElementById('liftUnit').value === 'lb') entry.unit = 'lb';
@@ -6041,47 +6230,53 @@ async function addLift(){
   document.getElementById('liftReps').value='';
   document.getElementById('liftSets').value='';
   renderHistory(); populateLiftChartSelect(); refreshProgress(); renderSessionSheet();
+  toast('Lift saved — ' + exercise);
 }
 async function deleteLift(i){
   liftLog.splice(i,1);
   await saveArr('lift-log', liftLog);
   renderHistory(); populateLiftChartSelect(); refreshProgress(); renderSessionSheet();
+  toast('Lift deleted');
 }
 
 async function addNote(){
   var date=document.getElementById('noteDate').value || todayStr();
   var pain=document.getElementById('notePain').value;
   var text=document.getElementById('noteText').value;
-  if(!text && pain==='') return;
+  if(!text && pain===''){ toast('Write a note or a pain score first', 'warn'); return; }
   noteLog.push({date:date, pain: pain===''? null: parseInt(pain), text:text});
   noteLog.sort(function(a,b){return a.date.localeCompare(b.date);});
   await saveArr('note-log', noteLog);
   document.getElementById('notePain').value='';
   document.getElementById('noteText').value='';
   renderHistory(); refreshProgress();
+  toast('Note saved');
 }
 /* Notes are appended, so several can share a date — delete by index like food. */
 async function deleteNote(i){
   noteLog.splice(i,1);
   await saveArr('note-log', noteLog);
   renderHistory(); refreshProgress();
+  toast('Note deleted');
 }
 
 async function addSteps(){
   var date=document.getElementById('stepDate').value || todayStr();
   var steps=parseInt(document.getElementById('stepVal').value,10);
-  if(isNaN(steps)) return;
+  if(isNaN(steps)){ toast('Enter a step count first', 'warn'); return; }
   stepLog = stepLog.filter(function(e){return e.date!==date;});
   stepLog.push({date:date, steps:steps});
   stepLog.sort(function(a,b){return a.date.localeCompare(b.date);});
   await saveArr('step-log', stepLog);
   document.getElementById('stepVal').value='';
   renderHistory(); renderToday(); refreshProgress();
+  toast('Steps saved — ' + steps.toLocaleString());
 }
 async function deleteSteps(date){
   stepLog = stepLog.filter(function(e){return e.date!==date;});
   await saveArr('step-log', stepLog);
   renderHistory(); renderToday(); refreshProgress();
+  toast('Steps deleted');
 }
 
 /* Drinks append like food does — a night out is several entries, not one
@@ -6089,7 +6284,7 @@ async function deleteSteps(date){
 async function addAlcohol(){
   var date=document.getElementById('alcDate').value || todayStr();
   var units=parseFloat(document.getElementById('alcVal').value);
-  if(isNaN(units)) return;
+  if(isNaN(units)){ toast('Enter the units first', 'warn'); return; }
   var kcalRaw = document.getElementById('alcKcal').value;
   var entry = {date:date, name:(document.getElementById('alcName').value || 'Drink'), units:units};
   if(kcalRaw !== '' && !isNaN(parseFloat(kcalRaw))) entry.kcal = parseFloat(kcalRaw);
@@ -6100,12 +6295,14 @@ async function addAlcohol(){
   document.getElementById('alcVal').value='';
   document.getElementById('alcKcal').value='';
   renderAlcTable(); renderHistory(); renderAlcoholChart(); refreshProgress();
+  toast('Drink saved — ' + units + ' unit' + (units===1?'':'s'));
 }
 /* By index, since a date no longer identifies a single row. */
 async function deleteAlc(i){
   alcLog.splice(i,1);
   await saveArr('alc-log', alcLog);
   renderAlcTable(); renderHistory(); renderAlcoholChart(); refreshProgress();
+  toast('Drink deleted');
 }
 function renderAlcTable(){
   var tbody=document.querySelector('#alcTable tbody');
@@ -6504,6 +6701,7 @@ async function commitPaste(){
   document.getElementById('pasteOut').innerHTML =
     '<div class="note-strip blue" style="margin:0">Added '+n+' entr'+(n===1?'y':'ies')+'.</div>';
   showView(touched.food||touched.bw ? 'today' : 'log');
+  toast('Added ' + n + ' entr' + (n===1?'y':'ies'));
 }
 
 function qaItemTitle(it){
@@ -6570,6 +6768,7 @@ function checkQuickAdd(){
     confirmBtn.onclick=async function(){
       var touched = await applyImportItems(items, date4);
       banner.style.display='none'; clearQAFromUrl(); showView(touched.food||touched.bw?'today':'log');
+      toast('Added ' + items.length + ' entr' + (items.length===1?'y':'ies'));
     };
     dismissBtn.onclick=function(){ banner.style.display='none'; clearQAFromUrl(); };
     banner.style.display='block';

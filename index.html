@@ -762,6 +762,18 @@
     <div id="sheetBody"></div>
   </div>
 
+  <div class="card" id="mealLibCard">
+    <div class="card-h"><h2>Add a previous food</h2>
+      <select id="mealLibDate" style="font-size:12px;padding:5px 8px;width:auto"></select>
+    </div>
+    <input type="search" id="mealLibSearch" placeholder="Search past meals and foods…" oninput="renderMealLibrary()" autocomplete="off">
+    <div id="mealLibOut" style="margin-top:10px"></div>
+    <details class="more">
+      <summary>How this works</summary>
+      <div class="body">Anything logged before, ready to add again — whole meals first, then single items. Change the quantity before you add and the macros scale with it. Until you search, only the most recent few are shown.</div>
+    </details>
+  </div>
+
   <div class="card" id="logEntryCard">
     <div class="card-h"><h2>Log an entry</h2></div>
     <div class="seg" id="logSeg">
@@ -802,16 +814,6 @@
       </div>
       <button class="btn full" onclick="addFood()">Save food</button>
 
-      <div class="divider"></div>
-      <div class="card-h"><h2>Repeat a meal</h2>
-        <select id="mealLibDate" style="font-size:12px;padding:5px 8px;width:auto"></select>
-      </div>
-      <input type="text" id="mealLibSearch" placeholder="Search past meals and items…" oninput="renderMealLibrary()">
-      <div id="mealLibOut" style="margin-top:10px"></div>
-      <details class="more">
-        <summary>How this works</summary>
-        <div class="body">Anything logged before, ready to add again — whole meals first, then single items. Change the quantity before you add and the macros scale with it.</div>
-      </details>
     </div>
 
     <div class="log-form" data-form="lift">
@@ -1125,7 +1127,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-29-2';
+var BUILD = '2026-09-29-3';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -4375,6 +4377,7 @@ function renderToday(){
         mrow('Logged', totals)+
         mrow('Left', rem, 'rem', function(v){ return v<0 ? 'var(--red)' : 'var(--green)'; })+
       '</tbody></table>'+
+      '<button class="btn ghost full" style="margin-top:10px" onclick="openFoodSearch()">+ Add food</button>'+
       renderMealBreakdown(t)+
       renderPacing(macros, totals)+
       renderBurn(t, tkey)+
@@ -5176,6 +5179,15 @@ function matchesSearch(text, q){
   return String(text).toLowerCase().indexOf(q) !== -1;
 }
 var MEAL_LIB_LIMIT = 8;
+var MEAL_LIB_IDLE = 4;
+/* From the Today diet card straight to the food search. */
+function openFoodSearch(){
+  showView('log');
+  var card = document.getElementById('mealLibCard');
+  if(card) card.scrollIntoView({behavior:'smooth', block:'start'});
+  var box = document.getElementById('mealLibSearch');
+  if(box) setTimeout(function(){ box.focus(); }, 350);
+}
 function renderMealLibrary(){
   var out = document.getElementById('mealLibOut');
   if(!out) return;
@@ -5185,6 +5197,9 @@ function renderMealLibrary(){
       MEAL_SLOTS.map(function(m){ return '<option value="'+m+'">Add as '+m+'</option>'; }).join('');
   }
   var q = (document.getElementById('mealLibSearch').value||'').trim().toLowerCase();
+  /* A handful until you search, so the card does not push the rest of the
+     tab off the screen; the full list is one word of typing away. */
+  var limit = q ? MEAL_LIB_LIMIT : MEAL_LIB_IDLE;
 
   var meals = buildMealLibrary().filter(function(m){
     return matchesSearch(m.meal + ' ' + m.items.map(function(i){return i.name;}).join(' '), q);
@@ -5199,7 +5214,7 @@ function renderMealLibrary(){
   var html = '';
   if(meals.length){
     html += '<h3 class="section" style="margin-top:0">Meals</h3>';
-    html += meals.slice(0, MEAL_LIB_LIMIT).map(function(m, i){
+    html += meals.slice(0, limit).map(function(m, i){
       var t = sumItems(m.items);
       return '<div class="exrow"><div class="ex-main"><div class="ex-text">'+
         '<div class="exname" id="mlmname-'+i+'">'+histEsc(m.meal)+' · '+Math.round(t.kcal)+' kcal</div>'+
@@ -5216,11 +5231,11 @@ function renderMealLibrary(){
         '</div>'+
         '</div></div>';
     }).join('');
-    if(meals.length > MEAL_LIB_LIMIT) html += '<p class="lead">'+(meals.length-MEAL_LIB_LIMIT)+' more — search to narrow.</p>';
+    if(meals.length > limit) html += '<p class="chart-tip">'+(meals.length-limit)+' more meals — '+(q?'search to narrow':'search to find them')+'.</p>';
   }
   if(items.length){
     html += '<h3 class="section">Items</h3>';
-    html += items.slice(0, MEAL_LIB_LIMIT).map(function(r, i){
+    html += items.slice(0, limit).map(function(r, i){
       var e = r.item, pq = parseItemQty(e.name);
       /* A measure moves in fives, a count in ones — nobody logs 201g of
          chicken, and the arrows should land on the number you meant. */
@@ -5240,7 +5255,7 @@ function renderMealLibrary(){
         '</div>'+
         '</div></div>';
     }).join('');
-    if(items.length > MEAL_LIB_LIMIT) html += '<p class="lead">'+(items.length-MEAL_LIB_LIMIT)+' more — search to narrow.</p>';
+    if(items.length > limit) html += '<p class="chart-tip">'+(items.length-limit)+' more foods — '+(q?'search to narrow':'search to find them')+'.</p>';
   }
   out.innerHTML = html;
   /* Stash the filtered lists so the buttons index into what is on screen. */

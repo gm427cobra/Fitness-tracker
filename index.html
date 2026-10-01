@@ -762,6 +762,20 @@
     <div id="sheetBody"></div>
   </div>
 
+  <div class="card">
+    <div class="card-h toggle" onclick="toggleCard('pasteBody','pasteChev')">
+      <h2>Paste from Claude</h2><span class="chev" id="pasteChev">▾</span>
+    </div>
+    <div id="pasteBody" style="display:none">
+      <textarea id="pasteBox" rows="6" placeholder="2026-08-29
+food | Oats 40g (dry) | 150 | 5 | 24 | 3
+lift | Leg Press | 160 | 10,10,9,8
+steps | 8400"></textarea>
+      <button class="btn full" style="margin-top:8px" onclick="previewPaste()">Check what this will add</button>
+      <div id="pasteOut" style="display:none;margin-top:10px"></div>
+    </div>
+  </div>
+
   <div class="card" id="mealLibCard">
     <div class="card-h"><h2>Add a previous food</h2>
       <select id="mealLibDate" style="font-size:12px;padding:5px 8px;width:auto"></select>
@@ -862,20 +876,6 @@
     <div class="filter-bar" id="histFilterBar" style="display:none"></div>
     <div class="hist-scroll"><table class="log-tbl" id="histTable"><thead></thead><tbody></tbody></table></div>
     <div id="histFoot" style="margin-top:10px"></div>
-  </div>
-
-  <div class="card">
-    <div class="card-h toggle" onclick="toggleCard('pasteBody','pasteChev')">
-      <h2>Paste from Claude</h2><span class="chev" id="pasteChev">▾</span>
-    </div>
-    <div id="pasteBody" style="display:none">
-      <textarea id="pasteBox" rows="6" placeholder="2026-08-29
-food | Oats 40g (dry) | 150 | 5 | 24 | 3
-lift | Leg Press | 160 | 10,10,9,8
-steps | 8400"></textarea>
-      <button class="btn full" style="margin-top:8px" onclick="previewPaste()">Check what this will add</button>
-      <div id="pasteOut" style="display:none;margin-top:10px"></div>
-    </div>
   </div>
 </div>
 
@@ -1127,7 +1127,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-09-29-3';
+var BUILD = '2026-10-01-1';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;

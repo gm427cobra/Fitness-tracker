@@ -200,7 +200,12 @@
   /* A set at the top of its range is the thing the ladder is waiting for, so
      say so while the weight is still on the machine. */
   .sh-set.top{border-color:var(--green);color:var(--green);}
-  .sh-setbtn{width:30px;flex:none;padding:8px 0;background:none;border:1px dashed var(--line);
+  /* Each set is a column: what you counted on top, what it was at underneath. */
+  .sh-setcol{display:flex;flex-direction:column;gap:3px;flex:none;}
+  .sh-setw{width:44px;flex:none;padding:5px 2px;font-size:12.5px;text-align:center;color:var(--ink-dim);}
+  /* Off the target — say so, so a changed set is not mistaken for a typo later. */
+  .sh-setw.own{color:var(--amber);border-color:var(--amber);}
+  .sh-setbtn{width:30px;flex:none;align-self:flex-start;padding:8px 0;background:none;border:1px dashed var(--line);
     border-radius:6px;color:var(--ink-dim);font-size:15px;line-height:1;cursor:pointer;font-family:var(--f-body);}
   .sh-fields label{font-size:9px;letter-spacing:.06em;margin-bottom:2px;}
   .sh-fields input,.sh-fields select{padding:8px 6px;font-size:15px;}
@@ -1127,7 +1132,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-10-01-1';
+var BUILD = '2026-10-09-1';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -3804,6 +3809,13 @@ function buildHistoryBlock(v, e, asRow){
     });
     var w = document.createElement('span');
     w.className = 'w'; w.textContent = r.weight + liftUnitOf(r);
+    /* The weight moved during the session: show the range rather than claim
+       every set was at the working weight. */
+    if(hasMixedWeights(r)){
+      var ws = setWeightsOf(r);
+      var lo = Math.min.apply(null, ws), hi = Math.max.apply(null, ws);
+      w.textContent = lo + '–' + hi + liftUnitOf(r);
+    }
     line.appendChild(d); line.appendChild(reps); line.appendChild(w);
     wrap.appendChild(line);
   });
@@ -3885,6 +3897,36 @@ function summariseSetReps(list){
                         .filter(function(v){ return v > 0; });
   return {setReps: clean, sets: clean.length,
           reps: clean.length ? Math.min.apply(null, clean) : 0};
+}
+/* A weight per set, for the session where the stack moved partway through — a
+   jump on the last set, a drop when the reps ran out. entry.weight stays the
+   working weight, so every reader that knows one number keeps working; the
+   list rides alongside as setWeights only when a set differed from it, the
+   same "absence means the plain case" rule as unit and repUnit. */
+function setWeightsOf(e){
+  var reps = setRepsOf(e), w = e ? (e.weight || 0) : 0;
+  return reps.map(function(_, k){
+    var sw = e && e.setWeights ? e.setWeights[k] : null;
+    return (sw === null || sw === undefined) ? w : sw;
+  });
+}
+function hasMixedWeights(e){
+  var ws = setWeightsOf(e);
+  return ws.some(function(w){ return w !== e.weight; });
+}
+/* "4 × 8 @ 50kg" when the weight held, "10, 10 @ 50kg · 8 @ 45kg" when it
+   moved — consecutive sets at one weight grouped, so a drop set reads as one. */
+function liftLabel(e){
+  var u = liftUnitOf(e);
+  if(!hasMixedWeights(e)) return repsLabel(e) + ' @ ' + e.weight + u;
+  var reps = setRepsOf(e), ws = setWeightsOf(e), ru = (e && e.repUnit) || '';
+  var groups = [];
+  reps.forEach(function(n, k){
+    var g = groups[groups.length-1];
+    if(g && g.w === ws[k]) g.r.push(n + ru);
+    else groups.push({w: ws[k], r: [n + ru]});
+  });
+  return groups.map(function(g){ return g.r.join(', ') + ' @ ' + g.w + u; }).join(' · ');
 }
 /* A rep is not always a rep. The plan writes "20–30s/side" for a hold and
    "20–30m/side" for a carry, and what you count there is seconds or metres —
@@ -5577,7 +5619,8 @@ function renderSessionSheet(){
   hint.querySelector('.body').textContent = 'Weight comes from the plan and from what you last lifted — change it if it differed. ' +
     'One box per prescribed set — reps, or the seconds or metres a hold or a carry asks for: ' +
     'fill in what each set actually gave you, and use + or − if you did ' +
-    'more or fewer. The lowest set is what moves your working weight, so the boxes are left blank on ' +
+    'more or fewer. The small box under each set is its weight — it follows the weight above, so ' +
+    'only touch it on a set you went heavier or lighter. The lowest set is what moves your working weight, so the rep boxes are left blank on ' +
     'purpose — these should be numbers you counted.';
   body.appendChild(hint);
 }
@@ -5593,7 +5636,9 @@ function buildSheetRow(e, i, date){
   for(var oi=0; oi<opts.length; oi++){
     if(loggedRowFor(date, variantExerciseName(opts[oi], e))){ sel = oi; break; }
   }
-  SHEET.rows.push({ex:e, opts:opts, sel:sel, setVals:[],
+  /* setW runs alongside setVals: null means "the weight above", a number means
+     this set was done at something else. */
+  SHEET.rows.push({ex:e, opts:opts, sel:sel, setVals:[], setW:[],
                    onChange: function(){ fillSheetRow(i, SHEET.date); }});
 
   var head = document.createElement('div');
@@ -5619,6 +5664,8 @@ function buildSheetRow(e, i, date){
     '<button class="sh-save" id="shb-'+i+'">Save</button>';
   row.appendChild(fields);
   fields.querySelector('#shb-'+i).onclick = function(){ saveSheetRow(i); };
+  /* The set boxes that have not been changed follow the weight up here. */
+  fields.querySelector('#shw-'+i).oninput = function(){ sheetSetBoxes(i); };
 
   /* One box per set. The set count is not a number you type any more — it is
      how many boxes you filled in, which is the same thing and one less field. */
@@ -5678,13 +5725,14 @@ function fillSheetRow(i, date){
     w.value = logged.weight;
     u.value = liftUnitOf(logged);
     r.setVals = setRepsOf(logged);
+    r.setW = setWeightsOf(logged).map(function(sw){ return sw === logged.weight ? null : sw; });
   } else {
     w.value = parsed ? parsed.value : '';
     u.value = parsed ? parsed.unit : (v.unit === 'lb' ? 'lb' : 'kg');
     /* One empty box per prescribed set — the shape of the session, waiting to
        be filled in. Still never pre-filled: see the note on SHEET. */
-    r.setVals = [];
-    for(var si=0; si < (v.sets || 1); si++) r.setVals.push(null);
+    r.setVals = []; r.setW = [];
+    for(var si=0; si < (v.sets || 1); si++){ r.setVals.push(null); r.setW.push(null); }
   }
   w.placeholder = parsed ? '' : 'calibrate';
   sheetSetBoxes(i);
@@ -5708,7 +5756,7 @@ function fillSheetRow(i, date){
      as the last session — and a row you have finished showing next week's
      number is a good way to load the wrong thing on the second exercise. */
   if(logged){
-    plan.textContent = 'logged ' + repsLabel(logged) + ' @ ' + logged.weight + liftUnitOf(logged);
+    plan.textContent = 'logged ' + liftLabel(logged);
   } else {
     plan.textContent = (v.sets||'?') + ' × ' + (v.reps||'?') +
                        (shown ? ' @ ' + shown : ' @ calibrate') + (v.perSide ? ' /side' : '');
@@ -5729,7 +5777,7 @@ function fillSheetRow(i, date){
   /* "Last time" must mean a previous session, not the one being written — on a
      saved row workingTarget's last entry is today's. */
   if(last && last.date !== (date || SHEET.date)){
-    bits.push('Last time: ' + repsLabel(last) + ' @ ' + last.weight + liftUnitOf(last) +
+    bits.push('Last time: ' + liftLabel(last) +
               ' on ' + fmtDate(last.date) + '.');
   } else if(!parsed && !logged){
     bits.push('No history yet — ramp up and log what you settle on.');
@@ -6021,8 +6069,14 @@ function sheetSetBoxes(i){
   var wrap = document.getElementById('shsets-'+i);
   if(!r || !wrap) return;
   var ends = repRangeEnds(r.opts[r.sel].variant.reps);
+  var mainW = document.getElementById('shw-'+i);
+  var target = mainW ? mainW.value : '';
+  while(r.setW.length < r.setVals.length) r.setW.push(null);
+  r.setW.length = r.setVals.length;
   wrap.innerHTML = '';
   r.setVals.forEach(function(v, si){
+    var col = document.createElement('div');
+    col.className = 'sh-setcol';
     var inp = document.createElement('input');
     inp.type = 'number';
     inp.inputMode = 'numeric';
@@ -6036,18 +6090,45 @@ function sheetSetBoxes(i){
       if(ends) inp.classList.toggle('top', parseInt(inp.value,10) >= ends.top);
       sheetSetSummary(i);
     };
-    wrap.appendChild(inp);
+    col.appendChild(inp);
+    /* Assumed at the target, so a session at one weight needs nothing typed
+       here. Change one and it stops following the weight above and is marked,
+       so a set done heavier or lighter is visible before it is saved. */
+    var wi = document.createElement('input');
+    wi.type = 'number';
+    wi.step = '0.5';
+    wi.inputMode = 'decimal';
+    wi.className = 'sh-setw';
+    wi.setAttribute('aria-label', 'Set ' + (si+1) + ' weight');
+    var own = r.setW[si];
+    wi.value = (own === null || own === undefined) ? target : own;
+    if(own !== null && own !== undefined) wi.classList.add('own');
+    wi.oninput = function(){
+      var n = parseFloat(wi.value);
+      var t = parseFloat(mainW ? mainW.value : '');
+      /* Cleared, or typed back to the target: following again. */
+      r.setW[si] = (wi.value === '' || isNaN(n) || n === t) ? null : n;
+      wi.classList.toggle('own', r.setW[si] !== null);
+    };
+    wi.onblur = function(){ if(r.setW[si] === null) wi.value = mainW ? mainW.value : ''; };
+    col.appendChild(wi);
+    wrap.appendChild(col);
   });
   var add = document.createElement('button');
   add.type = 'button'; add.className = 'sh-setbtn'; add.textContent = '+';
   add.title = 'Add a set';
-  add.onclick = function(){ r.setVals.push(null); sheetSetBoxes(i); };
+  /* A set added after a change of weight is most likely at the new weight. */
+  add.onclick = function(){
+    r.setVals.push(null);
+    r.setW.push(r.setW.length ? r.setW[r.setW.length-1] : null);
+    sheetSetBoxes(i);
+  };
   wrap.appendChild(add);
   if(r.setVals.length > 1){
     var rm = document.createElement('button');
     rm.type = 'button'; rm.className = 'sh-setbtn'; rm.textContent = '−';
     rm.title = 'Drop the last set';
-    rm.onclick = function(){ r.setVals.pop(); sheetSetBoxes(i); };
+    rm.onclick = function(){ r.setVals.pop(); r.setW.pop(); sheetSetBoxes(i); };
     wrap.appendChild(rm);
   }
   sheetSetSummary(i);
@@ -6094,16 +6175,29 @@ async function saveSheetRow(i, opts){
     if(!opts.quiet){ flashSheetRow(i, 'Put the ' + ru.noun + ' in, set by set.'); toast('Put the ' + ru.noun + ' in first', 'warn'); }
     return false;
   }
+  /* Each set's weight, kept in step with the reps that survive summarising —
+     an empty rep box drops its weight with it. */
+  var target = parseFloat(document.getElementById('shw-'+i).value) || 0;
+  var setW = [];
+  r.setVals.forEach(function(v, si){
+    if(!(parseInt(v,10) > 0)) return;
+    var sw = r.setW[si];
+    setW.push((sw === null || sw === undefined) ? target : sw);
+  });
+  /* Every set moved to the same new weight: that is the weight, not a variation
+     on the one the box above was showing. */
+  var weight = setW.length && setW.every(function(w){ return w === setW[0]; }) ? setW[0] : target;
   var entry = {
     date: SHEET.date,
     exercise: variantExerciseName(r.opts[r.sel], r.ex),
-    weight: parseFloat(document.getElementById('shw-'+i).value) || 0,
+    weight: weight,
     /* reps and sets are the summary the rest of the app reads; setReps is what
        actually happened. See the note above setRepsOf. */
     reps: s.reps,
     sets: s.sets,
     setReps: s.setReps
   };
+  if(setW.some(function(w){ return w !== weight; })) entry.setWeights = setW;
   if(document.getElementById('shu-'+i).value === 'lb') entry.unit = 'lb';
   /* Only stamped when it is not plain reps, so existing entries stay valid
      unchanged — the same convention as the weight unit above. */
@@ -6398,10 +6492,10 @@ var HIST_DEFS = {
       return ['<td>'+fmtDate(r.e.date)+'</td>',
               '<td class="name">'+histEsc(r.e.exercise)+'</td>',
               '<td>'+r.e.weight+' '+liftUnitOf(r.e)+'</td>',
-              '<td>'+histEsc(repsLabel(r.e))+'</td>'];
+              '<td>'+histEsc(hasMixedWeights(r.e) ? liftLabel(r.e) : repsLabel(r.e))+'</td>'];
     },
     what:function(r){ return '<span class="name">'+histEsc(r.e.exercise)+'</span>'; },
-    val:function(r){ return r.e.weight+' '+liftUnitOf(r.e)+'<span class="hist-sub">'+histEsc(repsLabel(r.e))+'</span>'; },
+    val:function(r){ return r.e.weight+' '+liftUnitOf(r.e)+'<span class="hist-sub">'+histEsc(hasMixedWeights(r.e) ? liftLabel(r.e) : repsLabel(r.e))+'</span>'; },
     del:function(r){ return 'deleteLift('+r.i+')'; }
   },
   alc: {
@@ -6584,6 +6678,8 @@ async function applyImportItems(items, defaultDate){
         var le = {date:d, exercise:it.exercise||'Exercise', weight:+it.weight||0,
                   reps:+it.reps||0, sets:+it.sets||0};
         if(it.setReps && it.setReps.length) le.setReps = it.setReps;
+        if(le.setReps && Array.isArray(it.setWeights) && it.setWeights.length === le.setReps.length)
+          le.setWeights = it.setWeights.map(function(v){ return +v || 0; });
         /* A single rep count with no set count is one set, not zero. */
         if(!le.sets && le.reps) le.sets = 1;
         if(String(it.unit||'').toLowerCase()==='lb') le.unit = 'lb';
@@ -7164,8 +7260,20 @@ function renderWeekStats(){
    count is capped rather than extrapolated. */
 function e1rmOf(e){
   if(!e || e.weight == null) return null;
-  var w = e.weight;
-  if(liftUnitOf(e) === 'lb') w = convertLift(w, 'lb', 'kg');
+  var toKg = function(w){ return liftUnitOf(e) === 'lb' ? convertLift(w, 'lb', 'kg') : w; };
+  /* With a weight per set the best set is the best product, not the most reps
+     at the working weight — a heavier last set may be the strongest one. */
+  if(hasMixedWeights(e)){
+    var ws = setWeightsOf(e), best = null;
+    setRepsOf(e).forEach(function(n, k){
+      var wk = toKg(ws[k]);
+      if(!n || !wk) return;
+      var est = wk * (1 + Math.min(n, 12)/30);
+      if(best === null || est > best) best = est;
+    });
+    return best;
+  }
+  var w = toKg(e.weight);
   var reps = 0;
   setRepsOf(e).forEach(function(n){ if(n > reps) reps = n; });
   if(!reps) reps = e.reps || 0;

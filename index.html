@@ -576,6 +576,16 @@
   .st-block .stnote,.st-block .st-routine-note{display:none;}
   .st-block.cues .stnote,.st-block.cues .st-routine-note{display:block;}
   .block-h .r{display:inline-flex;align-items:baseline;gap:8px;}
+  /* Bonus work reads as optional at a glance: the plan's purple, a dashed
+     frame where the session's own lifts have a solid one, and a pill. */
+  .bonus-h .t{color:var(--plan);}
+  .bonus-h .r{display:flex;align-items:center;gap:8px;}
+  .bonus-pill{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;font-weight:700;color:var(--plan);
+    border:1px solid var(--plan);border-radius:999px;padding:1px 7px;margin-left:6px;vertical-align:1px;}
+  .bonus-note{font-size:12px;color:var(--ink-dim);line-height:1.45;margin:-2px 0 8px;}
+  .exrow.bonus{border-left:3px dashed var(--plan);padding-left:9px;}
+  .exrow.lift-lg.bonus{border:2px dashed rgba(180,142,232,.7);padding-left:0;}
+  .sh-row.bonus{border-left:3px dashed var(--plan);padding-left:10px;}
   .cue-btn{background:none;border:1px solid var(--line);border-radius:12px;color:var(--ink-dim);
     font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;cursor:pointer;
     font-family:var(--f-body);line-height:1.4;}
@@ -1113,6 +1123,18 @@ steps | 8400"></textarea>
     <input type="text" class="picker-search" id="machPickerSearch" placeholder="Search every machine…"
            oninput="renderMachinePicker()" autocomplete="off">
     <div class="picker-list" id="machPickerList"></div>
+  </div>
+</div>
+
+<div class="picker" id="bonusPicker" onclick="if(event.target===this) closeBonusPicker()">
+  <div class="picker-panel">
+    <div class="picker-head">
+      <div class="picker-title" id="bonusPickerTitle"></div>
+      <button class="picker-x" onclick="closeBonusPicker()">✕</button>
+    </div>
+    <input type="text" class="picker-search" id="bonusPickerSearch" placeholder="Search every exercise…"
+           oninput="renderBonusPicker()" autocomplete="off">
+    <div class="picker-list" id="bonusPickerList"></div>
   </div>
 </div>
 
@@ -1928,16 +1950,20 @@ var DEFAULT_PLAN = {
        tempo:'2-1-2', rest:'60s', note:'Squeeze and hold 1s at the top.',
        alts:[{machine:'Abdominal Crunch, plate-loaded', sets:3, reps:'15–20', weight:null, rir:'0–1', tempo:'2-1-2', rest:'60s'}]}
     ],
-    /* Bonus — only if there is time once the session is done. Each one is an
-       exercise from the other day of the same half, written exactly as it is
-       there, so it is logged under the same name and shares that history: a
-       bonus set is the same machine doing the same job, and it moves the same
-       number. Kept out of ex on purpose — it is not counted in the session
-       clock, the planned sets or the day being done. */
+    /* Bonus — only if there is time once the session is done, and always for
+       the day's main muscle. Where the other day of the same half already has
+       a fitting exercise it is written exactly as it is there, so it is logged
+       under the same name and shares that history. Kept out of ex on purpose —
+       it is not counted in the session clock, the planned sets or the day being
+       done. bonusRev moves a stored plan onto a revised choice, unless you
+       picked your own (bonusMine) — see mergeBonusForward. */
+    bonusRev:2,
     bonus:[
-      {name:'Seated Calf Raise', machine:'Arsenal Strength Reloaded (AR-SC / 9034)', sets:3, reps:'15–20',
-       weight:null, rir:'0–1', tempo:'2-1-2', rest:'60s',
-       note:'Calves, from Thursday — soleus-biased, so it adds to the standing raise rather than repeating it. Full stretch at the bottom. Same numbers as Thursday.'}
+      {name:'DB Split Squat', machine:'Dumbbell', sets:3, reps:'10–12/side', weight:'16kg/hand',
+       rir:'1–2', tempo:'2-1-1', rest:'90s',
+       note:'Quads, from Thursday — single-leg, so it adds work without loading the spine the way more leg press would. Same weight as Thursday.',
+       alts:[{machine:'Iso-Lateral Leg Press, Hammer Strength', sets:3, reps:'10–12/side', weight:null, perSide:true,
+              rir:'1–2', tempo:'2-1-1', rest:'90s', note:'Single-leg, spine-safe cover for this movement. Start light.'}]}
     ]},
     upperA:{label:'Upper A — chest & shoulders', prep:'prepUpper', cool:'coolUpper', ex:[
       {name:'Bench Press Machine', machine:'Iso-Lateral Horizontal Bench Press, Hammer Strength',
@@ -1969,12 +1995,13 @@ var DEFAULT_PLAN = {
          maintenance work, and it does more warming the shoulder up than it did
          as the last two sets of a session already running long. */
     ],
+    bonusRev:2,
     bonus:[
-      {name:'Rear Delt Fly', machine:'Rear Delt / Pec Fly — black frame', sets:3, reps:'12–15',
-       weight:null, historyFrom:'2026-09-11', rir:'1–2', tempo:'2-1-2', rest:'60s',
-       note:'Shoulders, from Friday — the back of the delt, which nothing pressing today reaches. Chest to the pad, pull back, squeeze, control the return. Same numbers as Friday.',
-       alts:[{machine:'Rear Delt / Pec Fly — white frame', sets:3, reps:'12–15', weight:null, rir:'1–2', tempo:'2-1-2', rest:'60s'},
-             {machine:'Adjustable Cable Station, Cybex', sets:3, reps:'12–15', weight:'12kg', rir:'1–2', tempo:'2-1-2', rest:'60s'}]}
+      {name:'Decline Chest Press', machine:'Decline Chest Press (shallow), Hammer Strength', sets:3, reps:'10–12',
+       weight:null, perSide:true, rir:'1–2', tempo:'2-0-1', rest:'90s',
+       note:'Chest. The shallow decline keeps the shoulder in the range the flat press has already proved safe. CALIBRATE IT — its own numbers, not the flat press’s.',
+       alts:[{machine:'Seated Chest Press (flat), Hammer Strength', sets:3, reps:'10–12', weight:null, perSide:true,
+              rir:'1–2', tempo:'2-0-1', rest:'90s'}]}
     ]},
     lowerB:{label:'Lower B — posterior chain, core & calves', prep:'prepLower', cool:'coolLower', ex:[
       {name:'Hip Thrust', machine:'Gluteator 2.0, Rogers Athletic', sets:5, reps:'8–10', weight:'~75kg to start',
@@ -2012,6 +2039,7 @@ var DEFAULT_PLAN = {
        weight:null, rir:'0–1', tempo:'2-1-2', rest:'60s',
        note:'Soleus-biased, complements Monday’s gastroc-biased standing raise. Full stretch at the bottom. About 9kg of built-in lever resistance before any plate goes on, so this number understates true load — keep it consistent session to session rather than comparing it to Monday. Held at 3 sets while Monday’s standing raise runs 4 — seven calf sets a week between them.'}
     ],
+    bonusRev:2,
     bonus:[
       {name:'Prone Leg Curl', machine:'Prime', sets:3, reps:'10–12', weight:'49.5kg', rir:'1–2',
        tempo:'2-1-2', rest:'90s',
@@ -2064,11 +2092,13 @@ var DEFAULT_PLAN = {
        weight:'5kg', rir:'2–3', tempo:'slow, controlled', rest:'45s',
        note:'Maintenance. Stays in even once the shoulder feels good.'}
     ],
+    bonusRev:2,
     bonus:[
-      {name:'Lateral Raise', machine:'Dumbbell', sets:3, reps:'15–20', weight:null, rir:'0–1',
-       tempo:'2-1-2', rest:'60s',
-       note:'Side delts, from Tuesday — the one muscle in today’s title with no direct work of its own here. Same weight as Tuesday; no swinging.',
-       alts:[{machine:'Cable lateral raise, Adjustable Cable Station (Cybex)', sets:3, reps:'15–20', weight:null, rir:'0–1', tempo:'2-1-2', rest:'60s'}]}
+      {name:'Iso-Lateral Row', machine:'Iso-Lateral Row, Hammer Strength (silver frame)', sets:3, reps:'10–12',
+       weight:null, perSide:true, rir:'1–2', tempo:'2-1-1', rest:'90s',
+       note:'Back — more rowing volume for the day’s main muscle, one arm at a time. CALIBRATE IT — its own numbers.',
+       alts:[{machine:'Iso-Lateral D.Y. Row, Hammer Strength', sets:3, reps:'10–12', weight:null, perSide:true,
+              rir:'1–2', tempo:'2-1-1', rest:'90s'}]}
     ]},
     /* Cardio days are where the long stretch routine goes: the run costs half
        what a lifting session does, so the clock can carry the full version. */
@@ -2378,15 +2408,18 @@ function mergeAlternatesForward(plan){
 }
 /* A bonus exercise is additive in the same way: nothing the session prescribes
    changes, there is just something on the end of it for a day with time to
-   spare. Added to a stored template only when it has no bonus list at all, so
-   one emptied or edited by hand in the plan editor is left as it is. */
+   spare. Added to a stored template that has no bonus list, and replaced when
+   the built-in choice has been revised (bonusRev) — but never once you have
+   picked your own on the bonus picker, which marks the template bonusMine. */
 function mergeBonusForward(plan){
   if(!plan || !plan.templates || !DEFAULT_PLAN.templates) return 0;
   var added = 0;
   Object.keys(DEFAULT_PLAN.templates).forEach(function(k){
     var dt = DEFAULT_PLAN.templates[k], st = plan.templates[k];
-    if(!dt || !st || !dt.bonus || dt === st || st.bonus !== undefined) return;
+    if(!dt || !st || !dt.bonus || dt === st || st.bonusMine) return;
+    if(st.bonus !== undefined && (st.bonusRev||1) >= (dt.bonusRev||1)) return;
     st.bonus = JSON.parse(JSON.stringify(dt.bonus));
+    if(dt.bonusRev) st.bonusRev = dt.bonusRev;
     added++;
   });
   return added;
@@ -3316,10 +3349,58 @@ function renderStretchBlock(routine, containerEl){
 }
 
 /* ================= TODAY VIEW ================= */
-/* The machine picked on the Today card, per exercise, so it survives the
-   five-minute refresh and a trip to another tab. Contexts are cached alongside
-   so an open picker keeps pointing at the row that opened it. */
-var TODAY_PICKS = {};
+/* The machine (or alternate movement) picked for an exercise on a given date.
+   One store, read and written by both the Today card and the session sheet, so
+   a swap made on either is the swap the other shows — they used to keep a pick
+   each, and saving the sheet without noticing logged the alternate's sets
+   against the planned machine. Kept on this device: it is a convenience at the
+   rack, and the log itself is what records where a session was done.
+   Contexts are cached alongside so an open picker keeps pointing at the row
+   that opened it. */
+var MACHINE_PICKS = (function(){
+  try{ return JSON.parse(localStorage.getItem('buildlog_machine-picks') || '{}') || {}; }
+  catch(e){ return {}; }
+})();
+function getMachinePick(date, exName){
+  return (MACHINE_PICKS[date] && MACHINE_PICKS[date][exName]) || null;
+}
+function setMachinePick(date, exName, label){
+  (MACHINE_PICKS[date] = MACHINE_PICKS[date] || {})[exName] = label;
+  /* A pick only matters on its own day; keep a fortnight and drop the rest. */
+  var cutoff = addDays(todayStr(), -14);
+  Object.keys(MACHINE_PICKS).forEach(function(d){ if(d < cutoff) delete MACHINE_PICKS[d]; });
+  try{ localStorage.setItem('buildlog_machine-picks', JSON.stringify(MACHINE_PICKS)); }catch(e){}
+}
+/* Which option a row opens on: the one you picked for that date, else the one
+   the session was logged on, else the plan's. A pick of a machine from the
+   wider inventory is not among the built options, so it is added back. */
+function initialMachineSel(opts, e, date){
+  var picked = getMachinePick(date, e.name);
+  if(picked){
+    for(var i=0;i<opts.length;i++){ if(opts[i].label === picked) return i; }
+    var eq = findEquipment(picked);
+    if(eq) return addInventoryOption({ex:e, opts:opts}, eq);
+  }
+  for(var oi=0; oi<opts.length; oi++){
+    if(loggedRowFor(date, variantExerciseName(opts[oi], e))) return oi;
+  }
+  return 0;
+}
+/* A swap on one view is carried to the other straight away. The sheet row is
+   updated in place rather than rebuilt, so what is typed in other rows stays. */
+function syncMachineChange(date, e, label, from){
+  setMachinePick(date, e.name, label);
+  if(from !== 'today' && date === todayStr()) renderToday();
+  if(from !== 'sheet' && SHEET.date === date){
+    SHEET.rows.forEach(function(r, i){
+      if(r.ex.name !== e.name) return;
+      var at = initialMachineSel(r.opts, r.ex, date);
+      if(at === r.sel) return;
+      r.sel = at;
+      fillSheetRow(i, date);
+    });
+  }
+}
 var TODAY_CTX = {};
 /* ================= EXERCISE PHOTOS =================
    Gym-machine photos live in /images, named after the exercise: the name
@@ -3541,21 +3622,194 @@ function addExerciseThumb(row, name, explicit, allowUpload, opts){
 
 /* After the session and before the stretch, because that is when you find out
    whether there is time for it. Headed with its own minutes so the decision is
-   made against a number — the session clock above leaves it out. */
+   made against a number — the session clock above leaves it out — and with a
+   Change button, because what is worth doing with spare time is your call. */
 function bonusList(tpl){ return (tpl && Array.isArray(tpl.bonus)) ? tpl.bonus : []; }
-function bonusHead(tpl){
+function bonusHead(tpl, tkey){
+  var list = bonusList(tpl);
   var head = document.createElement('div');
-  head.className = 'block-h';
-  var secs = bonusList(tpl).reduce(function(a, e){ return a + exerciseSeconds(e); }, 0);
-  head.innerHTML = '<span class="t">Bonus — if you have time</span><span class="m"></span>';
-  head.querySelector('.m').textContent = '+' + Math.round(secs/60) + ' min';
+  head.className = 'block-h bonus-h';
+  var secs = list.reduce(function(a, e){ return a + exerciseSeconds(e); }, 0);
+  head.innerHTML = '<span class="t">Bonus<span class="bonus-pill">optional</span></span><span class="r"></span>';
+  var r = head.querySelector('.r');
+  if(list.length){
+    var m = document.createElement('span'); m.className = 'm';
+    m.textContent = '+' + Math.round(secs/60) + ' min';
+    r.appendChild(m);
+  }
+  if(tkey){
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'cue-btn';
+    b.textContent = list.length ? 'change' : 'add';
+    b.onclick = function(){ openBonusPicker(tkey); };
+    r.appendChild(b);
+  }
   return head;
 }
-function renderBonusBlock(tpl, containerEl, allowUpload){
+function bonusNote(tpl){
+  var n = document.createElement('div');
+  n.className = 'bonus-note';
+  n.textContent = bonusList(tpl).length
+    ? 'Only if you have time once the session is done. Skipping it costs nothing — it is not part of the day.'
+    : 'No bonus on this day.';
+  return n;
+}
+function renderBonusBlock(tpl, containerEl, allowUpload, tkey){
+  /* A day with no bonus still shows the header, or there would be no way to
+     add one back — but only where it can be changed. */
   var list = bonusList(tpl);
-  if(!list.length) return;
-  containerEl.appendChild(bonusHead(tpl));
-  list.forEach(function(e){ containerEl.appendChild(buildLiftRow(e, allowUpload)); });
+  if(!list.length && !(tkey && Array.isArray(tpl.bonus))) return;
+  containerEl.appendChild(bonusHead(tpl, tkey));
+  containerEl.appendChild(bonusNote(tpl));
+  list.forEach(function(e){
+    var row = buildLiftRow(e, allowUpload);
+    row.classList.add('bonus');
+    containerEl.appendChild(row);
+  });
+}
+
+/* ---- Bonus picker ----
+   Anything in the program can be the bonus: every exercise and named alternate
+   from the sessions still to come. It is copied in exactly as written there —
+   same name, same prescription — so it shares that exercise's history and its
+   numbers carry both ways. Today's own exercises are left out; doing one twice
+   is adding sets, not a bonus. */
+var BONUS_PICK = {tkey:null};
+function liftingTemplateKeysAhead(){
+  var keys = [], seen = {};
+  var wk = Math.max(0, Math.floor(dayIndexFromDate(todayStr()) / 7));
+  (PLAN.weekPlan || []).slice(wk).forEach(function(row){
+    (row || []).forEach(function(k){
+      var t = PLAN.templates[k];
+      if(!seen[k] && t && t.ex && t.ex.length){ seen[k] = 1; keys.push(k); }
+    });
+  });
+  return keys;
+}
+function bonusHalf(tkey){
+  return stretchRoutineKey(PLAN.templates[tkey], 'prep', tkey) || '';
+}
+function bonusLibrary(){
+  var out = [], seen = {};
+  function add(e, k){
+    if(!e || !e.name || seen[e.name]) return;
+    seen[e.name] = 1;
+    out.push({ex:e, from:k});
+  }
+  liftingTemplateKeysAhead().forEach(function(k){
+    var t = PLAN.templates[k];
+    t.ex.forEach(function(e){
+      add(e, k);
+      (e.alts||[]).forEach(function(a){
+        if(!a.name) return;
+        /* A named alternate is written as a delta against its primary. */
+        add({name:a.name, machine:a.machine,
+             sets: a.sets != null ? a.sets : e.sets, reps: a.reps != null ? a.reps : e.reps,
+             weight: a.weight !== undefined ? a.weight : e.weight, unit: a.unit || e.unit,
+             cap: a.cap, perSide: a.perSide, rir: a.rir || e.rir, tempo: a.tempo || e.tempo,
+             rest: a.rest || e.rest, note: a.note}, k);
+      });
+    });
+    bonusList(t).forEach(function(e){ add(e, k); });
+  });
+  var dt = DEFAULT_PLAN.templates || {};
+  Object.keys(dt).forEach(function(k){ bonusList(dt[k]).forEach(function(e){ add(e, k); }); });
+  return out;
+}
+function openBonusPicker(tkey){
+  var t = PLAN.templates[tkey];
+  if(!t) return;
+  BONUS_PICK.tkey = tkey;
+  document.getElementById('bonusPickerTitle').innerHTML =
+    'Bonus — ' + histEsc(t.label || tkey) + '<span>Pick something for the main muscles today, or anything else</span>';
+  document.getElementById('bonusPickerSearch').value = '';
+  document.getElementById('bonusPicker').classList.add('open');
+  renderBonusPicker();
+}
+function closeBonusPicker(){
+  document.getElementById('bonusPicker').classList.remove('open');
+  BONUS_PICK.tkey = null;
+}
+function renderBonusPicker(){
+  var tkey = BONUS_PICK.tkey, t = tkey && PLAN.templates[tkey];
+  if(!t) return;
+  var list = document.getElementById('bonusPickerList');
+  var q = normEquipName(document.getElementById('bonusPickerSearch').value);
+  list.innerHTML = '';
+  var current = bonusList(t).map(function(e){ return e.name; });
+  var own = {}; t.ex.forEach(function(e){ own[e.name] = 1; });
+  function matches(e){ return !q || normEquipName(e.name + ' ' + (e.machine||'')).indexOf(q) !== -1; }
+  function sec(txt){
+    var h = document.createElement('div'); h.className = 'picker-sec'; h.textContent = txt;
+    list.appendChild(h);
+  }
+  function row(name, meta, sub, selected, onPick){
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mach-row' + (selected ? ' on' : '');
+    btn.innerHTML = '<div class="body"><div class="nm"></div><div class="meta"></div><div class="sub"></div></div>';
+    btn.querySelector('.nm').textContent = name;
+    btn.querySelector('.meta').textContent = meta || '';
+    btn.querySelector('.sub').textContent = sub || '';
+    if(selected){
+      var tick = document.createElement('span'); tick.className = 'tick'; tick.textContent = '✓';
+      btn.appendChild(tick);
+    }
+    btn.onclick = onPick;
+    list.appendChild(btn);
+  }
+  var half = bonusHalf(tkey);
+  var lib = bonusLibrary().filter(function(it){ return !own[it.ex.name] && matches(it.ex); });
+  var same = lib.filter(function(it){ return bonusHalf(it.from) === half; });
+  var other = lib.filter(function(it){ return bonusHalf(it.from) !== half; });
+  function addItems(items){
+    items.forEach(function(it){
+      var e = it.ex, from = PLAN.templates[it.from] || (DEFAULT_PLAN.templates||{})[it.from] || {};
+      row(e.name,
+          (e.sets||'?') + ' × ' + (e.reps||'?') + ' @ ' + (e.weight || 'calibrate') + (e.machine ? ' · ' + e.machine : ''),
+          'From ' + (from.label || it.from) + ' — shares its history',
+          current.length === 1 && current[0] === e.name,
+          function(){ setBonus(tkey, [JSON.parse(JSON.stringify(e))], true); });
+    });
+  }
+  if(!q){
+    var dflt = (DEFAULT_PLAN.templates||{})[tkey];
+    if(t.bonusMine && dflt && bonusList(dflt).length){
+      sec('Built-in');
+      row('Back to the built-in bonus', bonusList(dflt).map(function(e){ return e.name; }).join(', '),
+          'What the plan suggests for this day', false, function(){ setBonus(tkey, null, false); });
+    }
+    row('No bonus on this day', '', 'Hides it — you can add one back here any time',
+        !current.length, function(){ setBonus(tkey, [], true); });
+  }
+  if(same.length){ sec('Same half of the week'); addItems(same); }
+  if(other.length){ sec('Everything else'); addItems(other); }
+  if(!same.length && !other.length && q){
+    var none = document.createElement('div'); none.className = 'empty';
+    none.textContent = 'No exercise matches that.';
+    list.appendChild(none);
+  }
+}
+/* list null means "go back to the built-in choice". */
+async function setBonus(tkey, list, mine){
+  var t = PLAN.templates[tkey];
+  if(!t) return;
+  var dflt = (DEFAULT_PLAN.templates||{})[tkey];
+  if(list === null){
+    t.bonus = dflt ? JSON.parse(JSON.stringify(bonusList(dflt))) : [];
+    delete t.bonusMine;
+    if(dflt && dflt.bonusRev) t.bonusRev = dflt.bonusRev;
+  } else {
+    t.bonus = list;
+    if(mine) t.bonusMine = true;
+  }
+  closeBonusPicker();
+  await savePlan(PLAN);
+  renderToday();
+  if(typeof renderPlan === 'function') renderPlan();
+  var st = SHEET.date ? sheetTemplateFor(SHEET.date) : null;
+  if(st && st.key === tkey) renderSessionSheet();
+  toast(t.bonus.length ? 'Bonus: ' + t.bonus.map(function(e){ return e.name; }).join(', ') : 'No bonus on this day');
 }
 function renderExerciseBlock(tpl, containerEl, allowUpload, tkey){
   var prepRoutine = stretchRoutine(tpl, 'prep', tkey);
@@ -3599,7 +3853,7 @@ function renderExerciseBlock(tpl, containerEl, allowUpload, tkey){
     containerEl.appendChild(lifts);
   }
   tpl.ex.forEach(function(e){ containerEl.appendChild(buildLiftRow(e, allowUpload)); });
-  renderBonusBlock(tpl, containerEl, allowUpload);
+  renderBonusBlock(tpl, containerEl, allowUpload, tkey);
   renderStretchBlock(coolRoutine, containerEl);
 }
 /* What this card is for, at the rack: what am I doing, how do I do it, and is
@@ -3618,16 +3872,14 @@ function buildLiftRow(e, interactive){
   if(interactive){
     ctx = TODAY_CTX[e.name];
     if(!ctx || ctx.ex !== e){
-      var opts = sheetMachineOptions(e);
-      var sel = 0, remembered = TODAY_PICKS[e.name];
-      if(remembered){
-        for(var oi=0; oi<opts.length; oi++){ if(opts[oi].label === remembered){ sel = oi; break; } }
-      }
-      ctx = TODAY_CTX[e.name] = {ex:e, opts:opts, sel:sel, onChange:function(){
-        TODAY_PICKS[e.name] = ctx.opts[ctx.sel].label;
+      ctx = TODAY_CTX[e.name] = {ex:e, opts:sheetMachineOptions(e), sel:0, onChange:function(){
+        /* The pick is stored first: the render below reads it back. */
+        syncMachineChange(todayStr(), e, ctx.opts[ctx.sel].label, 'today');
         renderToday();
       }};
     }
+    /* Re-read every render: the sheet may have swapped it since. */
+    ctx.sel = initialMachineSel(ctx.opts, e, todayStr());
   }
   var v = ctx ? ctx.opts[ctx.sel].variant : e;
   var machineLabel;
@@ -5676,9 +5928,14 @@ function renderSessionSheet(){
   /* Bonus rows carry on the numbering: they save exactly like the rest, and an
      empty one is skipped by "save every row" like any other. */
   var nEx = st.tpl.ex.length, bonus = bonusList(st.tpl);
-  if(bonus.length){
-    body.appendChild(bonusHead(st.tpl));
-    bonus.forEach(function(e, j){ body.appendChild(buildSheetRow(e, nEx + j, date)); });
+  if(bonus.length || Array.isArray(st.tpl.bonus)){
+    body.appendChild(bonusHead(st.tpl, st.key));
+    body.appendChild(bonusNote(st.tpl));
+    bonus.forEach(function(e, j){
+      var row = buildSheetRow(e, nEx + j, date);
+      row.classList.add('bonus');
+      body.appendChild(row);
+    });
   }
 
   var all = document.createElement('button');
@@ -5708,14 +5965,16 @@ function buildSheetRow(e, i, date){
   /* Open on the machine the session was actually done on. Without this, a row
      logged against an alternate comes back showing the primary as untouched,
      which invites logging the same exercise twice. */
-  var sel = 0;
-  for(var oi=0; oi<opts.length; oi++){
-    if(loggedRowFor(date, variantExerciseName(opts[oi], e))){ sel = oi; break; }
-  }
+  /* Or on the one picked for that date on the Today card — see MACHINE_PICKS. */
+  var sel = initialMachineSel(opts, e, date);
   /* setW runs alongside setVals: null means "the weight above", a number means
      this set was done at something else. */
   SHEET.rows.push({ex:e, opts:opts, sel:sel, setVals:[], setW:[],
-                   onChange: function(){ fillSheetRow(i, SHEET.date); }});
+                   onChange: function(){
+                     var r = SHEET.rows[i];
+                     fillSheetRow(i, SHEET.date);
+                     syncMachineChange(SHEET.date, e, r.opts[r.sel].label, 'sheet');
+                   }});
 
   var head = document.createElement('div');
   head.className = 'sh-head';

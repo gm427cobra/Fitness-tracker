@@ -1927,6 +1927,17 @@ var DEFAULT_PLAN = {
       {name:'Abdominal Crunch', machine:'Cybex Eagle NX', sets:3, reps:'15–20', weight:null, rir:'0–1',
        tempo:'2-1-2', rest:'60s', note:'Squeeze and hold 1s at the top.',
        alts:[{machine:'Abdominal Crunch, plate-loaded', sets:3, reps:'15–20', weight:null, rir:'0–1', tempo:'2-1-2', rest:'60s'}]}
+    ],
+    /* Bonus — only if there is time once the session is done. Each one is an
+       exercise from the other day of the same half, written exactly as it is
+       there, so it is logged under the same name and shares that history: a
+       bonus set is the same machine doing the same job, and it moves the same
+       number. Kept out of ex on purpose — it is not counted in the session
+       clock, the planned sets or the day being done. */
+    bonus:[
+      {name:'Seated Calf Raise', machine:'Arsenal Strength Reloaded (AR-SC / 9034)', sets:3, reps:'15–20',
+       weight:null, rir:'0–1', tempo:'2-1-2', rest:'60s',
+       note:'Calves, from Thursday — soleus-biased, so it adds to the standing raise rather than repeating it. Full stretch at the bottom. Same numbers as Thursday.'}
     ]},
     upperA:{label:'Upper A — chest & shoulders', prep:'prepUpper', cool:'coolUpper', ex:[
       {name:'Bench Press Machine', machine:'Iso-Lateral Horizontal Bench Press, Hammer Strength',
@@ -1957,6 +1968,13 @@ var DEFAULT_PLAN = {
       /* Prone Y-Raise moved into the Upper prep block on 9 Sep — it was light
          maintenance work, and it does more warming the shoulder up than it did
          as the last two sets of a session already running long. */
+    ],
+    bonus:[
+      {name:'Rear Delt Fly', machine:'Rear Delt / Pec Fly — black frame', sets:3, reps:'12–15',
+       weight:null, historyFrom:'2026-09-11', rir:'1–2', tempo:'2-1-2', rest:'60s',
+       note:'Shoulders, from Friday — the back of the delt, which nothing pressing today reaches. Chest to the pad, pull back, squeeze, control the return. Same numbers as Friday.',
+       alts:[{machine:'Rear Delt / Pec Fly — white frame', sets:3, reps:'12–15', weight:null, rir:'1–2', tempo:'2-1-2', rest:'60s'},
+             {machine:'Adjustable Cable Station, Cybex', sets:3, reps:'12–15', weight:'12kg', rir:'1–2', tempo:'2-1-2', rest:'60s'}]}
     ]},
     lowerB:{label:'Lower B — posterior chain, core & calves', prep:'prepLower', cool:'coolLower', ex:[
       {name:'Hip Thrust', machine:'Gluteator 2.0, Rogers Athletic', sets:5, reps:'8–10', weight:'~75kg to start',
@@ -1993,6 +2011,13 @@ var DEFAULT_PLAN = {
       {name:'Seated Calf Raise', machine:'Arsenal Strength Reloaded (AR-SC / 9034)', sets:3, reps:'15–20',
        weight:null, rir:'0–1', tempo:'2-1-2', rest:'60s',
        note:'Soleus-biased, complements Monday’s gastroc-biased standing raise. Full stretch at the bottom. About 9kg of built-in lever resistance before any plate goes on, so this number understates true load — keep it consistent session to session rather than comparing it to Monday. Held at 3 sets while Monday’s standing raise runs 4 — seven calf sets a week between them.'}
+    ],
+    bonus:[
+      {name:'Prone Leg Curl', machine:'Prime', sets:3, reps:'10–12', weight:'49.5kg', rir:'1–2',
+       tempo:'2-1-2', rest:'90s',
+       note:'Hamstrings again, from Monday — a different angle to the kneeling curl, so it adds rather than repeats. Hamstrings are already tired by now: if the reps fall short of Monday, that is expected and the weight simply holds.',
+       alts:[{machine:'Prone Leg Curl, Cybex Prestige', sets:3, reps:'10–12', weight:null, rir:'1–2', tempo:'2-1-2', rest:'90s'},
+             {machine:'Prone Leg Curl, Hammer Strength (plate-loaded)', sets:3, reps:'10–12', weight:null, rir:'1–2', tempo:'2-1-2', rest:'90s'}]}
     ]},
     upperB:{label:'Upper B — back, side delts & arms', prep:'prepUpper', cool:'coolUpper', ex:[
       {name:'Chest-Supported Row', machine:'Cybex Eagle NX', sets:5, reps:'8–10', weight:'40kg',
@@ -2038,6 +2063,12 @@ var DEFAULT_PLAN = {
       {name:'External Rotation', machine:'Adjustable Cable Station, Cybex, or light DB', sets:3, reps:'15',
        weight:'5kg', rir:'2–3', tempo:'slow, controlled', rest:'45s',
        note:'Maintenance. Stays in even once the shoulder feels good.'}
+    ],
+    bonus:[
+      {name:'Lateral Raise', machine:'Dumbbell', sets:3, reps:'15–20', weight:null, rir:'0–1',
+       tempo:'2-1-2', rest:'60s',
+       note:'Side delts, from Tuesday — the one muscle in today’s title with no direct work of its own here. Same weight as Tuesday; no swinging.',
+       alts:[{machine:'Cable lateral raise, Adjustable Cable Station (Cybex)', sets:3, reps:'15–20', weight:null, rir:'0–1', tempo:'2-1-2', rest:'60s'}]}
     ]},
     /* Cardio days are where the long stretch routine goes: the run costs half
        what a lifting session does, so the clock can carry the full version. */
@@ -2345,6 +2376,21 @@ function mergeAlternatesForward(plan){
   });
   return added;
 }
+/* A bonus exercise is additive in the same way: nothing the session prescribes
+   changes, there is just something on the end of it for a day with time to
+   spare. Added to a stored template only when it has no bonus list at all, so
+   one emptied or edited by hand in the plan editor is left as it is. */
+function mergeBonusForward(plan){
+  if(!plan || !plan.templates || !DEFAULT_PLAN.templates) return 0;
+  var added = 0;
+  Object.keys(DEFAULT_PLAN.templates).forEach(function(k){
+    var dt = DEFAULT_PLAN.templates[k], st = plan.templates[k];
+    if(!dt || !st || !dt.bonus || dt === st || st.bonus !== undefined) return;
+    st.bonus = JSON.parse(JSON.stringify(dt.bonus));
+    added++;
+  });
+  return added;
+}
 /* The projection is the other thing that has to travel to a stored plan on its
    own. mergeWithDefaults() only ever fills in top-level keys that are missing
    altogether, and every stored plan already carries a weightProjection — so a
@@ -2460,6 +2506,7 @@ function mergeWithDefaults(stored){
   }
   for(var k2 in stored){ if(merged[k2]===undefined) merged[k2]=stored[k2]; }
   if(mergeAlternatesForward(merged)) missing = true;
+  if(mergeBonusForward(merged)) missing = true;
   if(mergeProjectionForward(merged)) missing = true;
   if(mergeBreaksForward(merged)) missing = true;
   return {plan:merged, patched:missing};
@@ -3492,6 +3539,24 @@ function addExerciseThumb(row, name, explicit, allowUpload, opts){
   img.src = candidates[0];
 }
 
+/* After the session and before the stretch, because that is when you find out
+   whether there is time for it. Headed with its own minutes so the decision is
+   made against a number — the session clock above leaves it out. */
+function bonusList(tpl){ return (tpl && Array.isArray(tpl.bonus)) ? tpl.bonus : []; }
+function bonusHead(tpl){
+  var head = document.createElement('div');
+  head.className = 'block-h';
+  var secs = bonusList(tpl).reduce(function(a, e){ return a + exerciseSeconds(e); }, 0);
+  head.innerHTML = '<span class="t">Bonus — if you have time</span><span class="m"></span>';
+  head.querySelector('.m').textContent = '+' + Math.round(secs/60) + ' min';
+  return head;
+}
+function renderBonusBlock(tpl, containerEl, allowUpload){
+  var list = bonusList(tpl);
+  if(!list.length) return;
+  containerEl.appendChild(bonusHead(tpl));
+  list.forEach(function(e){ containerEl.appendChild(buildLiftRow(e, allowUpload)); });
+}
 function renderExerciseBlock(tpl, containerEl, allowUpload, tkey){
   var prepRoutine = stretchRoutine(tpl, 'prep', tkey);
   var coolRoutine = stretchRoutine(tpl, 'cool', tkey);
@@ -3534,6 +3599,7 @@ function renderExerciseBlock(tpl, containerEl, allowUpload, tkey){
     containerEl.appendChild(lifts);
   }
   tpl.ex.forEach(function(e){ containerEl.appendChild(buildLiftRow(e, allowUpload)); });
+  renderBonusBlock(tpl, containerEl, allowUpload);
   renderStretchBlock(coolRoutine, containerEl);
 }
 /* What this card is for, at the rack: what am I doing, how do I do it, and is
@@ -5607,6 +5673,13 @@ function renderSessionSheet(){
   }
 
   st.tpl.ex.forEach(function(e, i){ body.appendChild(buildSheetRow(e, i, date)); });
+  /* Bonus rows carry on the numbering: they save exactly like the rest, and an
+     empty one is skipped by "save every row" like any other. */
+  var nEx = st.tpl.ex.length, bonus = bonusList(st.tpl);
+  if(bonus.length){
+    body.appendChild(bonusHead(st.tpl));
+    bonus.forEach(function(e, j){ body.appendChild(buildSheetRow(e, nEx + j, date)); });
+  }
 
   var all = document.createElement('button');
   all.className = 'btn full';
@@ -7017,7 +7090,13 @@ function getTrainingStatus(dateStr){
   var planned = slots.map(function(s){ return s.name; });
   var loggedEntries = liftLog.filter(function(e){return e.date===dateStr;});
   var loggedNames = loggedEntries.map(function(e){return e.exercise;});
-  var matched = countMatchedExercises(slots, loggedNames);
+  /* A bonus is extra, so it is never what ticks off a planned row — the loose
+     match below would otherwise let one stand in for a row that was skipped. */
+  var bonusNames = bonusList(tpl).map(function(b){ return b.name.toLowerCase(); });
+  var matched = countMatchedExercises(slots, loggedNames.filter(function(n){
+    var l = String(n).toLowerCase();
+    return !bonusNames.some(function(b){ return l === b || l.indexOf(b + ' — ') === 0; });
+  }));
   if(idx===todayIdx && loggedEntries.length===0) return {status:'pending', planned:planned, logged:loggedEntries};
   var ratio = planned.length? matched/planned.length : (loggedEntries.length?1:0);
   var status = ratio>=0.8 ? 'hit' : (ratio>0 ? 'partial' : 'missed');

@@ -793,13 +793,16 @@ steps | 8400"></textarea>
 
   <div class="card" id="mealLibCard">
     <div class="card-h"><h2>Add a previous food</h2>
-      <select id="mealLibDate" style="font-size:12px;padding:5px 8px;width:auto"></select>
+      <span class="card-h-r">
+        <input type="date" id="mealLibDay" style="font-size:12px;padding:5px 8px;width:auto">
+        <select id="mealLibDate" style="font-size:12px;padding:5px 8px;width:auto"></select>
+      </span>
     </div>
     <input type="search" id="mealLibSearch" placeholder="Search past meals and foods…" oninput="renderMealLibrary()" autocomplete="off">
     <div id="mealLibOut" style="margin-top:10px"></div>
     <details class="more">
       <summary>How this works</summary>
-      <div class="body">Anything logged before, ready to add again — whole meals first, then single items. Change the quantity before you add and the macros scale with it. Until you search, only the most recent few are shown.</div>
+      <div class="body">Anything logged before, ready to add again — whole meals first, then single items. Change the quantity before you add and the macros scale with it. Pick an earlier date to add it to a day you forgot to log. Until you search, only the most recent few are shown.</div>
     </details>
   </div>
 
@@ -1154,7 +1157,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-10-09-1';
+var BUILD = '2026-10-13-1';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -5556,7 +5559,7 @@ function renderMealLibrary(){
   if(!out) return;
   var sel = document.getElementById('mealLibDate');
   if(sel && !sel.options.length){
-    sel.innerHTML = '<option value="">Add to today</option>' +
+    sel.innerHTML = '<option value="">Same meal</option>' +
       MEAL_SLOTS.map(function(m){ return '<option value="'+m+'">Add as '+m+'</option>'; }).join('');
   }
   var q = (document.getElementById('mealLibSearch').value||'').trim().toLowerCase();
@@ -5625,6 +5628,15 @@ function renderMealLibrary(){
   renderMealLibrary._meals = meals;
   renderMealLibrary._items = items;
 }
+/* The day an Add lands on — today unless an earlier day is picked, for the
+   meal that was eaten but never logged. A future date is pulled back. */
+function targetFoodDate(){
+  var box = document.getElementById('mealLibDay');
+  var t = todayStr(), d = box && box.value;
+  if(!d || d > t){ d = t; if(box) box.value = t; }
+  return d;
+}
+function dayPhrase(d){ return d === todayStr() ? '' : ' on ' + fmtDate(d); }
 function targetMealSlot(fallback){
   var sel = document.getElementById('mealLibDate');
   return (sel && sel.value) ? sel.value : fallback;
@@ -5662,7 +5674,7 @@ async function repeatMeal(i){
   var m = (renderMealLibrary._meals||[])[i];
   if(!m) return;
   var box = document.getElementById('mlmq-'+i);
-  var slot = targetMealSlot(m.meal), d = todayStr();
+  var slot = targetMealSlot(m.meal), d = targetFoodDate();
   var addedKcal = 0;
   scaledMealItems(m, box ? box.value : null).forEach(function(e){
     addedKcal += e.kcal || 0;
@@ -5671,8 +5683,8 @@ async function repeatMeal(i){
   foodLog.sort(function(a,b){return a.date.localeCompare(b.date);});
   await saveArr('food-log', foodLog);
   renderHistory(); renderToday(); refreshProgress(); renderMealLibrary();
-  showView('today');
-  toast('Added ' + slot + ' · ' + Math.round(addedKcal) + ' kcal');
+  if(d === todayStr()) showView('today');
+  toast('Added ' + slot + ' · ' + Math.round(addedKcal) + ' kcal' + dayPhrase(d));
 }
 async function repeatItem(i){
   var r = (renderMealLibrary._items||[])[i];
@@ -5680,11 +5692,12 @@ async function repeatItem(i){
   var box = document.getElementById('mliq-'+i);
   var e = scaledItem(r.item, box ? box.value : null);
   var slot = targetMealSlot(mealOf(r.item)==='Unassigned'? defaultMealForNow() : mealOf(r.item));
-  foodLog.push({date:todayStr(), meal:slot, name:e.name, kcal:e.kcal, protein:e.protein, carbs:e.carbs, fat:e.fat});
+  var d = targetFoodDate();
+  foodLog.push({date:d, meal:slot, name:e.name, kcal:e.kcal, protein:e.protein, carbs:e.carbs, fat:e.fat});
   foodLog.sort(function(a,b){return a.date.localeCompare(b.date);});
   await saveArr('food-log', foodLog);
   renderHistory(); renderToday(); refreshProgress(); renderMealLibrary();
-  toast('Added ' + e.name + ' · ' + Math.round(e.kcal||0) + ' kcal to ' + slot);
+  toast('Added ' + e.name + ' · ' + Math.round(e.kcal||0) + ' kcal to ' + slot + dayPhrase(d));
 }
 
 /* ================= LOG ACTIONS ================= */
@@ -9065,6 +9078,8 @@ async function startApp(){
   document.getElementById('noteDate').value = todayStr();
   document.getElementById('alcDate').value = todayStr();
   document.getElementById('foodDate').value = todayStr();
+  document.getElementById('mealLibDay').value = todayStr();
+  document.getElementById('mealLibDay').max = todayStr();
   document.getElementById('stepDate').value = todayStr();
   document.getElementById('sheetDate').value = todayStr();
   document.getElementById('foodMeal').innerHTML = mealSlotOptions(defaultMealForNow());

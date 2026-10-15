@@ -571,6 +571,38 @@
   .card-h.toggle{cursor:pointer;margin-bottom:0;}
   .card-h.toggle.open{margin-bottom:10px;}
   .card-h-r{display:inline-flex;align-items:center;gap:8px;}
+  /* Today as the day's checklist: weight, food and the session each get a bar
+     that says done or not, and a done one folds down to just that bar. */
+  .td-prog{display:flex;align-items:center;gap:10px;}
+  .td-prog .bar{flex:1;height:6px;border-radius:3px;background:var(--panel-2);overflow:hidden;}
+  .td-prog .bar i{display:block;height:100%;background:var(--green);transition:width .2s;}
+  .td-prog .n{font-size:12px;color:var(--ink-dim);white-space:nowrap;}
+  .td-prog .n b{color:var(--ink);}
+  .tsec{margin-bottom:12px;}
+  .tsec-h{display:flex;align-items:center;gap:10px;cursor:pointer;
+    background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+    border-radius:8px;padding:11px 12px;}
+  .tsec-h:active{filter:brightness(1.25);}
+  .tsec-h .ic{flex:none;width:22px;height:22px;border-radius:50%;border:2px solid var(--ink-dim);
+    display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--bg);}
+  .tsec-h .tx{flex:1;min-width:0;}
+  .tsec-h .tt{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);font-weight:600;}
+  .tsec-h .ts{font-size:12px;color:var(--ink-dim);margin-top:2px;}
+  .tsec-h .st{flex:none;font-size:10px;padding:3px 8px;border-radius:20px;border:1px solid var(--line);
+    letter-spacing:.05em;text-transform:uppercase;font-weight:600;color:var(--ink-dim);}
+  .tsec.done .tsec-h{border-left-color:var(--green);}
+  .tsec.done .tsec-h .ic{background:var(--green);border-color:var(--green);}
+  .tsec.done .tsec-h .st{color:var(--green);border-color:var(--green);}
+  .tsec.over .tsec-h{border-left-color:var(--amber);}
+  .tsec.over .tsec-h .st{color:var(--amber);border-color:var(--amber);}
+  .tsec.open .tsec-h{border-bottom-left-radius:0;border-bottom-right-radius:0;margin-bottom:0;}
+  .tsec-b{display:none;padding-top:8px;}
+  .tsec.open .tsec-b{display:block;}
+  .tsec.open .tsec-h .chev{transform:rotate(180deg);}
+  .td-act{display:flex;gap:8px;margin-top:10px;}
+  .td-act .btn{flex:1;}
+  /* On Today the session sheet and food library are always for today. */
+  #view-today #sheetDate,#view-today #mealLibDay{display:none;}
   /* Stretch cues: the hold and the name are what you follow on the floor; the
      coaching sentence under each is there the first few times and then not. */
   .st-block .stnote,.st-block .st-routine-note{display:none;}
@@ -694,8 +726,49 @@
 
 <div class="view active" id="view-today">
   <div class="note-strip blue" id="homeHint" style="display:none"></div>
-  <div class="card" id="todayCard"></div>
-  <div class="card" id="todayDietCard"></div>
+  <div class="card" id="todayProgress"></div>
+
+  <div class="tsec" id="tsec-weight">
+    <div class="tsec-h" onclick="toggleTodaySection('weight')"></div>
+    <div class="tsec-b"><div class="card" id="todayWeightCard"></div></div>
+  </div>
+
+  <div class="tsec" id="tsec-food">
+    <div class="tsec-h" onclick="toggleTodaySection('food')"></div>
+    <div class="tsec-b">
+      <div class="card" id="todayDietCard"></div>
+      <!-- The Log tab's "Add a previous food" card is moved in here while Today is showing. -->
+      <div id="todayMealLibSlot"></div>
+      <div class="card" id="todayFoodAddCard">
+        <div class="card-h toggle" onclick="toggleCard('tfBody','tfChev')">
+          <h2>Add a new food</h2><span class="chev" id="tfChev">▾</span>
+        </div>
+        <div id="tfBody" style="display:none">
+          <div class="row2">
+            <div class="field"><label>Item</label><input type="text" id="tfName" placeholder="Chicken breast 200g"></div>
+            <div class="field"><label>Meal</label><select id="tfMeal"></select></div>
+          </div>
+          <div class="row4">
+            <div class="field"><label>Kcal</label><input type="number" id="tfKcal" inputmode="decimal"></div>
+            <div class="field"><label>Protein</label><input type="number" id="tfProtein" inputmode="decimal"></div>
+            <div class="field"><label>Carbs</label><input type="number" id="tfCarbs" inputmode="decimal"></div>
+            <div class="field"><label>Fat</label><input type="number" id="tfFat" inputmode="decimal"></div>
+          </div>
+          <button class="btn full" onclick="addTodayFood()">Save food</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tsec" id="tsec-workout">
+    <div class="tsec-h" onclick="toggleTodaySection('workout')"></div>
+    <div class="tsec-b">
+      <!-- The Log tab's session sheet is moved in here while Today is showing. -->
+      <div id="todaySheetSlot"></div>
+      <div class="card" id="todayCard"></div>
+      <div id="todayWorkoutMark"></div>
+    </div>
+  </div>
 </div>
 
 <div class="view" id="view-plan">
@@ -769,12 +842,14 @@
 
 <div class="view" id="view-log">
 
+  <div id="logSheetHome">
   <div class="card" id="sessionSheetCard">
     <div class="card-h"><h2>Session sheet</h2>
       <input type="date" id="sheetDate" onchange="renderSessionSheet()"
              style="font-size:12px;padding:5px 8px;width:auto">
     </div>
     <div id="sheetBody"></div>
+  </div>
   </div>
 
   <div class="card">
@@ -791,6 +866,7 @@ steps | 8400"></textarea>
     </div>
   </div>
 
+  <div id="logMealLibHome">
   <div class="card" id="mealLibCard">
     <div class="card-h"><h2>Add a previous food</h2>
       <span class="card-h-r">
@@ -804,6 +880,7 @@ steps | 8400"></textarea>
       <summary>How this works</summary>
       <div class="body">Anything logged before, ready to add again — whole meals first, then single items. Change the quantity before you add and the macros scale with it. Pick an earlier date to add it to a day you forgot to log. Until you search, only the most recent few are shown.</div>
     </details>
+  </div>
   </div>
 
   <div class="card" id="logEntryCard">
@@ -1157,7 +1234,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-10-13-1';
+var BUILD = '2026-10-15-1';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -2764,6 +2841,7 @@ function showView(name){
   for(var j=0;j<tabs.length;j++) tabs[j].classList.remove('active');
   document.getElementById('view-'+name).classList.add('active');
   document.querySelector('.tab[data-view="'+name+'"]').classList.add('active');
+  if(name==='today' || name==='log') placeSharedCards(name);
   if(name==='today'){ renderToday(); }
   /* Re-render on entry rather than only at startup: the sheet is keyed to a
      date and to the log, both of which move while the tab is out of sight. */
@@ -2809,7 +2887,7 @@ function startTodayAutoRefresh(){
     var v = document.getElementById('view-today');
     if(!v || !v.classList.contains('active')) return;
     var d = todayStr();
-    if(d !== lastRenderedDay){ lastRenderedDay = d; renderHeader(); renderPlan(); }
+    if(d !== lastRenderedDay){ lastRenderedDay = d; renderHeader(); renderPlan(); placeSharedCards('today'); }
     renderToday();
   }, 5*60*1000);
 }
@@ -4691,7 +4769,204 @@ function estimateDayBurn(dateStr, tpl){
           steps:steps, stepsKcal:stepsKcal, total:training.kcal + stepsKcal};
 }
 
+/* ================= TODAY AS A CHECKLIST =================
+   Three things to get done each day — weigh in, eat to the target, do the
+   session — each with a bar that says whether it is done. A done section folds
+   down to its bar so that by the evening the page reads as what is finished
+   and what is not; tapping the bar opens it again. */
+/* Food counts as done within this many percent of the day's kcal target,
+   either side. */
+var FOOD_DONE_PCT = 5;
+/* Marks made by hand — a cardio session, or a day called done short of the
+   numbers. Kept per date and item, synced like the logs. */
+var dayStatusLog = [];
+function dayMarked(dateStr, item){
+  return dayStatusLog.some(function(e){ return e.date===dateStr && e.item===item && e.done; });
+}
+async function setDayMark(item, done){
+  var d = todayStr();
+  dayStatusLog = dayStatusLog.filter(function(e){ return !(e.date===d && e.item===item); });
+  if(done) dayStatusLog.push({date:d, item:item, done:true});
+  dayStatusLog.sort(function(a,b){ return a.date.localeCompare(b.date); });
+  await saveArr('day-status', dayStatusLog);
+  renderToday();
+  toast(done ? 'Marked ' + item + ' done' : 'Marked ' + item + ' not done');
+}
+function weightStatus(dateStr){
+  var e = bwLog.filter(function(x){ return x.date===dateStr; })[0];
+  return {kind:'weight', done:!!e, kg: e ? e.kg : null,
+          summary: e ? e.kg + 'kg logged' : 'Not weighed in yet'};
+}
+function foodStatus(dateStr){
+  var idx = dayIndexFromDate(dateStr);
+  var diet = (idx>=0 && idx<PLAN.totalProgramDays) ? dietPhaseForIndex(idx) : null;
+  var macros = diet ? PLAN.dietPhases[diet] : null;
+  if(!macros || !macros.kcal) return {kind:'none', done:false, summary:'No target today'};
+  var totals = computeFoodTotals(dateStr);
+  var diff = totals.kcal - macros.kcal;
+  var pct = diff / macros.kcal * 100;
+  var onTarget = Math.abs(pct) <= FOOD_DONE_PCT;
+  var marked = dayMarked(dateStr, 'food');
+  var line = Math.round(totals.kcal) + ' / ' + macros.kcal + ' kcal · ' +
+    (onTarget ? 'on target' : diff > 0 ? Math.round(diff) + ' over' : Math.round(-diff) + ' to go');
+  return {kind:'food', done: onTarget || marked, auto: onTarget, marked: marked,
+          over: !onTarget && pct > FOOD_DONE_PCT, summary: line};
+}
+/* Every name a planned exercise can be logged under: the primary, and each
+   alternate or inventory machine the session sheet offers for it. */
+function exerciseLogNames(e){
+  return sheetMachineOptions(e).map(function(o){ return variantExerciseName(o, e); });
+}
+function workoutStatus(dateStr){
+  var tkey = templateForIndex(dayIndexFromDate(dateStr));
+  if(tkey===null) return {kind:'none', done:false, summary:'Outside the program'};
+  var tpl = PLAN.templates[tkey];
+  var marked = dayMarked(dateStr, 'workout');
+  if(tpl.rest || tpl.op || tpl.postop){
+    return {kind:'rest', done:true, auto:true, summary: tpl.label + ' — nothing to log'};
+  }
+  if(tpl.cardio || !tpl.ex || !tpl.ex.length){
+    return {kind:'cardio', done:marked, marked:marked,
+            summary: tpl.cardio ? tpl.cardio.name + ' — ' + tpl.cardio.dist : tpl.label};
+  }
+  var total = tpl.ex.length, logged = 0;
+  tpl.ex.forEach(function(e){
+    if(exerciseLogNames(e).some(function(n){ return loggedRowFor(dateStr, n); })) logged++;
+  });
+  var bonusDone = bonusList(tpl).filter(function(e){
+    return exerciseLogNames(e).some(function(n){ return loggedRowFor(dateStr, n); });
+  }).length;
+  var all = logged === total;
+  return {kind:'lift', done: all || marked, auto: all, marked: marked, logged: logged, total: total,
+          summary: tpl.label + ' · ' + logged + ' of ' + total + ' logged' +
+                   (bonusDone ? ' + ' + bonusDone + ' bonus' : '')};
+}
+/* Each section opens when it is not done and folds when it is — but a tap
+   wins until the section's done-ness next changes, so opening a finished
+   section to check it does not snap shut on the next refresh. */
+var TODAY_UI = {date:null};
+function todaySectionOpen(key, done){
+  if(TODAY_UI.date !== todayStr()) TODAY_UI = {date: todayStr()};
+  var st = TODAY_UI[key];
+  if(!st || st.done !== done) st = TODAY_UI[key] = {done:done, open:!done};
+  return st.open;
+}
+function toggleTodaySection(key){
+  var st = TODAY_UI[key];
+  if(!st) return;
+  st.open = !st.open;
+  var sec = document.getElementById('tsec-'+key);
+  if(sec) sec.classList.toggle('open', st.open);
+}
+function renderTodaySection(key, title, status){
+  var sec = document.getElementById('tsec-'+key);
+  if(!sec) return;
+  var na = status.kind === 'none';
+  var open = todaySectionOpen(key, status.done);
+  sec.classList.toggle('done', status.done);
+  sec.classList.toggle('over', !!status.over && !status.done);
+  sec.classList.toggle('open', open);
+  var label = status.done ? (status.kind==='rest' ? 'Rest' : 'Done') : na ? '—' : status.over ? 'Over' : 'To do';
+  sec.querySelector('.tsec-h').innerHTML =
+    '<span class="ic">'+(status.done ? '✓' : '')+'</span>'+
+    '<div class="tx"><div class="tt">'+title+'</div><div class="ts">'+histEsc(status.summary)+'</div></div>'+
+    '<span class="st">'+label+'</span><span class="chev">▾</span>';
+}
+function renderTodayWeight(st){
+  var card = document.getElementById('todayWeightCard');
+  if(!card) return;
+  var prev = document.getElementById('tdBw');
+  var typing = prev && prev === document.activeElement ? prev.value : null;
+  var t = todayStr();
+  var earlier = bwLog.filter(function(e){ return e.date < t; });
+  var last = earlier.length ? earlier[earlier.length-1] : null;
+  var note = '';
+  if(st.done && last){
+    var d = st.kg - last.kg;
+    note = (d===0 ? 'Same as' : (d>0?'+':'') + d.toFixed(1) + 'kg on') + ' ' + last.kg + 'kg, ' + fmtDate(last.date) + '.';
+  } else if(last){
+    note = 'Last weighed ' + last.kg + 'kg, ' + fmtDate(last.date) + '.';
+  }
+  card.innerHTML =
+    '<div class="row2" style="align-items:end">'+
+      '<div class="field" style="margin:0"><label>Today\'s weight (kg)</label>'+
+        '<input type="number" step="0.1" inputmode="decimal" id="tdBw" placeholder="'+(last ? last.kg : '')+'"></div>'+
+      '<button class="btn" style="height:40px" onclick="saveTodayWeight()">'+(st.done ? 'Update weight' : 'Save weight')+'</button>'+
+    '</div>'+
+    (note ? '<p class="chart-tip">'+note+'</p>' : '');
+  var box = document.getElementById('tdBw');
+  box.value = typing !== null ? typing : (st.done ? st.kg : '');
+  if(typing !== null) box.focus();
+}
+async function saveTodayWeight(){
+  var box = document.getElementById('tdBw');
+  var kg = parseFloat(box && box.value);
+  if(!kg){ toast('Enter a weight first', 'warn'); return; }
+  box.blur();
+  await saveBodyweight(todayStr(), kg);
+}
+async function addTodayFood(){
+  function v(id){ return document.getElementById(id).value; }
+  var kcal = parseFloat(v('tfKcal'))||0, protein = parseFloat(v('tfProtein'))||0;
+  if(!kcal && !protein){ toast('Enter kcal or protein first', 'warn'); return; }
+  await saveFoodEntry({date:todayStr(), meal:v('tfMeal') || defaultMealForNow(), name:v('tfName') || 'Item',
+                       kcal:kcal, protein:protein, carbs:parseFloat(v('tfCarbs'))||0, fat:parseFloat(v('tfFat'))||0});
+  ['tfName','tfKcal','tfProtein','tfCarbs','tfFat'].forEach(function(id){ document.getElementById(id).value=''; });
+}
+/* A manual mark only where the numbers cannot say it themselves, or have not
+   yet: a run, or a day called done a little short. */
+function dayMarkHtml(item, st){
+  if(st.kind==='none' || st.kind==='rest' || st.auto) return '';
+  return '<div class="td-act"><button class="btn ghost" onclick="setDayMark(\''+item+'\', '+(!st.marked)+')">'+
+    (st.marked ? 'Undo — mark ' + item + ' not done' : 'Mark ' + item + ' done') + '</button></div>';
+}
+function renderTodayProgress(items){
+  var el = document.getElementById('todayProgress');
+  if(!el) return;
+  var counted = items.filter(function(s){ return s.kind !== 'none'; });
+  var done = counted.filter(function(s){ return s.done; }).length;
+  var pct = counted.length ? Math.round(done / counted.length * 100) : 0;
+  el.innerHTML =
+    '<div class="card-h"><h2>Today — '+fmtDate(todayStr())+'</h2>'+
+      (counted.length && done===counted.length ? '<span class="badge build">All done</span>' : '')+'</div>'+
+    '<div class="td-prog"><div class="bar"><i style="width:'+pct+'%"></i></div>'+
+      '<span class="n"><b>'+done+'</b> of '+counted.length+' done</span></div>';
+}
+/* The session sheet and the food library are each one card with one set of
+   element ids, shared by Today and Log: they move to whichever of the two is
+   showing. On Today both are pinned to today. */
+function placeSharedCards(view){
+  var onToday = view === 'today';
+  [['sessionSheetCard', onToday ? 'todaySheetSlot' : 'logSheetHome'],
+   ['mealLibCard', onToday ? 'todayMealLibSlot' : 'logMealLibHome']].forEach(function(m){
+    var c = document.getElementById(m[0]), h = document.getElementById(m[1]);
+    if(c && h && c.parentNode !== h) h.appendChild(c);
+  });
+  if(!onToday) return;
+  var t = todayStr();
+  var sd = document.getElementById('sheetDate');
+  /* Only when it is showing another day: a rebuild would clear reps typed in
+     but not yet saved. */
+  if(sd.value !== t || SHEET.date !== t){ sd.value = t; renderSessionSheet(); }
+  var md = document.getElementById('mealLibDay');
+  md.max = t;
+  if(md.value !== t){ md.value = t; renderMealLibrary(); }
+  if(!document.getElementById('tfName').value){
+    document.getElementById('tfMeal').innerHTML = mealSlotOptions(defaultMealForNow());
+  }
+}
 function renderToday(){
+  var t = todayStr();
+  var ws = weightStatus(t), fs = foodStatus(t), ks = workoutStatus(t);
+  renderTodayProgress([ws, fs, ks]);
+  renderTodaySection('weight', 'Weight', ws);
+  renderTodaySection('food', 'Food', fs);
+  renderTodaySection('workout', 'Workout', ks);
+  renderTodayWeight(ws);
+  renderTodayPlanCards(fs);
+  document.getElementById('todayWorkoutMark').innerHTML = dayMarkHtml('workout', ks);
+}
+function renderTodayPlanCards(fs){
   var t = todayStr();
   var idx = dayIndexFromDate(t);
   var card = document.getElementById('todayCard');
@@ -4702,14 +4977,14 @@ function renderToday(){
   var tkey = templateForIndex(idx);
 
   if(tkey===null){
-    h.innerHTML = '<h2>Today — '+fmtDate(t)+'</h2><span class="badge">Outside plan</span>';
+    h.innerHTML = '<h2>Session plan</h2><span class="badge">Outside plan</span>';
     card.appendChild(h);
     card.innerHTML += '<div class="empty">'+(idx<0? 'Program starts '+fmtDate(PLAN.trackingStart):'This block ends here — next phase lands at your next check-in or plan update.')+'</div>';
   } else {
     var tpl = PLAN.templates[tkey];
     var diet = dietPhaseForIndex(idx);
     var badgeClass = tkey==='opDay'?'op':(tkey==='postOpWalk'?'rest':diet);
-    h.innerHTML = '<h2>Today — '+fmtDate(t)+'</h2><span class="badge '+badgeClass+'">'+tpl.label+'</span>';
+    h.innerHTML = '<h2>Session plan</h2><span class="badge '+badgeClass+'">'+tpl.label+'</span>';
     card.appendChild(h);
     /* Which progression rule is running today, before the exercises it governs. */
     card.innerHTML += phaseStripHtml(t);
@@ -4743,11 +5018,12 @@ function renderToday(){
         mrow('Logged', totals)+
         mrow('Left', rem, 'rem', function(v){ return v<0 ? 'var(--red)' : 'var(--green)'; })+
       '</tbody></table>'+
-      '<button class="btn ghost full" style="margin-top:10px" onclick="openFoodSearch()">+ Add food</button>'+
+      '<button class="btn ghost full" style="margin-top:10px" onclick="openFoodSearch()">+ Add a previous food</button>'+
       renderMealBreakdown(t)+
       renderPacing(macros, totals)+
       renderBurn(t, tkey)+
-      '<p class="chart-tip">Dinner: Prep Kitchen — Muscle Gain, '+(diet2==='rest'?'Regular / lower-carb':'Large')+'.</p>';
+      '<p class="chart-tip">Dinner: Prep Kitchen — Muscle Gain, '+(diet2==='rest'?'Regular / lower-carb':'Large')+'.</p>'+
+      dayMarkHtml('food', fs);
   }
 }
 
@@ -5548,7 +5824,8 @@ var MEAL_LIB_LIMIT = 8;
 var MEAL_LIB_IDLE = 4;
 /* From the Today diet card straight to the food search. */
 function openFoodSearch(){
-  showView('log');
+  var tv = document.getElementById('view-today');
+  if(!(tv && tv.classList.contains('active'))) showView('log');
   var card = document.getElementById('mealLibCard');
   if(card) card.scrollIntoView({behavior:'smooth', block:'start'});
   var box = document.getElementById('mealLibSearch');
@@ -5761,18 +6038,22 @@ async function addBodyweight(){
   var date=document.getElementById('bwDate').value || todayStr();
   var kg=parseFloat(document.getElementById('bwVal').value);
   if(!kg){ toast('Enter a weight first', 'warn'); return; }
+  await saveBodyweight(date, kg);
+  document.getElementById('bwVal').value='';
+}
+/* One weight per day: a second entry for the same date replaces the first. */
+async function saveBodyweight(date, kg){
   bwLog = bwLog.filter(function(e){return e.date!==date;});
   bwLog.push({date:date,kg:kg});
   bwLog.sort(function(a,b){return a.date.localeCompare(b.date);});
   await saveArr('bw-log', bwLog);
-  document.getElementById('bwVal').value='';
-  renderHistory(); renderHeader(); refreshProgress();
+  renderHistory(); renderHeader(); refreshProgress(); renderToday();
   toast('Weight saved — ' + kg + 'kg');
 }
 async function deleteBw(date){
   bwLog = bwLog.filter(function(e){return e.date!==date;});
   await saveArr('bw-log', bwLog);
-  renderHistory(); renderHeader(); refreshProgress();
+  renderHistory(); renderHeader(); refreshProgress(); renderToday();
   toast('Weight deleted');
 }
 
@@ -5785,16 +6066,15 @@ async function addFood(){
   var fat=parseFloat(document.getElementById('foodFat').value)||0;
   if(!kcal && !protein){ toast('Enter kcal or protein first', 'warn'); return; }
   var meal=document.getElementById('foodMeal').value || defaultMealForNow();
-  foodLog.push({date:date,meal:meal,name:name,kcal:kcal,protein:protein,carbs:carbs,fat:fat});
+  await saveFoodEntry({date:date,meal:meal,name:name,kcal:kcal,protein:protein,carbs:carbs,fat:fat});
+  ['foodName','foodKcal','foodProtein','foodCarbs','foodFat'].forEach(function(id){ document.getElementById(id).value=''; });
+}
+async function saveFoodEntry(entry){
+  foodLog.push(entry);
   foodLog.sort(function(a,b){return a.date.localeCompare(b.date);});
   await saveArr('food-log', foodLog);
-  document.getElementById('foodName').value='';
-  document.getElementById('foodKcal').value='';
-  document.getElementById('foodProtein').value='';
-  document.getElementById('foodCarbs').value='';
-  document.getElementById('foodFat').value='';
   renderHistory(); renderToday(); refreshProgress(); renderMealLibrary();
-  toast('Added ' + name + ' · ' + Math.round(kcal) + ' kcal to ' + meal);
+  toast('Added ' + entry.name + ' · ' + Math.round(entry.kcal) + ' kcal to ' + entry.meal);
 }
 async function deleteFood(i){
   foodLog.splice(i,1);
@@ -8844,7 +9124,8 @@ function downloadMyData(){
     plan: PLAN,
     logs: {
       'bw-log': bwLog, 'food-log': foodLog, 'lift-log': liftLog,
-      'alc-log': alcLog, 'step-log': stepLog, 'note-log': noteLog
+      'alc-log': alcLog, 'step-log': stepLog, 'note-log': noteLog,
+      'day-status': dayStatusLog
     },
     exercisePhotos: exPhotos.map(function(p){ return {name:p.name, bytes:(p.dataUrl||'').length}; })
   };
@@ -9052,6 +9333,7 @@ async function startApp(){
   foodLog = await loadArr('food-log');
   stepLog = await loadArr('step-log');
   equipLog = await loadArr('equipment-log');
+  dayStatusLog = await loadArr('day-status');
   exPhotos = await loadExercisePhotos();
 
   var warn = document.getElementById('storageWarning');
@@ -9098,6 +9380,7 @@ async function startApp(){
   renderHistory();
   renderMealLibrary();
   renderSessionSheet();
+  placeSharedCards('today');
   populateLiftExerciseSelect();
   document.getElementById('trendRange').onchange = renderCalorieChart;
   document.getElementById('buildStamp').textContent = BUILD;

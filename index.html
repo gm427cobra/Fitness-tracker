@@ -603,6 +603,7 @@
   .td-act .btn{flex:1;}
   /* On Today the session sheet and food library are always for today. */
   #view-today #sheetDate,#view-today #mealLibDay{display:none;}
+  #view-today #mealLibCard details.more,#view-today #mealLibOut:empty{display:none;}
   /* Stretch cues: the hold and the name are what you follow on the floor; the
      coaching sentence under each is there the first few times and then not. */
   .st-block .stnote,.st-block .st-routine-note{display:none;}
@@ -737,7 +738,8 @@
     <div class="tsec-h" onclick="toggleTodaySection('food')"></div>
     <div class="tsec-b">
       <div class="card" id="todayDietCard"></div>
-      <!-- The Log tab's "Add a previous food" card is moved in here while Today is showing. -->
+      <!-- The Log tab's "Paste from Claude" and "Add a previous food" cards are moved in here while Today is showing. -->
+      <div id="todayPasteSlot"></div>
       <div id="todayMealLibSlot"></div>
       <div class="card" id="todayFoodAddCard">
         <div class="card-h toggle" onclick="toggleCard('tfBody','tfChev')">
@@ -852,7 +854,8 @@
   </div>
   </div>
 
-  <div class="card">
+  <div id="logPasteHome">
+  <div class="card" id="pasteCard">
     <div class="card-h toggle" onclick="toggleCard('pasteBody','pasteChev')">
       <h2>Paste from Claude</h2><span class="chev" id="pasteChev">▾</span>
     </div>
@@ -864,6 +867,7 @@ steps | 8400"></textarea>
       <button class="btn full" style="margin-top:8px" onclick="previewPaste()">Check what this will add</button>
       <div id="pasteOut" style="display:none;margin-top:10px"></div>
     </div>
+  </div>
   </div>
 
   <div id="logMealLibHome">
@@ -1234,7 +1238,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-10-15-2';
+var BUILD = '2026-10-15-3';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -4940,9 +4944,14 @@ function renderTodayProgress(items){
 function placeSharedCards(view){
   var onToday = view === 'today';
   [['sessionSheetCard', onToday ? 'todaySheetSlot' : 'logSheetHome'],
+   ['pasteCard', onToday ? 'todayPasteSlot' : 'logPasteHome'],
    ['mealLibCard', onToday ? 'todayMealLibSlot' : 'logMealLibHome']].forEach(function(m){
     var c = document.getElementById(m[0]), h = document.getElementById(m[1]);
-    if(c && h && c.parentNode !== h) h.appendChild(c);
+    if(c && h && c.parentNode !== h){
+      h.appendChild(c);
+      /* The food list shows differently on each tab — see renderMealLibrary. */
+      if(m[0] === 'mealLibCard') renderMealLibrary();
+    }
   });
   if(!onToday) return;
   var t = todayStr();
@@ -5020,11 +5029,6 @@ function renderTodayPlanCards(fs){
         mrow('Logged', totals)+
         mrow('Left', rem, 'rem', function(v){ return v<0 ? 'var(--red)' : 'var(--green)'; })+
       '</tbody></table>'+
-      '<button class="btn ghost full" style="margin-top:10px" onclick="openFoodSearch()">+ Add a previous food</button>'+
-      renderMealBreakdown(t)+
-      renderPacing(macros, totals)+
-      renderBurn(t, tkey)+
-      '<p class="chart-tip">Dinner: Prep Kitchen — Muscle Gain, '+(diet2==='rest'?'Regular / lower-carb':'Large')+'.</p>'+
       dayMarkHtml('food', fs);
   }
 }
@@ -5845,6 +5849,12 @@ function renderMealLibrary(){
   /* A handful until you search, so the card does not push the rest of the
      tab off the screen; the full list is one word of typing away. */
   var limit = q ? MEAL_LIB_LIMIT : MEAL_LIB_IDLE;
+  /* On Today the card is only the search box until something is typed. */
+  if(!q && document.getElementById('todayMealLibSlot').contains(out)){
+    out.innerHTML = '';
+    renderMealLibrary._meals = []; renderMealLibrary._items = [];
+    return;
+  }
 
   var meals = buildMealLibrary().filter(function(m){
     return matchesSearch(m.meal + ' ' + m.items.map(function(i){return i.name;}).join(' '), q);
@@ -7441,7 +7451,9 @@ async function commitPaste(){
   document.getElementById('pasteBox').value = '';
   document.getElementById('pasteOut').innerHTML =
     '<div class="note-strip blue" style="margin:0">Added '+n+' entr'+(n===1?'y':'ies')+'.</div>';
-  showView(touched.food||touched.bw ? 'today' : 'log');
+  var tv = document.getElementById('view-today');
+  if(tv && tv.classList.contains('active')) renderToday();
+  else showView(touched.food||touched.bw ? 'today' : 'log');
   toast('Added ' + n + ' entr' + (n===1?'y':'ies'));
 }
 

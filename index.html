@@ -1234,7 +1234,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-10-15-1';
+var BUILD = '2026-10-15-2';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -4825,19 +4825,21 @@ function workoutStatus(dateStr){
   if(tpl.rest || tpl.op || tpl.postop){
     return {kind:'rest', done:true, auto:true, summary: tpl.label + ' — nothing to log'};
   }
+  /* Scored exactly as the Training row on Progress scores it — loose name
+     matching, and green from 80% of the planned exercises — so the two tabs
+     never disagree about the same day. */
+  var ts = getTrainingStatus(dateStr);
+  var hit = ts.status === 'hit';
+  var logged = ts.matched || 0, total = ts.total || (ts.planned ? ts.planned.length : 0);
   if(tpl.cardio || !tpl.ex || !tpl.ex.length){
-    return {kind:'cardio', done:marked, marked:marked,
-            summary: tpl.cardio ? tpl.cardio.name + ' — ' + tpl.cardio.dist : tpl.label};
+    return {kind:'cardio', done: hit || marked, auto: hit, marked: marked,
+            summary: hit ? tpl.label + ' · logged' :
+                     tpl.cardio ? tpl.cardio.name + ' — ' + tpl.cardio.dist : tpl.label};
   }
-  var total = tpl.ex.length, logged = 0;
-  tpl.ex.forEach(function(e){
-    if(exerciseLogNames(e).some(function(n){ return loggedRowFor(dateStr, n); })) logged++;
-  });
   var bonusDone = bonusList(tpl).filter(function(e){
     return exerciseLogNames(e).some(function(n){ return loggedRowFor(dateStr, n); });
   }).length;
-  var all = logged === total;
-  return {kind:'lift', done: all || marked, auto: all, marked: marked, logged: logged, total: total,
+  return {kind:'lift', done: hit || marked, auto: hit, marked: marked, logged: logged, total: total,
           summary: tpl.label + ' · ' + logged + ' of ' + total + ' logged' +
                    (bonusDone ? ' + ' + bonusDone + ' bonus' : '')};
 }

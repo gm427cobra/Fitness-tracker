@@ -381,18 +381,16 @@
   .ex-log-in::-webkit-outer-spin-button,.ex-log-in::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
   .ex-log-in.w{font-size:15px;font-weight:500;padding:8px 0;}
   .ex-log-in::placeholder{color:var(--ink-dim);opacity:.5;font-weight:400;}
-  /* Still the plan's number, not one you have typed or saved — the red the
-     Target row used to be. Typing over it, or saving, makes it yours. */
+  /* A set still the plan's: the red the Target row used to be, and not in
+     the log. Typing over its reps logs it, in green. */
   .ex-log-in.plan{color:var(--red);}
-  /* A set at the top of its range is the thing the ladder is waiting for. */
-  .ex-log-in.top{color:var(--green);border-color:var(--green);}
+  .ex-log-in.logged{color:var(--green);border-color:var(--green);}
   .ex-log-act{display:flex;gap:6px;margin-top:8px;}
   .ex-log-act .pm{flex:none;width:44px;background:none;border:1px dashed var(--line);border-radius:6px;
     color:var(--ink-dim);font-size:18px;line-height:1;cursor:pointer;font-family:var(--f-body);}
-  .ex-log-act .save{flex:1;padding:11px 10px;font-size:15px;font-weight:600;border-radius:6px;
-    border:1px solid var(--blue);background:var(--blue);color:#0a0d10;font-family:var(--f-body);cursor:pointer;}
-  .ex-log-act .save.done{background:none;color:var(--green);border-color:var(--green);}
-  .ex-log-act .save:disabled{opacity:.5;}
+  .ex-log-act .pm:disabled{opacity:.4;}
+  .ex-log-act .st{flex:1;align-self:center;font-size:13px;color:var(--ink-dim);text-align:right;}
+  .ex-log-act .st.on{color:var(--green);}
   .lift-lg .ex-hist{margin-top:0;border-top:none;padding:3px 0 6px;
     background:rgba(255,255,255,.03);border-radius:0;}
   /* The dates say what the rows are; a heading over them only repeats it. */
@@ -4251,17 +4249,20 @@ function sessionRow(r, v, cls, label){
 }
 /* ---- Today's log, in the card ----
    The plan written into the boxes — every set at the top of the range, at
-   today's load — to be overwritten with what actually happened and saved.
-   The session sheet leaves reps blank so that nothing unchecked can move the
-   working weight (see the note on SHEET); here the plan's numbers are filled
-   in on purpose, to save typing the sets that went to plan. What keeps that
-   honest is that a number still the plan's is shown in the Target red until
-   it is typed over or saved, and nothing is logged until Save is pressed.
+   today's load — in the Target red. A set is logged the moment its reps are
+   typed over: the reps turn green and the set goes into the log, at the weight
+   under it — the plan's unless that was changed too. A set whose reps are
+   left alone stays red and is not logged, so nothing unchecked can move the
+   working weight (see the note on SHEET). Clearing a set's reps takes it back
+   out of the log.
+
+   A weight changed on one set carries on to every later set not yet logged:
+   a change of weight mid-exercise is a recalibration, not a one-off.
 
    What is typed is a draft, kept on this device per exercise for today, so
-   neither the five-minute refresh nor a save on another card — both of which
-   rebuild every card — nor a reload can lose it. A draft is dropped once the
-   log for its exercise changes underneath it, saved here or on the sheet. */
+   neither the five-minute refresh nor a reload loses which sets are which. It
+   is rebuilt from the log only when the log changes from somewhere else —
+   the session sheet on Log, say. */
 var TODAY_DRAFTS = (function(){
   try{ return JSON.parse(localStorage.getItem('buildlog_today-drafts') || '{}') || {}; }
   catch(e){ return {}; }
@@ -4286,35 +4287,57 @@ function planSetsFor(v, date){
           weight: p ? p.value : null,
           unit: p ? p.unit : (v.unit === 'lb' ? 'lb' : 'kg')};
 }
+/* rm says which sets are logged; wm which weights were typed rather than the
+   plan's. A session already in the log comes back as its sets, logged, then
+   the plan's remaining sets at the last weight used. */
 function todayDraftFor(v, date){
   if(TODAY_DRAFTS.date !== date || !TODAY_DRAFTS.rows) TODAY_DRAFTS = {date: date, rows: {}};
   var logged = loggedRowFor(date, v.name);
   var sig = loggedSig(logged);
   var d = TODAY_DRAFTS.rows[v.name];
-  /* Untouched plan numbers are re-read every time, so they follow the plan and
-     the log behind it; anything typed is kept until the log changes. */
   if(d && d.sig === sig && d.dirty) return d;
-  if(d && d.sig === sig && d.base === 'log') return d;
-  /* rm and wm say which boxes hold your numbers rather than the plan's. */
+  var ps = planSetsFor(v, date);
+  d = {sig: sig, dirty: false, unit: logged ? liftUnitOf(logged) : ps.unit, reps: [], w: [], rm: [], wm: []};
   if(logged){
-    var reps = setRepsOf(logged);
-    d = {sig: sig, base: 'log', dirty: false, unit: liftUnitOf(logged),
-         reps: reps, w: setWeightsOf(logged),
-         rm: reps.map(function(){ return true; }), wm: reps.map(function(){ return true; })};
-  } else {
-    var ps = planSetsFor(v, date);
-    d = {sig: '', base: 'plan', dirty: false, unit: ps.unit, reps: [], w: [], rm: [], wm: []};
-    for(var i=0; i<ps.sets; i++){ d.reps.push(ps.reps); d.w.push(ps.weight); d.rm.push(false); d.wm.push(false); }
+    var lr = setRepsOf(logged), lw = setWeightsOf(logged);
+    lr.forEach(function(n, k){ d.reps.push(n); d.w.push(lw[k]); d.rm.push(true); d.wm.push(true); });
   }
+  var lastW = d.w.length ? d.w[d.w.length-1] : ps.weight;
+  while(d.reps.length < ps.sets){ d.reps.push(ps.reps); d.w.push(lastW); d.rm.push(false); d.wm.push(false); }
   TODAY_DRAFTS.rows[v.name] = d;
   storeTodayDrafts();
   return d;
+}
+/* The logged sets of a draft into the log — or the entry out of it once none
+   are left — and everything that reads the log told, short of rebuilding the
+   cards: that would take the keyboard away from the box being moved to. */
+async function logTodayDraft(v, e, d, date){
+  var ru = repUnitOf(v.reps);
+  var entry = liftEntryFrom(date, v.name, d.reps.map(function(r, k){ return d.rm[k] ? r : null; }),
+                           d.w, d.unit, ru.unit);
+  if(entry) storeLiftEntry(entry);
+  else liftLog = liftLog.filter(function(x){ return !(x.date === date && x.exercise === v.name); });
+  d.sig = loggedSig(entry);
+  storeTodayDrafts();
+  await saveArr('lift-log', liftLog);
+  renderHistory(); populateLiftChartSelect(); refreshProgress();
+  var ks = workoutStatus(date);
+  renderTodayProgress([weightStatus(date), foodStatus(date), ks]);
+  /* Ticking the workout off folds its section away, which is right on the
+     next visit but not under the thumb still logging the last sets. */
+  var sec = document.getElementById('tsec-workout');
+  if(sec && sec.classList.contains('open')){
+    if(TODAY_UI.date !== date) TODAY_UI = {date: date};
+    TODAY_UI.workout = {done: ks.done, open: true};
+  }
+  renderTodaySection('workout', 'Workout', ks);
+  document.getElementById('todayWorkoutMark').innerHTML = dayMarkHtml('workout', ks);
+  if(SHEET.date === date) SHEET.rows.forEach(function(r, i){ if(r.ex.name === e.name) fillSheetRow(i, date); });
 }
 function buildTodayLog(v, e){
   var date = todayStr();
   var d = todayDraftFor(v, date);
   var ru = repUnitOf(v.reps);
-  var ends = repRangeEnds(v.reps);
   var wrap = document.createElement('div');
   wrap.className = 'ex-log';
   var grid = document.createElement('div');
@@ -4322,11 +4345,30 @@ function buildTodayLog(v, e){
   grid.style.gridTemplateColumns = '46px repeat(' + d.reps.length + ', minmax(0,1fr))';
   wrap.appendChild(grid);
 
+  var status = document.createElement('div');
+  status.className = 'st';
+  function paintStatus(){
+    var n = d.rm.filter(Boolean).length;
+    status.textContent = n ? n + ' of ' + d.reps.length + ' set' + (d.reps.length === 1 ? '' : 's') + ' logged'
+                           : 'Type over a set’s ' + ru.noun + ' to log it';
+    status.classList.toggle('on', n > 0);
+  }
+  function save(){
+    d.dirty = true;
+    paintStatus();
+    logTodayDraft(v, e, d, date);
+  }
+
   var rl = document.createElement('span');
   rl.className = 'rl';
   rl.textContent = {reps:'Reps', seconds:'Secs', metres:'Metres', minutes:'Mins'}[ru.noun] || 'Reps';
   grid.appendChild(rl);
-  var wInputs = [];
+  var rInputs = [], wInputs = [];
+  function paintSet(k){
+    rInputs[k].classList.toggle('plan', !d.rm[k]);
+    rInputs[k].classList.toggle('logged', !!d.rm[k]);
+    wInputs[k].classList.toggle('plan', !d.rm[k]);
+  }
   function box(kind, si){
     var inp = document.createElement('input');
     inp.type = 'number';
@@ -4335,38 +4377,58 @@ function buildTodayLog(v, e){
     inp.className = 'ex-log-in ' + kind;
     inp.setAttribute('aria-label', 'Set ' + (si+1) + (kind === 'r' ? ' ' + ru.noun : ' weight'));
     var val = kind === 'r' ? d.reps[si] : d.w[si];
-    var mine = kind === 'r' ? d.rm[si] : d.wm[si];
     inp.value = val == null ? '' : val;
     if(kind === 'w') inp.placeholder = d.unit;
-    if(!mine) inp.classList.add('plan');
-    if(kind === 'r' && mine && ends && val >= ends.top) inp.classList.add('top');
+    var changed = false;
     /* Tapping a box selects what is in it, so typing replaces the plan's number
        rather than adding to it. */
-    inp.onfocus = function(){ setTimeout(function(){ try{ inp.select(); }catch(err){} }, 0); };
+    inp.onfocus = function(){
+      changed = false;
+      /* Not once typing has started, or the next key would replace what was typed. */
+      setTimeout(function(){ if(!changed){ try{ inp.select(); }catch(err){} } }, 0);
+    };
     inp.oninput = function(){
+      changed = true;
       var n = kind === 'r' ? parseInt(inp.value, 10) : parseFloat(inp.value);
       var nv = isNaN(n) ? null : n;
+      d.dirty = true;
       if(kind === 'r'){
-        d.reps[si] = nv; d.rm[si] = true;
-        inp.classList.toggle('top', !!(ends && nv >= ends.top));
+        if(nv !== null){ d.reps[si] = nv; d.rm[si] = true; }
       } else {
         d.w[si] = nv; d.wm[si] = true;
-        /* A weight changed on one set carries on to the sets after it that
-           are still the plan's — the stack did not move back on its own. */
         for(var k=si+1; k<d.w.length; k++){
-          if(d.wm[k]) continue;
-          d.w[k] = nv;
-          if(wInputs[k]) wInputs[k].value = nv == null ? '' : nv;
+          if(d.rm[k]) continue;
+          d.w[k] = nv; d.wm[k] = true;
+          wInputs[k].value = nv == null ? '' : nv;
         }
       }
-      inp.classList.remove('plan');
-      d.dirty = true;
+      paintSet(si);
       storeTodayDrafts();
-      paintSave();
+    };
+    /* Logged when you move off the box, not on every keystroke — "12" is not
+       a 1 and then a 12. */
+    inp.onblur = function(){
+      if(!changed) return;
+      changed = false;
+      if(kind === 'r' && inp.value === ''){
+        /* Cleared: back to the plan's number, in red, and out of the log. */
+        var ps = planSetsFor(v, date);
+        d.reps[si] = ps.reps; d.rm[si] = false;
+        inp.value = ps.reps == null ? '' : ps.reps;
+        paintSet(si);
+        save();
+        return;
+      }
+      if(kind === 'w' && inp.value === ''){
+        var pw = planSetsFor(v, date).weight;
+        d.w[si] = pw; d.wm[si] = false;
+        inp.value = pw == null ? '' : pw;
+      }
+      if(d.rm[si]) save(); else storeTodayDrafts();
     };
     return inp;
   }
-  d.reps.forEach(function(_, si){ grid.appendChild(box('r', si)); });
+  d.reps.forEach(function(_, si){ var inp = box('r', si); rInputs.push(inp); grid.appendChild(inp); });
   var unitBtn = document.createElement('button');
   unitBtn.type = 'button';
   unitBtn.className = 'rl';
@@ -4374,26 +4436,32 @@ function buildTodayLog(v, e){
   unitBtn.textContent = d.unit;
   unitBtn.onclick = function(){
     d.unit = d.unit === 'lb' ? 'kg' : 'lb';
-    d.dirty = true;
-    storeTodayDrafts();
     unitBtn.textContent = d.unit;
     wInputs.forEach(function(inp){ inp.placeholder = d.unit; });
-    paintSave();
+    if(d.rm.some(Boolean)) save(); else { d.dirty = true; storeTodayDrafts(); }
   };
   grid.appendChild(unitBtn);
   d.reps.forEach(function(_, si){ var inp = box('w', si); wInputs.push(inp); grid.appendChild(inp); });
+  d.reps.forEach(function(_, si){ paintSet(si); });
 
   var act = document.createElement('div');
   act.className = 'ex-log-act';
   function setCountBtn(label, title, fn){
     var b = document.createElement('button');
     b.type = 'button'; b.className = 'pm'; b.textContent = label; b.title = title;
-    b.onclick = function(){ fn(); d.dirty = true; storeTodayDrafts(); renderToday(); };
+    b.onclick = async function(){
+      var wasLogged = fn();
+      d.dirty = true;
+      storeTodayDrafts();
+      if(wasLogged) await logTodayDraft(v, e, d, date);
+      renderToday();
+    };
     act.appendChild(b);
     return b;
   }
   var rmBtn = setCountBtn('−', 'Drop the last set', function(){
-    d.reps.pop(); d.w.pop(); d.rm.pop(); d.wm.pop();
+    var was = d.rm.pop(); d.reps.pop(); d.w.pop(); d.wm.pop();
+    return was;
   });
   if(d.reps.length < 2) rmBtn.disabled = true;
   /* A set added is the plan's until typed over, at the last set's weight. */
@@ -4401,30 +4469,10 @@ function buildTodayLog(v, e){
     var ps = planSetsFor(v, date), n = d.w.length;
     d.reps.push(ps.reps); d.rm.push(false);
     d.w.push(n ? d.w[n-1] : ps.weight); d.wm.push(false);
+    return false;
   });
-  var save = document.createElement('button');
-  save.type = 'button';
-  save.className = 'save';
-  function paintSave(){
-    var saved = d.base === 'log' && !d.dirty;
-    save.textContent = saved ? 'Saved ✓' : (d.base === 'log' ? 'Update' : 'Save');
-    save.classList.toggle('done', saved);
-  }
-  paintSave();
-  save.onclick = async function(){
-    var entry = liftEntryFrom(date, v.name, d.reps, d.w, d.unit, ru.unit);
-    if(!entry){ toast('Put the ' + ru.noun + ' in first', 'warn'); return; }
-    storeLiftEntry(entry);
-    /* The card comes back from the log, not from what was typed. */
-    delete TODAY_DRAFTS.rows[v.name];
-    storeTodayDrafts();
-    save.disabled = true; save.textContent = 'Saving…';
-    /* Rebuilds every card, this one included, from the log it now holds. */
-    await commitSheet();
-    if(SHEET.date === date) SHEET.rows.forEach(function(r, i){ if(r.ex.name === e.name) fillSheetRow(i, date); });
-    toast('Saved ' + entry.exercise);
-  };
-  act.appendChild(save);
+  paintStatus();
+  act.appendChild(status);
   wrap.appendChild(act);
   return wrap;
 }

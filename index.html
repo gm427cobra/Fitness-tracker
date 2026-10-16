@@ -326,19 +326,20 @@
   .exrow.lift-lg{border:2px solid rgba(138,148,160,.5);border-radius:12px;
     background:var(--panel);overflow:hidden;padding:0;margin:0 -8px 16px;}
   .exrow.lift-lg:first-child{padding-top:0;}
-  /* Name and load take the left column, the photo the right, and the photo
-     spans just those two rows. The execution numbers then run the full width
-     underneath — a machine name is often two or three lines, and squeezing
-     three tiles into whatever those lines leave beside a 124px photo is what
-     made "2–3 min" fight for room. */
-  .lift-lg .ex-head{display:grid;grid-template-columns:minmax(0,1fr) 124px;
+  /* Name and load, then the photo, then the execution numbers — each the full
+     width of the box, stacked. */
+  .lift-lg .ex-head{display:grid;grid-template-columns:minmax(0,1fr);
     column-gap:10px;align-items:start;padding:10px;}
-  /* Name and load are one block in one row, not two rows: as two, the photo's
-     spare height gets split between them and the load floats away from the
-     name it belongs to. Whatever the photo is taller by falls below the load,
-     which is where the eye expects the slack. */
-  .lift-lg .ex-head > .ex-text{grid-column:1;grid-row:1;min-width:0;align-self:start;}
-  .lift-lg .ex-head > .ex-mach-tile{grid-column:2;grid-row:1;}
+  .lift-lg .ex-head > .ex-text{grid-column:1/-1;grid-row:1;min-width:0;align-self:start;}
+  /* The photo runs the full width under the name, big enough to recognise the
+     machine from across the gym floor. Contain rather than cover, so the whole
+     machine is in frame instead of a crop of the middle of it. */
+  .lift-lg .ex-head > .ex-mach-tile{grid-column:1/-1;grid-row:2;width:100%;height:260px;margin-top:10px;
+    background:#0A0D10;}
+  .lift-lg .ex-mach-tile img{object-fit:contain;}
+  /* Nothing to see yet, so no need for the room. */
+  .lift-lg .ex-head > .ex-mach-tile.nophoto{height:72px;}
+  .lift-lg .ex-mach-tile .tag{font-size:11px;padding:8px 0 6px;}
   .lift-lg .exname{font-size:30px;line-height:1.04;letter-spacing:-.015em;}
   /* The one number you act on before touching the machine. */
   .lift-lg .ex-load{font-family:var(--f-mono);font-size:26px;font-weight:600;
@@ -349,7 +350,7 @@
   /* Its own panel across the full width, under the name and the photo both.
      Flex rather than three fixed columns: a prose value leaves the strip (see
      .ex-cue) and the two that remain should take the space back. */
-  .lift-lg .ex-exec{grid-column:1/-1;grid-row:2;display:flex;gap:6px;margin-top:11px;
+  .lift-lg .ex-exec{grid-column:1/-1;grid-row:3;display:flex;gap:6px;margin-top:11px;
     padding:6px;background:var(--panel-2);border-radius:9px;}
   .lift-lg .ex-exec > div{flex:1 1 0;min-width:0;padding:6px 8px;}
   .lift-lg .ex-exec .l{font-size:9.5px;letter-spacing:.1em;}
@@ -371,6 +372,9 @@
     font-weight:600;letter-spacing:0;text-transform:none;color:var(--red);}
   .lift-lg .ex-goal .n{flex:1;min-width:0;font-size:15px;color:var(--red);}
   .lift-lg .ex-goal .nx{flex:none;font-size:15px;color:var(--red);white-space:nowrap;}
+  /* Today's own row heads the table, above the target. */
+  .lift-lg .ex-today{padding:5px 0;background:rgba(111,207,151,.08);}
+  .lift-lg .ex-hist-row.unlogged{color:var(--ink-dim);font-size:15px;}
   .lift-lg .ex-hist{margin-top:0;border-top:none;padding:3px 0 6px;
     background:rgba(255,255,255,.03);border-radius:0;}
   /* The dates and the Target label say what the rows are; a heading over them
@@ -4073,6 +4077,9 @@ function buildLiftRow(e, interactive){
     div.appendChild(ps);
   }
 
+  /* Today: what you have done so far this session, then what you are aiming
+     for, then what you did last time — the row being written sits on top. */
+  if(interactive) div.appendChild(buildTodayLogRow(v));
   var goal = buildGoalLine(v, interactive);
   if(goal) div.appendChild(goal);
   div.appendChild(buildHistoryBlock(v, e, interactive));
@@ -4161,6 +4168,7 @@ function machineTile(ctx, e){
     img.alt = opt.label || '';
     btn.appendChild(img);
   } else {
+    btn.className += ' nophoto';
     var ph = document.createElement('span');
     ph.className = 'ph';
     /* "Not in inventory" is a complaint about a missing machine, which is the
@@ -4175,17 +4183,67 @@ function machineTile(ctx, e){
   btn.onclick = function(){ openMachinePicker(ctx); };
   return btn;
 }
-/* Three sessions and a verdict. Bold the sets that reached the top of the
-   range, so a flat run and a climbing one look different from across a gym. */
-function buildHistoryBlock(v, e, asRow){
-  var wrap = document.createElement('div');
-  wrap.className = 'ex-hist';
-  var rows = recentSessions(v.name, v.historyFrom, 3);
+/* One logged session as a line of the table: date, reps, weight. */
+function sessionRow(r, v, cls, label){
   var ends = repRangeEnds(v.reps);
   /* "30, 30" against "38kg" says nothing about which is which. Each entry's own
      stamp first, since it knows what was counted; the prescription only covers
      the ones logged before the stamp existed. */
   var planUnit = repUnitOf(v.reps).unit;
+  var line = document.createElement('div');
+  line.className = 'ex-hist-row' + (cls ? ' ' + cls : '');
+  var d = document.createElement('span');
+  d.className = 'd'; d.textContent = label;
+  var reps = document.createElement('span');
+  reps.className = 'r';
+  var ru = r.repUnit || planUnit;
+  setRepsOf(r).forEach(function(n, k){
+    var sp = document.createElement('span');
+    if(ends && n >= ends.top) sp.className = 'hit';
+    sp.textContent = n + ru + (k < setRepsOf(r).length-1 ? ', ' : '');
+    reps.appendChild(sp);
+  });
+  var w = document.createElement('span');
+  w.className = 'w'; w.textContent = r.weight + liftUnitOf(r);
+  /* The weight moved during the session: show the range rather than claim
+     every set was at the working weight. */
+  if(hasMixedWeights(r)){
+    var ws = setWeightsOf(r);
+    var lo = Math.min.apply(null, ws), hi = Math.max.apply(null, ws);
+    w.textContent = lo + '–' + hi + liftUnitOf(r);
+  }
+  line.appendChild(d); line.appendChild(reps); line.appendChild(w);
+  return line;
+}
+/* Today's session so far, the first row of the table. Shown even before
+   anything is logged, so the table keeps the same shape all session. */
+function buildTodayLogRow(v){
+  var wrap = document.createElement('div');
+  wrap.className = 'ex-today';
+  var today = todayStr();
+  var r = recentSessions(v.name, v.historyFrom, 1).filter(function(x){ return x.date === today; })[0];
+  if(r){
+    wrap.appendChild(sessionRow(r, v, 'now', 'Today'));
+  } else {
+    var line = document.createElement('div');
+    line.className = 'ex-hist-row unlogged';
+    line.innerHTML = '<span class="d">Today</span><span class="r">not logged yet</span>';
+    wrap.appendChild(line);
+  }
+  return wrap;
+}
+/* Three sessions and a verdict. Bold the sets that reached the top of the
+   range, so a flat run and a climbing one look different from across a gym. */
+function buildHistoryBlock(v, e, asRow){
+  var wrap = document.createElement('div');
+  wrap.className = 'ex-hist';
+  /* On Today, today's session has its own row above the target, so the history
+     under it starts at last time. */
+  var today = todayStr();
+  var rows = asRow
+    ? recentSessions(v.name, v.historyFrom, 4).filter(function(r){ return r.date !== today; }).slice(0, 3)
+    : recentSessions(v.name, v.historyFrom, 3);
+  var ends = repRangeEnds(v.reps);
 
   var h = document.createElement('div');
   h.className = 'ex-hist-h';
@@ -4200,30 +4258,7 @@ function buildHistoryBlock(v, e, asRow){
     return wrap;
   }
   rows.forEach(function(r, i){
-    var line = document.createElement('div');
-    line.className = 'ex-hist-row' + (i===0 ? ' now' : '');
-    var d = document.createElement('span');
-    d.className = 'd'; d.textContent = fmtDateShort(r.date);
-    var reps = document.createElement('span');
-    reps.className = 'r';
-    var ru = r.repUnit || planUnit;
-    setRepsOf(r).forEach(function(n, k){
-      var sp = document.createElement('span');
-      if(ends && n >= ends.top) sp.className = 'hit';
-      sp.textContent = n + ru + (k < setRepsOf(r).length-1 ? ', ' : '');
-      reps.appendChild(sp);
-    });
-    var w = document.createElement('span');
-    w.className = 'w'; w.textContent = r.weight + liftUnitOf(r);
-    /* The weight moved during the session: show the range rather than claim
-       every set was at the working weight. */
-    if(hasMixedWeights(r)){
-      var ws = setWeightsOf(r);
-      var lo = Math.min.apply(null, ws), hi = Math.max.apply(null, ws);
-      w.textContent = lo + '–' + hi + liftUnitOf(r);
-    }
-    line.appendChild(d); line.appendChild(reps); line.appendChild(w);
-    wrap.appendChild(line);
+    wrap.appendChild(sessionRow(r, v, i===0 ? 'now' : '', fmtDateShort(r.date)));
   });
 
   var verdict = document.createElement('div');

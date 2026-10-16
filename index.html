@@ -202,7 +202,10 @@
   .sh-set.top{border-color:var(--green);color:var(--green);}
   /* Each set is a column: what you counted on top, what it was at underneath. */
   .sh-setcol{display:flex;flex-direction:column;gap:3px;flex:none;}
-  .sh-setw{width:44px;flex:none;padding:5px 2px;font-size:12.5px;text-align:center;color:var(--ink-dim);}
+  .sh-setw{width:44px;flex:none;padding:7px 2px;font-size:14px;text-align:center;color:var(--ink);}
+  .sh-setw::placeholder{color:var(--ink-dim);opacity:.5;}
+  /* The second row of boxes was unlabelled and read as spare rep boxes. */
+  .sh-setw-lbl{font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-dim);margin-top:4px;}
   /* Off the target — say so, so a changed set is not mistaken for a typo later. */
   .sh-setw.own{color:var(--amber);border-color:var(--amber);}
   .sh-setbtn{width:30px;flex:none;align-self:flex-start;padding:8px 0;background:none;border:1px dashed var(--line);
@@ -6341,6 +6344,7 @@ function buildSheetRow(e, i, date){
   fields.querySelector('#shb-'+i).onclick = function(){ saveSheetRow(i); };
   /* The set boxes that have not been changed follow the weight up here. */
   fields.querySelector('#shw-'+i).oninput = function(){ sheetSetBoxes(i); };
+  fields.querySelector('#shu-'+i).onchange = function(){ sheetSetBoxes(i); };
 
   /* One box per set. The set count is not a number you type any more — it is
      how many boxes you filled in, which is the same thing and one less field. */
@@ -6745,6 +6749,7 @@ function sheetSetBoxes(i){
   if(!r || !wrap) return;
   var ends = repRangeEnds(r.opts[r.sel].variant.reps);
   var mainW = document.getElementById('shw-'+i);
+  var unitSel = document.getElementById('shu-'+i);
   var target = mainW ? mainW.value : '';
   while(r.setW.length < r.setVals.length) r.setW.push(null);
   r.setW.length = r.setVals.length;
@@ -6775,6 +6780,7 @@ function sheetSetBoxes(i){
     wi.inputMode = 'decimal';
     wi.className = 'sh-setw';
     wi.setAttribute('aria-label', 'Set ' + (si+1) + ' weight');
+    wi.placeholder = unitSel ? unitSel.value : 'kg';
     var own = r.setW[si];
     wi.value = (own === null || own === undefined) ? target : own;
     if(own !== null && own !== undefined) wi.classList.add('own');
@@ -6806,6 +6812,11 @@ function sheetSetBoxes(i){
     rm.onclick = function(){ r.setVals.pop(); r.setW.pop(); sheetSetBoxes(i); };
     wrap.appendChild(rm);
   }
+  var cap = document.createElement('div');
+  cap.className = 'sh-setw-lbl';
+  cap.style.flexBasis = '100%';
+  cap.textContent = '↑ Weight per set';
+  wrap.appendChild(cap);
   sheetSetSummary(i);
 }
 /* Says, while the weight is still on the machine, whether this session earns
@@ -6853,6 +6864,12 @@ async function saveSheetRow(i, opts){
   /* Each set's weight, kept in step with the reps that survive summarising —
      an empty rep box drops its weight with it. */
   var target = parseFloat(document.getElementById('shw-'+i).value) || 0;
+  /* No weight in the box above, but some typed set by set: the heaviest of
+     those is the session's weight, and any set left blank was done at it. */
+  if(!target){
+    var typed = r.setW.filter(function(w, si){ return w !== null && w !== undefined && parseInt(r.setVals[si],10) > 0; });
+    if(typed.length) target = Math.max.apply(null, typed);
+  }
   var setW = [];
   r.setVals.forEach(function(v, si){
     if(!(parseInt(v,10) > 0)) return;

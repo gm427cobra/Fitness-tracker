@@ -333,15 +333,17 @@
   .lift-lg .ex-head{display:grid;grid-template-columns:minmax(0,1fr);
     column-gap:10px;align-items:start;padding:10px;}
   .lift-lg .ex-head > .ex-text{grid-column:1/-1;grid-row:1;min-width:0;align-self:start;}
-  /* The photo runs the full width under the name at its own shape, so the
-     whole machine is in frame at the largest size the card can give it. The
-     tile takes the photo's proportions (machineTile sets them once known), and
-     stops at most of a screen so a tall photo still leaves the log in reach. */
-  .lift-lg .ex-head > .ex-mach-tile{grid-column:1/-1;grid-row:2;width:100%;height:auto;
-    aspect-ratio:3/4;max-height:72vh;margin-top:10px;background:#0A0D10;}
+  /* The photo sits under the name at its own shape, so the whole machine is in
+     frame. It opens at 65% of the card's width, centred, and a tap takes it to
+     the full width (.big) — the size to tell two machines apart by; a second
+     tap opens the picker. The tile takes the photo's proportions (machineTile
+     sets them once known), capped so a tall photo leaves the log in reach. */
+  .lift-lg .ex-head > .ex-mach-tile{grid-column:1/-1;grid-row:2;justify-self:center;width:65%;height:auto;
+    aspect-ratio:3/4;max-height:47vh;margin-top:10px;background:#0A0D10;}
+  .lift-lg .ex-head > .ex-mach-tile.big{width:100%;max-height:72vh;}
   .lift-lg .ex-mach-tile img{object-fit:contain;}
   /* Nothing to see yet, so no need for the room. */
-  .lift-lg .ex-head > .ex-mach-tile.nophoto{aspect-ratio:auto;height:72px;}
+  .lift-lg .ex-head > .ex-mach-tile.nophoto{aspect-ratio:auto;height:72px;width:100%;}
   .lift-lg .ex-mach-tile .tag{font-size:11px;padding:8px 0 6px;}
   .lift-lg .exname{font-size:30px;line-height:1.04;letter-spacing:-.015em;}
   /* The one number you act on before touching the machine. */
@@ -4197,9 +4199,22 @@ function machineTile(ctx, e){
   }
   var tag = document.createElement('span');
   tag.className = 'tag';
-  tag.textContent = 'change';
   btn.appendChild(tag);
-  btn.onclick = function(){ openMachinePicker(ctx); };
+  /* First tap enlarges, second opens the picker. Held on the context, so the
+     card's rebuilds keep it as it was; picking a machine puts it back small.
+     With no photo there is nothing to enlarge, so it goes straight to the
+     picker — which is where one is added. */
+  function paint(){
+    btn.classList.toggle('big', !!ctx.big);
+    tag.textContent = (!src || ctx.big) ? 'change' : 'enlarge';
+  }
+  paint();
+  btn.onclick = function(){
+    if(src && !ctx.big){ ctx.big = true; paint(); return; }
+    ctx.big = false;
+    paint();
+    openMachinePicker(ctx);
+  };
   return btn;
 }
 /* One logged session as a line of the table: date, reps, weight. */

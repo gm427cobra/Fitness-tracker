@@ -185,7 +185,7 @@
   .sh-name{font-weight:600;font-size:15px;line-height:1.25;}
   .sh-plan{font-family:var(--f-mono);font-size:11.5px;color:var(--blue);white-space:nowrap;flex:none;}
   .sh-cue{font-size:11.5px;color:var(--ink-dim);margin-top:4px;line-height:1.45;}
-  .sh-fields{display:grid;grid-template-columns:1.2fr .85fr auto;gap:6px;align-items:end;margin-top:7px;}
+  .sh-fields{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:end;margin-top:7px;}
   .sh-setrow{margin-top:8px;}
   .sh-setrow .lbl{display:flex;justify-content:space-between;align-items:baseline;gap:8px;
     font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:4px;}
@@ -313,16 +313,15 @@
   .ex-hist-v{font-size:12.5px;margin-top:5px;line-height:1.45;}
 
   /* ---- The Today card, sized for the gym floor ----------------------------
-     Read at arm's length, mid-set, phone propped against a rack. Every size
-     below is a fraction of the 124px machine tile, which is what holds the
-     proportions together: name a quarter of it, load a fifth, the numbers you
-     compare against half. The tile itself does not grow — the text comes up to
-     meet it. The Plan tab keeps the compact sizes; it is read sitting down. */
+     Read at arm's length, mid-set, phone propped against a rack: the name, the
+     load and the boxes you type into are all large, and the photo is as big as
+     the card can make it. The Plan tab keeps the compact sizes; it is read
+     sitting down. */
   /* One exercise is one box. Where it starts and where it finishes is drawn,
      not inferred from a hairline between rows — mid-session you are looking for
      the block you are standing in, not reading top to bottom. It bleeds out
-     through the card's own padding so the photo keeps its 124px without
-     costing the text column the width of two more gutters.
+     through the card's own padding, so the photo and the set boxes get the
+     width of two more gutters.
      The frame is 2px of the dim ink the app already uses for secondary text —
      enough to pick out at arm's length in gym lighting, and the same grey as
      everything else on the screen rather than a white rule shouting over it. */
@@ -334,14 +333,15 @@
   .lift-lg .ex-head{display:grid;grid-template-columns:minmax(0,1fr);
     column-gap:10px;align-items:start;padding:10px;}
   .lift-lg .ex-head > .ex-text{grid-column:1/-1;grid-row:1;min-width:0;align-self:start;}
-  /* The photo runs the full width under the name, big enough to recognise the
-     machine from across the gym floor. Contain rather than cover, so the whole
-     machine is in frame instead of a crop of the middle of it. */
-  .lift-lg .ex-head > .ex-mach-tile{grid-column:1/-1;grid-row:2;width:100%;height:260px;margin-top:10px;
-    background:#0A0D10;}
+  /* The photo runs the full width under the name at its own shape, so the
+     whole machine is in frame at the largest size the card can give it. The
+     tile takes the photo's proportions (machineTile sets them once known), and
+     stops at most of a screen so a tall photo still leaves the log in reach. */
+  .lift-lg .ex-head > .ex-mach-tile{grid-column:1/-1;grid-row:2;width:100%;height:auto;
+    aspect-ratio:3/4;max-height:72vh;margin-top:10px;background:#0A0D10;}
   .lift-lg .ex-mach-tile img{object-fit:contain;}
   /* Nothing to see yet, so no need for the room. */
-  .lift-lg .ex-head > .ex-mach-tile.nophoto{height:72px;}
+  .lift-lg .ex-head > .ex-mach-tile.nophoto{aspect-ratio:auto;height:72px;}
   .lift-lg .ex-mach-tile .tag{font-size:11px;padding:8px 0 6px;}
   .lift-lg .exname{font-size:30px;line-height:1.04;letter-spacing:-.015em;}
   /* The one number you act on before touching the machine. */
@@ -359,29 +359,41 @@
   .lift-lg .ex-exec .l{font-size:9.5px;letter-spacing:.1em;}
   .lift-lg .ex-exec .n{font-size:17px;margin-top:2px;white-space:nowrap;letter-spacing:-.01em;}
   /* Where one of the three is an instruction rather than a number. */
-  /* Sits between the strip and the target band, so it needs air on both sides
-     — the band has no margin of its own to lean on. */
+  /* Sits between the strip and the log, so it needs air on both sides — the
+     log has no margin of its own to lean on. */
   .lift-lg .ex-cue{font-size:12px;color:var(--ink-dim);margin:0 0 10px;padding:0 10px;line-height:1.4;}
   .lift-lg .ex-cue b{color:var(--ink);font-weight:600;}
 
-  /* Target and history are one table: same columns, same widths, so today's
-     row and the last three sit under each other and the comparison is a glance
-     down a column rather than a calculation. Both run the full width of the
-     box, which is what separates the numbers from the instructions above them
-     without a second border. */
-  .lift-lg .ex-goal{display:flex;align-items:baseline;gap:6px;margin:0;
-    padding:6px 10px;border:none;border-radius:0;background:#0A0D10;}
-  .lift-lg .ex-goal .l{flex:none;width:72px;font-family:var(--f-body);font-size:15px;
-    font-weight:600;letter-spacing:0;text-transform:none;color:var(--red);}
-  .lift-lg .ex-goal .n{flex:1;min-width:0;font-size:15px;color:var(--red);}
-  .lift-lg .ex-goal .nx{flex:none;font-size:15px;color:var(--red);white-space:nowrap;}
-  /* Today's own row heads the table, above the target. */
-  .lift-lg .ex-today{padding:5px 0;background:rgba(111,207,151,.08);}
-  .lift-lg .ex-hist-row.unlogged{color:var(--ink-dim);font-size:15px;}
+  /* Today's log: the target and the actual in the same boxes. One column per
+     set, reps over weight, written in with the plan and overwritten with what
+     happened. It runs the full width of the box, which is what separates the
+     numbers from the instructions above them without a second border. */
+  .ex-log{background:#0A0D10;padding:8px 10px 10px;}
+  .ex-log-grid{display:grid;gap:5px;align-items:center;}
+  .ex-log-grid .rl{font-size:12px;font-weight:600;color:var(--ink-dim);text-align:left;}
+  /* The weight row's label is the unit, and tapping it switches kg and lb. */
+  .ex-log-grid button.rl{background:none;border:1px dashed var(--line);border-radius:6px;
+    padding:9px 0;text-align:center;cursor:pointer;font-family:var(--f-body);}
+  .ex-log-in{width:100%;min-width:0;padding:9px 0;text-align:center;font-size:18px;font-weight:600;
+    -moz-appearance:textfield;appearance:textfield;}
+  .ex-log-in::-webkit-outer-spin-button,.ex-log-in::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+  .ex-log-in.w{font-size:15px;font-weight:500;padding:8px 0;}
+  .ex-log-in::placeholder{color:var(--ink-dim);opacity:.5;font-weight:400;}
+  /* Still the plan's number, not one you have typed or saved — the red the
+     Target row used to be. Typing over it, or saving, makes it yours. */
+  .ex-log-in.plan{color:var(--red);}
+  /* A set at the top of its range is the thing the ladder is waiting for. */
+  .ex-log-in.top{color:var(--green);border-color:var(--green);}
+  .ex-log-act{display:flex;gap:6px;margin-top:8px;}
+  .ex-log-act .pm{flex:none;width:44px;background:none;border:1px dashed var(--line);border-radius:6px;
+    color:var(--ink-dim);font-size:18px;line-height:1;cursor:pointer;font-family:var(--f-body);}
+  .ex-log-act .save{flex:1;padding:11px 10px;font-size:15px;font-weight:600;border-radius:6px;
+    border:1px solid var(--blue);background:var(--blue);color:#0a0d10;font-family:var(--f-body);cursor:pointer;}
+  .ex-log-act .save.done{background:none;color:var(--green);border-color:var(--green);}
+  .ex-log-act .save:disabled{opacity:.5;}
   .lift-lg .ex-hist{margin-top:0;border-top:none;padding:3px 0 6px;
     background:rgba(255,255,255,.03);border-radius:0;}
-  /* The dates and the Target label say what the rows are; a heading over them
-     only repeats it. */
+  /* The dates say what the rows are; a heading over them only repeats it. */
   .lift-lg .ex-hist-h{display:none;}
   /* Sized so five two-digit sets, the widest date ("28 Sept") and a per-hand
      weight all still make one line at 360px. Past that the reps wrap at a
@@ -400,9 +412,8 @@
     .lift-lg .exname{font-size:27px;}
     .lift-lg .ex-load{font-size:23px;}
     .lift-lg .ex-exec .n{font-size:16px;}
-    .lift-lg .ex-goal .l,.lift-lg .ex-hist-row .d{width:66px;}
-    .lift-lg .ex-goal .n{font-size:14px;}
-    .lift-lg .ex-goal .nx,.lift-lg .ex-hist-row{font-size:14px;}
+    .lift-lg .ex-hist-row .d{width:66px;}
+    .lift-lg .ex-hist-row{font-size:14px;}
     .lift-lg .ex-hist-row.now{font-size:15px;}
   }
   /* An original SE. Five two-digit sets and a weight in 260px of card leaves no
@@ -411,9 +422,10 @@
   @media (max-width:349px){
     .lift-lg .ex-exec > div{padding:6px 5px;}
     .lift-lg .ex-exec .n{font-size:14.5px;}
-    .lift-lg .ex-goal .l,.lift-lg .ex-hist-row .d{width:56px;}
-    .lift-lg .ex-goal .l{font-size:13px;}
-    .lift-lg .ex-goal .n,.lift-lg .ex-goal .nx,.lift-lg .ex-hist-row{font-size:12.5px;}
+    .lift-lg .ex-hist-row .d{width:56px;}
+    .lift-lg .ex-hist-row{font-size:12.5px;}
+    .ex-log-in{font-size:16px;}
+    .ex-log-in.w{font-size:13.5px;}
     /* No room left to make the latest session bigger as well as brighter, so
        here it is only brighter. */
     .lift-lg .ex-hist-row.now{font-size:12.5px;}
@@ -608,8 +620,8 @@
   .tsec.open .tsec-h .chev{transform:rotate(180deg);}
   .td-act{display:flex;gap:8px;margin-top:10px;}
   .td-act .btn{flex:1;}
-  /* On Today the session sheet and food library are always for today. */
-  #view-today #sheetDate,#view-today #mealLibDay{display:none;}
+  /* On Today the food library is always for today. */
+  #view-today #mealLibDay{display:none;}
   #view-today #mealLibCard details.more,#view-today #mealLibOut:empty{display:none;}
   /* Stretch cues: the hold and the name are what you follow on the floor; the
      coaching sentence under each is there the first few times and then not. */
@@ -772,8 +784,6 @@
   <div class="tsec" id="tsec-workout">
     <div class="tsec-h" onclick="toggleTodaySection('workout')"></div>
     <div class="tsec-b">
-      <!-- The Log tab's session sheet is moved in here while Today is showing. -->
-      <div id="todaySheetSlot"></div>
       <div class="card" id="todayCard"></div>
       <div id="todayWorkoutMark"></div>
     </div>
@@ -2899,6 +2909,10 @@ function startTodayAutoRefresh(){
     if(!v || !v.classList.contains('active')) return;
     var d = todayStr();
     if(d !== lastRenderedDay){ lastRenderedDay = d; renderHeader(); renderPlan(); placeSharedCards('today'); }
+    /* Not while a box on the card is being typed in: the rebuild would take
+       the keyboard away mid-number. What is typed is kept either way. */
+    else if(document.activeElement && document.activeElement.closest &&
+            document.activeElement.closest('#todayCard')) return;
     renderToday();
   }, 5*60*1000);
 }
@@ -4082,18 +4096,24 @@ function buildLiftRow(e, interactive){
 
   /* Today: what you have done so far this session, then what you are aiming
      for, then what you did last time — the row being written sits on top. */
-  if(interactive) div.appendChild(buildTodayLogRow(v));
-  var goal = buildGoalLine(v, interactive);
-  if(goal) div.appendChild(goal);
+  /* On Today the target and the log are one thing: the plan written into the
+     boxes, overwritten with what actually happened. */
+  if(interactive){
+    div.appendChild(buildTodayLog(v, e));
+  } else {
+    var goal = buildGoalLine(v);
+    if(goal) div.appendChild(goal);
+  }
   div.appendChild(buildHistoryBlock(v, e, interactive));
   return div;
 }
-/* The load, on its own and large. Sets and reps are not here: they belong with
-   the sessions they are measured against, a few lines down. */
+/* The load, on its own and large. Sets and reps are not here: they are in the
+   log boxes a few lines down. Read as of the start of today, so saving today's
+   session does not move the number the session was done against. */
 function buildLoadLine(v){
   var d = document.createElement('div');
   d.className = 'ex-load';
-  var t = workingTarget(v);
+  var t = workingTarget(v, todayStr());
   if(t.state === 'none' || !t.weightStr){
     var c = document.createElement('span');
     c.className = 'cal';
@@ -4115,10 +4135,8 @@ function buildLoadLine(v){
 }
 /* "5 × 12 @ 160kg → 165kg" — every set at twelve and the weight moves, to
    that. Stated rather than left to be worked out from a range and a rule.
-   On Today it is written as a session instead: the same three columns as the
-   history under it, so the row you are trying to write sits directly above the
-   last three you did and the comparison is read straight down. */
-function buildGoalLine(v, asRow){
+   The Plan tab's line; on Today the target is written into the log boxes. */
+function buildGoalLine(v){
   var g = progressTarget(v);
   if(!g.top) return null;                          /* no range, nothing to aim at */
   var ru = repUnitOf(v.reps).unit;
@@ -4128,19 +4146,6 @@ function buildGoalLine(v, asRow){
   l.className = 'l';
   var n = document.createElement('span');
   n.className = 'n';
-  if(asRow){
-    l.textContent = 'Target';
-    var reps = [];
-    for(var i=0; i<g.sets; i++) reps.push(g.top + ru);
-    n.textContent = reps.join(', ');
-    row.appendChild(l);
-    row.appendChild(n);
-    /* No weight in this row. The load is already the second thing on the card,
-       in green, at 26px — repeating it here in the column the history puts its
-       weights in would read as "do these reps at this weight", which is the one
-       thing it does not mean. */
-    return row;
-  }
   l.textContent = g.state === 'capped' ? 'At the cap' : 'To progress';
   row.appendChild(l);
   n.textContent = g.sets + ' × ' + g.top + ru + (g.at ? ' @ ' + g.at : '');
@@ -4155,7 +4160,8 @@ function buildGoalLine(v, asRow){
   row.appendChild(nx);
   return row;
 }
-/* Double the old thumbnail, and the only thing you tap to change machine.
+var TILE_RATIO = new Map();
+/* The machine's photo, and the only thing you tap to change machine.
    Works with no photo too: the tile is the target either way, which is how you
    reach the picker to add one. */
 function machineTile(ctx, e){
@@ -4167,6 +4173,16 @@ function machineTile(ctx, e){
   btn.title = machineDisplayName(opt) || 'Pick a machine';
   if(src){
     var img = document.createElement('img');
+    /* Shaped like the photo before it has loaded, from the last time it did:
+       every save rebuilds the cards, and a tile that starts at the wrong height
+       and then jumps would move the page under your thumb. */
+    if(TILE_RATIO.has(src)) btn.style.aspectRatio = TILE_RATIO.get(src);
+    img.onload = function(){
+      if(!img.naturalWidth || !img.naturalHeight) return;
+      var r = img.naturalWidth + ' / ' + img.naturalHeight;
+      TILE_RATIO.set(src, r);
+      btn.style.aspectRatio = r;
+    };
     img.src = src;
     img.alt = opt.label || '';
     btn.appendChild(img);
@@ -4218,21 +4234,183 @@ function sessionRow(r, v, cls, label){
   line.appendChild(d); line.appendChild(reps); line.appendChild(w);
   return line;
 }
-/* Today's session so far, the first row of the table. Shown even before
-   anything is logged, so the table keeps the same shape all session. */
-function buildTodayLogRow(v){
-  var wrap = document.createElement('div');
-  wrap.className = 'ex-today';
-  var today = todayStr();
-  var r = recentSessions(v.name, v.historyFrom, 1).filter(function(x){ return x.date === today; })[0];
-  if(r){
-    wrap.appendChild(sessionRow(r, v, 'now', 'Today'));
+/* ---- Today's log, in the card ----
+   The plan written into the boxes — every set at the top of the range, at
+   today's load — to be overwritten with what actually happened and saved.
+   The session sheet leaves reps blank so that nothing unchecked can move the
+   working weight (see the note on SHEET); here the plan's numbers are filled
+   in on purpose, to save typing the sets that went to plan. What keeps that
+   honest is that a number still the plan's is shown in the Target red until
+   it is typed over or saved, and nothing is logged until Save is pressed.
+
+   What is typed is a draft, kept on this device per exercise for today, so
+   neither the five-minute refresh nor a save on another card — both of which
+   rebuild every card — nor a reload can lose it. A draft is dropped once the
+   log for its exercise changes underneath it, saved here or on the sheet. */
+var TODAY_DRAFTS = (function(){
+  try{ return JSON.parse(localStorage.getItem('buildlog_today-drafts') || '{}') || {}; }
+  catch(e){ return {}; }
+})();
+function storeTodayDrafts(){
+  try{ localStorage.setItem('buildlog_today-drafts', JSON.stringify(TODAY_DRAFTS)); }catch(e){}
+}
+function loggedSig(entry){
+  return entry ? JSON.stringify([setRepsOf(entry), setWeightsOf(entry), liftUnitOf(entry)]) : '';
+}
+/* What the plan asks of each set today: the top of the range, at the load the
+   card shows — the working weight as it stood before today, scaled by the
+   phase. A single-number prescription is its own target; one with no number
+   in it leaves the reps to you. */
+function planSetsFor(v, date){
+  var t = workingTarget(v, date);
+  var shown = t.weightStr ? (phaseAdjustedWeight(t.weightStr) || t.weightStr) : null;
+  var p = shown ? parseWeight(shown) : null;
+  var ends = repRangeEnds(v.reps);
+  return {sets: Math.max(1, parseInt(v.sets, 10) || 1),
+          reps: ends ? ends.top : (parseInt(v.reps, 10) || null),
+          weight: p ? p.value : null,
+          unit: p ? p.unit : (v.unit === 'lb' ? 'lb' : 'kg')};
+}
+function todayDraftFor(v, date){
+  if(TODAY_DRAFTS.date !== date || !TODAY_DRAFTS.rows) TODAY_DRAFTS = {date: date, rows: {}};
+  var logged = loggedRowFor(date, v.name);
+  var sig = loggedSig(logged);
+  var d = TODAY_DRAFTS.rows[v.name];
+  /* Untouched plan numbers are re-read every time, so they follow the plan and
+     the log behind it; anything typed is kept until the log changes. */
+  if(d && d.sig === sig && d.dirty) return d;
+  if(d && d.sig === sig && d.base === 'log') return d;
+  /* rm and wm say which boxes hold your numbers rather than the plan's. */
+  if(logged){
+    var reps = setRepsOf(logged);
+    d = {sig: sig, base: 'log', dirty: false, unit: liftUnitOf(logged),
+         reps: reps, w: setWeightsOf(logged),
+         rm: reps.map(function(){ return true; }), wm: reps.map(function(){ return true; })};
   } else {
-    var line = document.createElement('div');
-    line.className = 'ex-hist-row unlogged';
-    line.innerHTML = '<span class="d">Today</span><span class="r">not logged yet</span>';
-    wrap.appendChild(line);
+    var ps = planSetsFor(v, date);
+    d = {sig: '', base: 'plan', dirty: false, unit: ps.unit, reps: [], w: [], rm: [], wm: []};
+    for(var i=0; i<ps.sets; i++){ d.reps.push(ps.reps); d.w.push(ps.weight); d.rm.push(false); d.wm.push(false); }
   }
+  TODAY_DRAFTS.rows[v.name] = d;
+  storeTodayDrafts();
+  return d;
+}
+function buildTodayLog(v, e){
+  var date = todayStr();
+  var d = todayDraftFor(v, date);
+  var ru = repUnitOf(v.reps);
+  var ends = repRangeEnds(v.reps);
+  var wrap = document.createElement('div');
+  wrap.className = 'ex-log';
+  var grid = document.createElement('div');
+  grid.className = 'ex-log-grid';
+  grid.style.gridTemplateColumns = '46px repeat(' + d.reps.length + ', minmax(0,1fr))';
+  wrap.appendChild(grid);
+
+  var rl = document.createElement('span');
+  rl.className = 'rl';
+  rl.textContent = {reps:'Reps', seconds:'Secs', metres:'Metres', minutes:'Mins'}[ru.noun] || 'Reps';
+  grid.appendChild(rl);
+  var wInputs = [];
+  function box(kind, si){
+    var inp = document.createElement('input');
+    inp.type = 'number';
+    inp.inputMode = kind === 'r' ? 'numeric' : 'decimal';
+    if(kind === 'w') inp.step = '0.5';
+    inp.className = 'ex-log-in ' + kind;
+    inp.setAttribute('aria-label', 'Set ' + (si+1) + (kind === 'r' ? ' ' + ru.noun : ' weight'));
+    var val = kind === 'r' ? d.reps[si] : d.w[si];
+    var mine = kind === 'r' ? d.rm[si] : d.wm[si];
+    inp.value = val == null ? '' : val;
+    if(kind === 'w') inp.placeholder = d.unit;
+    if(!mine) inp.classList.add('plan');
+    if(kind === 'r' && mine && ends && val >= ends.top) inp.classList.add('top');
+    /* Tapping a box selects what is in it, so typing replaces the plan's number
+       rather than adding to it. */
+    inp.onfocus = function(){ setTimeout(function(){ try{ inp.select(); }catch(err){} }, 0); };
+    inp.oninput = function(){
+      var n = kind === 'r' ? parseInt(inp.value, 10) : parseFloat(inp.value);
+      var nv = isNaN(n) ? null : n;
+      if(kind === 'r'){
+        d.reps[si] = nv; d.rm[si] = true;
+        inp.classList.toggle('top', !!(ends && nv >= ends.top));
+      } else {
+        d.w[si] = nv; d.wm[si] = true;
+        /* A weight changed on one set carries on to the sets after it that
+           are still the plan's — the stack did not move back on its own. */
+        for(var k=si+1; k<d.w.length; k++){
+          if(d.wm[k]) continue;
+          d.w[k] = nv;
+          if(wInputs[k]) wInputs[k].value = nv == null ? '' : nv;
+        }
+      }
+      inp.classList.remove('plan');
+      d.dirty = true;
+      storeTodayDrafts();
+      paintSave();
+    };
+    return inp;
+  }
+  d.reps.forEach(function(_, si){ grid.appendChild(box('r', si)); });
+  var unitBtn = document.createElement('button');
+  unitBtn.type = 'button';
+  unitBtn.className = 'rl';
+  unitBtn.title = 'Switch between kg and lb';
+  unitBtn.textContent = d.unit;
+  unitBtn.onclick = function(){
+    d.unit = d.unit === 'lb' ? 'kg' : 'lb';
+    d.dirty = true;
+    storeTodayDrafts();
+    unitBtn.textContent = d.unit;
+    wInputs.forEach(function(inp){ inp.placeholder = d.unit; });
+    paintSave();
+  };
+  grid.appendChild(unitBtn);
+  d.reps.forEach(function(_, si){ var inp = box('w', si); wInputs.push(inp); grid.appendChild(inp); });
+
+  var act = document.createElement('div');
+  act.className = 'ex-log-act';
+  function setCountBtn(label, title, fn){
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'pm'; b.textContent = label; b.title = title;
+    b.onclick = function(){ fn(); d.dirty = true; storeTodayDrafts(); renderToday(); };
+    act.appendChild(b);
+    return b;
+  }
+  var rmBtn = setCountBtn('−', 'Drop the last set', function(){
+    d.reps.pop(); d.w.pop(); d.rm.pop(); d.wm.pop();
+  });
+  if(d.reps.length < 2) rmBtn.disabled = true;
+  /* A set added is the plan's until typed over, at the last set's weight. */
+  setCountBtn('+', 'Add a set', function(){
+    var ps = planSetsFor(v, date), n = d.w.length;
+    d.reps.push(ps.reps); d.rm.push(false);
+    d.w.push(n ? d.w[n-1] : ps.weight); d.wm.push(false);
+  });
+  var save = document.createElement('button');
+  save.type = 'button';
+  save.className = 'save';
+  function paintSave(){
+    var saved = d.base === 'log' && !d.dirty;
+    save.textContent = saved ? 'Saved ✓' : (d.base === 'log' ? 'Update' : 'Save');
+    save.classList.toggle('done', saved);
+  }
+  paintSave();
+  save.onclick = async function(){
+    var entry = liftEntryFrom(date, v.name, d.reps, d.w, d.unit, ru.unit);
+    if(!entry){ toast('Put the ' + ru.noun + ' in first', 'warn'); return; }
+    storeLiftEntry(entry);
+    /* The card comes back from the log, not from what was typed. */
+    delete TODAY_DRAFTS.rows[v.name];
+    storeTodayDrafts();
+    save.disabled = true; save.textContent = 'Saving…';
+    /* Rebuilds every card, this one included, from the log it now holds. */
+    await commitSheet();
+    if(SHEET.date === date) SHEET.rows.forEach(function(r, i){ if(r.ex.name === e.name) fillSheetRow(i, date); });
+    toast('Saved ' + entry.exercise);
+  };
+  act.appendChild(save);
+  wrap.appendChild(act);
   return wrap;
 }
 /* Three sessions and a verdict. Bold the sets that reached the top of the
@@ -4240,8 +4418,8 @@ function buildTodayLogRow(v){
 function buildHistoryBlock(v, e, asRow){
   var wrap = document.createElement('div');
   wrap.className = 'ex-hist';
-  /* On Today, today's session has its own row above the target, so the history
-     under it starts at last time. */
+  /* On Today, today's session is in the log boxes above, so the history under
+     them starts at last time. */
   var today = todayStr();
   var rows = asRow
     ? recentSessions(v.name, v.historyFrom, 4).filter(function(r){ return r.date !== today; }).slice(0, 3)
@@ -4253,7 +4431,10 @@ function buildHistoryBlock(v, e, asRow){
   h.textContent = rows.length ? 'Last ' + rows.length + (rows.length===1?' session':' sessions') : 'History';
   wrap.appendChild(h);
 
-  if(!rows.length){
+  /* A first session saved today is in the boxes above, so there is nothing to
+     list under them — but there is something to say about it. */
+  var savedToday = asRow && !!loggedRowFor(today, v.name);
+  if(!rows.length && !savedToday){
     var none = document.createElement('div');
     none.className = 'ex-hist-none';
     none.textContent = 'No sessions logged yet — the first one sets the starting point.';
@@ -4267,9 +4448,13 @@ function buildHistoryBlock(v, e, asRow){
   var verdict = document.createElement('div');
   verdict.className = 'ex-hist-v';
   var t = workingTarget(v);
+  /* Once today is saved it is the session the verdict is about. */
+  var isToday = asRow && t.last && t.last.date === today;
   if(t.state === 'progressed'){
     verdict.style.color = 'var(--green)';
-    verdict.textContent = 'Every set at the top last time — raised from ' + t.from + '.';
+    verdict.textContent = isToday
+      ? 'Every set at the top today — ' + t.weightStr + ' next time.'
+      : 'Every set at the top last time — raised from ' + t.from + '.';
   } else if(t.state === 'capped'){
     verdict.style.color = 'var(--amber)';
     verdict.textContent = 'Machine maxed at ' + e.cap + ' — nothing left to add.';
@@ -4283,10 +4468,10 @@ function buildHistoryBlock(v, e, asRow){
     verdict.style.color = 'var(--ink-dim)';
     verdict.textContent = 'Holding ' + (t.weightStr || 'calibrate') + '.';
   }
-  /* What hitting the target row buys you. It cannot sit in the target row
-     itself: in the weight column, next to a list of reps, it would read as the
-     weight to do them at. */
-  if(asRow && t.state !== 'capped'){
+  /* What hitting the target buys you. Not after a session today that has
+     already earned the next weight — that is said above, and "then" the jump
+     after it would be two sessions out. */
+  if(asRow && t.state !== 'capped' && !(isToday && t.state === 'progressed')){
     var g = progressTarget(v);
     if(g.next && g.at){
       var nx = document.createElement('span');
@@ -4437,11 +4622,11 @@ function loadStep(p){
   if(/\/hand/.test(p.suffix)) return 2;
   return p.unit === 'lb' ? 5 : 2.5;
 }
-function workingTarget(e){
+function workingTarget(e, before){
   var base = parseWeight(e.weight);
   var out = {state:'none', weightStr:null, aim:null, last:null};
   var ends = repRangeEnds(e.reps);
-  var last = lastLoggedSession(e.name, e.historyFrom);
+  var last = lastLoggedSession(e.name, e.historyFrom, before);
   /* "calibrate" means the FIRST session sets the starting point — so once there
      is one, the log is the number. Returning early on a null plan weight meant
      the seven exercises the plan never costed said "calibrate" forever, however
@@ -4531,9 +4716,12 @@ function recentSessions(name, historyFrom, n){
          .sort(function(a,b){ return b.date.localeCompare(a.date); })
          .slice(0, n || 3);
 }
-function lastLoggedSession(name, historyFrom){
+/* before: only sessions from earlier days, for a target that has to hold
+   still while the day it is for is being logged. */
+function lastLoggedSession(name, historyFrom, before){
   var rows = liftLog.filter(function(e){
-    return e.exercise === name && (!historyFrom || e.date >= historyFrom);
+    return e.exercise === name && (!historyFrom || e.date >= historyFrom) &&
+           (!before || e.date < before);
   });
   if(!rows.length) return null;
   rows.sort(function(a,b){ return a.date.localeCompare(b.date); });
@@ -4976,13 +5164,13 @@ function renderTodayProgress(items){
     '<div class="td-prog"><div class="bar"><i style="width:'+pct+'%"></i></div>'+
       '<span class="n"><b>'+done+'</b> of '+counted.length+' done</span></div>';
 }
-/* The session sheet and the food library are each one card with one set of
+/* The paste card and the food library are each one card with one set of
    element ids, shared by Today and Log: they move to whichever of the two is
-   showing. On Today both are pinned to today. */
+   showing. On Today the food library is pinned to today. The session sheet
+   stays on Log — on Today each exercise card is its own log. */
 function placeSharedCards(view){
   var onToday = view === 'today';
-  [['sessionSheetCard', onToday ? 'todaySheetSlot' : 'logSheetHome'],
-   ['pasteCard', onToday ? 'todayPasteSlot' : 'logPasteHome'],
+  [['pasteCard', onToday ? 'todayPasteSlot' : 'logPasteHome'],
    ['mealLibCard', onToday ? 'todayMealLibSlot' : 'logMealLibHome']].forEach(function(m){
     var c = document.getElementById(m[0]), h = document.getElementById(m[1]);
     if(c && h && c.parentNode !== h){
@@ -4993,10 +5181,6 @@ function placeSharedCards(view){
   });
   if(!onToday) return;
   var t = todayStr();
-  var sd = document.getElementById('sheetDate');
-  /* Only when it is showing another day: a rebuild would clear reps typed in
-     but not yet saved. */
-  if(sd.value !== t || SHEET.date !== t){ sd.value = t; renderSessionSheet(); }
   var md = document.getElementById('mealLibDay');
   md.max = t;
   if(md.value !== t){ md.value = t; renderMealLibrary(); }
@@ -6292,11 +6476,10 @@ function renderSessionSheet(){
   var hint = document.createElement('details');
   hint.className = 'more';
   hint.innerHTML = '<summary>How to fill this in</summary><div class="body"></div>';
-  hint.querySelector('.body').textContent = 'Weight comes from the plan and from what you last lifted — change it if it differed. ' +
-    'One box per prescribed set — reps, or the seconds or metres a hold or a carry asks for: ' +
-    'fill in what each set actually gave you, and use + or − if you did ' +
-    'more or fewer. The small box under each set is its weight — it follows the weight above, so ' +
-    'only touch it on a set you went heavier or lighter. The lowest set is what moves your working weight, so the rep boxes are left blank on ' +
+  hint.querySelector('.body').textContent = 'One column per prescribed set: reps on top — or the seconds or metres a hold or a carry asks for — ' +
+    'and that set\'s weight underneath. Fill in what each set actually gave you, and use + or − if you did ' +
+    'more or fewer. Each weight starts at the plan\'s, from what you last lifted — change any set you went heavier ' +
+    'or lighter on. The lowest set is what moves your working weight, so the rep boxes are left blank on ' +
     'purpose — these should be numbers you counted.';
   body.appendChild(hint);
 }
@@ -6310,9 +6493,9 @@ function buildSheetRow(e, i, date){
      which invites logging the same exercise twice. */
   /* Or on the one picked for that date on the Today card — see MACHINE_PICKS. */
   var sel = initialMachineSel(opts, e, date);
-  /* setW runs alongside setVals: null means "the weight above", a number means
-     this set was done at something else. */
-  SHEET.rows.push({ex:e, opts:opts, sel:sel, setVals:[], setW:[],
+  /* setW runs alongside setVals: each set's weight, null where there is none
+     yet. planW is what the plan loads, to mark a set done at something else. */
+  SHEET.rows.push({ex:e, opts:opts, sel:sel, setVals:[], setW:[], planW:null,
                    onChange: function(){
                      var r = SHEET.rows[i];
                      fillSheetRow(i, SHEET.date);
@@ -6336,14 +6519,12 @@ function buildSheetRow(e, i, date){
 
   var fields = document.createElement('div');
   fields.className = 'sh-fields';
+  /* No weight box of its own: each set carries its weight, under its reps. */
   fields.innerHTML =
-    '<div><label>Weight</label><input type="number" step="0.5" inputmode="decimal" id="shw-'+i+'"></div>' +
     '<div><label>Unit</label><select id="shu-'+i+'"><option value="kg">kg</option><option value="lb">lb</option></select></div>' +
     '<button class="sh-save" id="shb-'+i+'">Save</button>';
   row.appendChild(fields);
   fields.querySelector('#shb-'+i).onclick = function(){ saveSheetRow(i); };
-  /* The set boxes that have not been changed follow the weight up here. */
-  fields.querySelector('#shw-'+i).oninput = function(){ sheetSetBoxes(i); };
   fields.querySelector('#shu-'+i).onchange = function(){ sheetSetBoxes(i); };
 
   /* One box per set. The set count is not a number you type any more — it is
@@ -6380,13 +6561,12 @@ function fillSheetRow(i, date){
   var shown = scaled || target;
   var parsed = shown ? parseWeight(shown) : null;
 
-  var w = document.getElementById('shw-'+i);
   var u = document.getElementById('shu-'+i);
   var btn = document.getElementById('shb-'+i);
   var plan = document.getElementById('shplan-'+i);
   var cue = document.getElementById('shcue-'+i);
   var row = document.getElementById('shrow-'+i);
-  if(!w) return;
+  if(!u) return;
 
   /* An alternate that is a different movement changes what this row *is*, not
      just what it is done on — so the name follows the pick rather than staying
@@ -6400,20 +6580,21 @@ function fillSheetRow(i, date){
   var unitEl = document.getElementById('shsu-'+i);
   if(unitEl) unitEl.textContent = repUnitOf(v.reps).perSet;
 
+  /* A logged row is measured against its own working weight: the plan's has
+     moved on by then — see the note on the chip below. */
+  r.planW = logged ? logged.weight : (parsed ? parsed.value : null);
   if(logged){
-    w.value = logged.weight;
     u.value = liftUnitOf(logged);
     r.setVals = setRepsOf(logged);
-    r.setW = setWeightsOf(logged).map(function(sw){ return sw === logged.weight ? null : sw; });
+    r.setW = setWeightsOf(logged);
   } else {
-    w.value = parsed ? parsed.value : '';
     u.value = parsed ? parsed.unit : (v.unit === 'lb' ? 'lb' : 'kg');
-    /* One empty box per prescribed set — the shape of the session, waiting to
-       be filled in. Still never pre-filled: see the note on SHEET. */
+    /* One box per prescribed set — the shape of the session, waiting to be
+       filled in. Each set's weight starts at the plan's; its reps are never
+       pre-filled: see the note on SHEET. */
     r.setVals = []; r.setW = [];
-    for(var si=0; si < (v.sets || 1); si++){ r.setVals.push(null); r.setW.push(null); }
+    for(var si=0; si < (v.sets || 1); si++){ r.setVals.push(null); r.setW.push(r.planW); }
   }
-  w.placeholder = parsed ? '' : 'calibrate';
   sheetSetBoxes(i);
 
   var machBtn = document.getElementById('shmach-'+i);
@@ -6748,10 +6929,8 @@ function sheetSetBoxes(i){
   var wrap = document.getElementById('shsets-'+i);
   if(!r || !wrap) return;
   var ends = repRangeEnds(r.opts[r.sel].variant.reps);
-  var mainW = document.getElementById('shw-'+i);
   var unitSel = document.getElementById('shu-'+i);
-  var target = mainW ? mainW.value : '';
-  while(r.setW.length < r.setVals.length) r.setW.push(null);
+  while(r.setW.length < r.setVals.length) r.setW.push(r.planW);
   r.setW.length = r.setVals.length;
   wrap.innerHTML = '';
   r.setVals.forEach(function(v, si){
@@ -6771,9 +6950,9 @@ function sheetSetBoxes(i){
       sheetSetSummary(i);
     };
     col.appendChild(inp);
-    /* Assumed at the target, so a session at one weight needs nothing typed
-       here. Change one and it stops following the weight above and is marked,
-       so a set done heavier or lighter is visible before it is saved. */
+    /* Starts at the plan's weight, so a session at one weight needs nothing
+       typed here. One changed from it is marked, so a set done heavier or
+       lighter is visible before it is saved. */
     var wi = document.createElement('input');
     wi.type = 'number';
     wi.step = '0.5';
@@ -6781,17 +6960,15 @@ function sheetSetBoxes(i){
     wi.className = 'sh-setw';
     wi.setAttribute('aria-label', 'Set ' + (si+1) + ' weight');
     wi.placeholder = unitSel ? unitSel.value : 'kg';
-    var own = r.setW[si];
-    wi.value = (own === null || own === undefined) ? target : own;
-    if(own !== null && own !== undefined) wi.classList.add('own');
+    var sw = r.setW[si];
+    wi.value = (sw === null || sw === undefined) ? '' : sw;
+    function markOwn(){ wi.classList.toggle('own', r.setW[si] !== null && r.planW !== null && r.setW[si] !== r.planW); }
+    markOwn();
     wi.oninput = function(){
       var n = parseFloat(wi.value);
-      var t = parseFloat(mainW ? mainW.value : '');
-      /* Cleared, or typed back to the target: following again. */
-      r.setW[si] = (wi.value === '' || isNaN(n) || n === t) ? null : n;
-      wi.classList.toggle('own', r.setW[si] !== null);
+      r.setW[si] = isNaN(n) ? null : n;
+      markOwn();
     };
-    wi.onblur = function(){ if(r.setW[si] === null) wi.value = mainW ? mainW.value : ''; };
     col.appendChild(wi);
     wrap.appendChild(col);
   });
@@ -6801,7 +6978,7 @@ function sheetSetBoxes(i){
   /* A set added after a change of weight is most likely at the new weight. */
   add.onclick = function(){
     r.setVals.push(null);
-    r.setW.push(r.setW.length ? r.setW[r.setW.length-1] : null);
+    r.setW.push(r.setW.length ? r.setW[r.setW.length-1] : r.planW);
     sheetSetBoxes(i);
   };
   wrap.appendChild(add);
@@ -6861,44 +7038,62 @@ async function saveSheetRow(i, opts){
     if(!opts.quiet){ flashSheetRow(i, 'Put the ' + ru.noun + ' in, set by set.'); toast('Put the ' + ru.noun + ' in first', 'warn'); }
     return false;
   }
-  /* Each set's weight, kept in step with the reps that survive summarising —
-     an empty rep box drops its weight with it. */
-  var target = parseFloat(document.getElementById('shw-'+i).value) || 0;
-  /* No weight in the box above, but some typed set by set: the heaviest of
-     those is the session's weight, and any set left blank was done at it. */
-  if(!target){
-    var typed = r.setW.filter(function(w, si){ return w !== null && w !== undefined && parseInt(r.setVals[si],10) > 0; });
-    if(typed.length) target = Math.max.apply(null, typed);
-  }
-  var setW = [];
-  r.setVals.forEach(function(v, si){
-    if(!(parseInt(v,10) > 0)) return;
-    var sw = r.setW[si];
-    setW.push((sw === null || sw === undefined) ? target : sw);
+  var entry = liftEntryFrom(SHEET.date, variantExerciseName(r.opts[r.sel], r.ex), r.setVals, r.setW,
+                            document.getElementById('shu-'+i).value, ru.unit);
+  storeLiftEntry(entry);
+  if(!opts.defer){ await commitSheet(i); toast('Saved ' + entry.exercise); }
+  return true;
+}
+/* One session as the log holds it, from boxes laid out set by set — the sheet's
+   and the Today card's alike. A set with no reps is not a set, and its weight
+   goes with it. Null when nothing is left. */
+function liftEntryFrom(date, exName, setVals, setW, unit, repUnit){
+  var reps = [], ws = [];
+  (setVals || []).forEach(function(v, si){
+    var n = parseInt(v, 10);
+    if(!(n > 0)) return;
+    reps.push(n);
+    var w = parseFloat(setW ? setW[si] : null);
+    ws.push(isNaN(w) ? null : w);
   });
-  /* Every set moved to the same new weight: that is the weight, not a variation
-     on the one the box above was showing. */
-  var weight = setW.length && setW.every(function(w){ return w === setW[0]; }) ? setW[0] : target;
+  if(!reps.length) return null;
+  /* A set with no weight in it was done at the session's weight. */
+  var weight = workingWeightOf(ws.filter(function(w){ return w !== null; }));
+  ws = ws.map(function(w){ return w === null ? weight : w; });
   var entry = {
-    date: SHEET.date,
-    exercise: variantExerciseName(r.opts[r.sel], r.ex),
+    date: date,
+    exercise: exName,
     weight: weight,
     /* reps and sets are the summary the rest of the app reads; setReps is what
        actually happened. See the note above setRepsOf. */
-    reps: s.reps,
-    sets: s.sets,
-    setReps: s.setReps
+    reps: Math.min.apply(null, reps),
+    sets: reps.length,
+    setReps: reps
   };
-  if(setW.some(function(w){ return w !== weight; })) entry.setWeights = setW;
-  if(document.getElementById('shu-'+i).value === 'lb') entry.unit = 'lb';
+  if(ws.some(function(w){ return w !== weight; })) entry.setWeights = ws;
+  if(unit === 'lb') entry.unit = 'lb';
   /* Only stamped when it is not plain reps, so existing entries stay valid
      unchanged — the same convention as the weight unit above. */
-  if(ru.unit) entry.repUnit = ru.unit;
+  if(repUnit) entry.repUnit = repUnit;
+  return entry;
+}
+/* The session's working weight, which is what the next target is built from:
+   the weight most sets were done at, the heavier of a tie. A lighter first set
+   or a drop at the end is a variation on it, not it. */
+function workingWeightOf(ws){
+  if(!ws.length) return 0;
+  var count = {}, best = null;
+  ws.forEach(function(w){ count[w] = (count[w] || 0) + 1; });
+  ws.forEach(function(w){
+    if(best === null || count[w] > count[best] || (count[w] === count[best] && w > best)) best = w;
+  });
+  return best;
+}
+/* Saving replaces any entry already held for that date and exercise. */
+function storeLiftEntry(entry){
   liftLog = liftLog.filter(function(x){ return !(x.date===entry.date && x.exercise===entry.exercise); });
   liftLog.push(entry);
   liftLog.sort(function(a,b){ return a.date.localeCompare(b.date); });
-  if(!opts.defer){ await commitSheet(i); toast('Saved ' + entry.exercise); }
-  return true;
 }
 async function commitSheet(i){
   await saveArr('lift-log', liftLog);

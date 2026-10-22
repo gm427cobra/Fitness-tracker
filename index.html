@@ -259,6 +259,16 @@
      two machines apart, and a thumbnail you cannot read defeats the point. */
   .picker-list .mach-thumb{width:50px;height:50px;cursor:zoom-in;}
   .mach-row .tick{flex:none;color:var(--blue);font-size:14px;}
+  /* The rest of the gym, one fold per muscle group. */
+  .mgrp{border-top:1px solid var(--line);}
+  .mgrp > summary{list-style:none;display:flex;align-items:baseline;gap:8px;padding:11px 4px;cursor:pointer;
+    font-size:13px;font-weight:600;color:var(--ink);}
+  .mgrp > summary::-webkit-details-marker{display:none;}
+  .mgrp > summary::before{content:'▸';color:var(--ink-dim);font-size:11px;width:10px;}
+  .mgrp[open] > summary::before{content:'▾';}
+  .mgrp > summary .n{font-family:var(--f-mono);font-size:11px;color:var(--ink-dim);font-weight:400;}
+  .mgrp > summary .same{margin-left:auto;font-size:10.5px;font-weight:400;color:var(--green);}
+  .mgrp .mach-row{padding-left:14px;}
   .mach-cam{flex:none;border:1px solid var(--line);border-radius:6px;background:none;color:var(--ink-dim);
     font-size:9px;letter-spacing:.04em;text-transform:uppercase;padding:6px 7px;cursor:pointer;
     font-family:var(--f-body);}
@@ -1271,7 +1281,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-10-22-3';
+var BUILD = '2026-10-22-4';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -5667,6 +5677,71 @@ function equipMuscles(e){
   return (e.muscles||'').split(/[;,]/).map(function(m){ return m.trim().toLowerCase(); })
          .filter(function(m){ return m; });
 }
+/* The inventory's muscle tags are free text, so they are read into a dozen
+   groups a gym is actually laid out by. A tag can land in more than one —
+   "upper back; rear delts" is Back and Shoulders — and so can a machine. */
+var MUSCLE_GROUPS = [
+  {g:'Chest',           re:/chest|\bpecs?\b|pectoral/},
+  {g:'Back',            re:/\blats?\b|latissimus|back|rhomboid|\btraps?\b|trapezius|teres|erector/},
+  {g:'Shoulders',       re:/delt|shoulder|rotator|infraspinatus|supraspinatus/},
+  {g:'Biceps',          re:/bicep|brachialis|brachioradialis|elbow flex/},
+  {g:'Triceps',         re:/tricep|elbow ext/},
+  {g:'Forearms & grip', re:/forearm|grip|wrist/},
+  {g:'Quads',           re:/quad|knee ext/},
+  {g:'Hamstrings',      re:/hamstring|knee flex/},
+  {g:'Glutes',          re:/glute|hip ext/},
+  {g:'Hips',            re:/adductor|abductor|hip flex|hip abd|hip add|inner thigh|outer thigh/},
+  {g:'Calves',          re:/\bcalf|calves|gastroc|soleus|plantar/},
+  {g:'Core',            re:/\babs?\b|abdominal|core|oblique|anti-?rotation|anti-?lateral|trunk|rectus/}
+];
+var MUSCLE_NONE = 'No muscles tagged';
+function muscleGroupsOf(eq){
+  var out = [];
+  equipMuscles(eq).forEach(function(t){
+    MUSCLE_GROUPS.forEach(function(m){ if(m.re.test(t) && out.indexOf(m.g) === -1) out.push(m.g); });
+  });
+  return out;
+}
+/* What an exercise works, for when its machines carry no tags of their own:
+   read off the movement's name. Leg curls are not biceps. */
+var EXERCISE_GROUP_HINTS = [
+  [/leg curl|hamstring|nordic|rdl|romanian/, 'Hamstrings'],
+  [/leg ext|leg press|squat|hack|lunge/, 'Quads'],
+  [/hip thrust|glute|bridge|kickback|split squat|leg press/, 'Glutes'],
+  [/calf/, 'Calves'],
+  [/chest|bench|\bfly|pec|incline press|decline|dip/, 'Chest'],
+  [/pulldown|\brow\b|pull-?up|chin-?up|\blat\b/, 'Back'],
+  [/rear delt|lateral raise|face pull|shoulder|external rotation|overhead press|military/, 'Shoulders'],
+  [/(^|[^g] )curl|^curl|preacher/, 'Biceps', /leg curl/],
+  [/pushdown|tricep|skull|kickback/, 'Triceps', /glute|hip/],
+  [/crunch|pallof|plank|\babs?\b|carry|farmer|hold|rotation|woodchop/, 'Core', /external rotation/]
+];
+function exerciseNameGroups(name){
+  var n = String(name || '').toLowerCase(), out = [];
+  EXERCISE_GROUP_HINTS.forEach(function(h){
+    if(h[0].test(n) && !(h[2] && h[2].test(n)) && out.indexOf(h[1]) === -1) out.push(h[1]);
+  });
+  return out;
+}
+/* The groups a picker's exercise works: whatever its own machines are tagged
+   with, else what its name says. */
+function exerciseMuscleGroups(r){
+  var out = [];
+  (r.opts || []).forEach(function(o){
+    var eq = o.eqName ? findEquipment(o.eqName) : null;
+    if(eq) muscleGroupsOf(eq).forEach(function(g){ if(out.indexOf(g) === -1) out.push(g); });
+  });
+  if(!out.length && r.ex) out = exerciseNameGroups(r.ex.name);
+  return out;
+}
+/* This exercise's groups first, in its own order — a hip thrust is glutes
+   before hamstrings — then the rest in gym order, untagged last. */
+function muscleGroupOrder(first){
+  var all = MUSCLE_GROUPS.map(function(m){ return m.g; });
+  return first.filter(function(g){ return all.indexOf(g) !== -1; })
+            .concat(all.filter(function(g){ return first.indexOf(g) === -1; }))
+            .concat([MUSCLE_NONE]);
+}
 function findEquipment(name){
   var n = String(name||'').trim().toLowerCase();
   return equipLog.filter(function(e){ return (e.name||'').trim().toLowerCase() === n; })[0];
@@ -7053,30 +7128,58 @@ function renderMachinePicker(){
   }
 
   /* Everything else you own. The inventory is the point of this list: the plan
-     names three machines and the gym has forty-four. */
+     names three machines and the gym has forty-four — so it is folded by the
+     muscle each machine trains, and a machine that trains three things is in
+     all three folds. The folds this exercise works open first, which is where
+     an alternative is. Searching opens every fold with a match in it, and a
+     muscle's name finds its whole fold. */
   var listed = {};
   r.opts.forEach(function(o){ if(o.eqName) listed[o.eqName] = 1; });
-  var rest = equipLog.filter(function(eq){ return !listed[eq.name] && matches(eq.name); })
+  var rest = equipLog.filter(function(eq){ return !listed[eq.name]; })
                      .sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
-  if(rest.length){
+  var same = exerciseMuscleGroups(r);
+  var folds = [], restShown = 0, seenEq = {};
+  muscleGroupOrder(same).forEach(function(g){
+    var eqs = rest.filter(function(eq){
+      var gs = muscleGroupsOf(eq);
+      var inG = g === MUSCLE_NONE ? !gs.length : gs.indexOf(g) !== -1;
+      return inG && (matches(g) || matches(eq.name + ' ' + (eq.muscles || '')));
+    });
+    if(!eqs.length) return;
+    eqs.forEach(function(eq){ if(!seenEq[eq.name]){ seenEq[eq.name] = 1; restShown++; } });
+    folds.push({g:g, eqs:eqs});
+  });
+  if(folds.length){
     var h2 = document.createElement('div');
     h2.className = 'picker-sec';
-    h2.textContent = 'Everything else in the gym (' + rest.length + ')';
+    h2.textContent = 'Everything else in the gym (' + restShown + ') — by muscle';
     list.appendChild(h2);
-    rest.forEach(function(eq){
-      addRow(list, {
-        name: eq.name,
-        eqName: eq.name,
-        photoKey: equipPhotoKey(eq.name),
-        src: exPhotoUrl(equipPhotoKey(eq.name)),
-        sub: eq.muscles || '',
-        selected: false,
-        onPick: function(){ chooseMachine(r, addInventoryOption(r, eq)); }
+    folds.forEach(function(f){
+      var det = document.createElement('details');
+      det.className = 'mgrp';
+      if(q || same.indexOf(f.g) !== -1) det.open = true;
+      var sm = document.createElement('summary');
+      sm.innerHTML = '<span></span><span class="n"></span>' +
+                     (same.indexOf(f.g) !== -1 ? '<span class="same">same muscles</span>' : '');
+      sm.children[0].textContent = f.g;
+      sm.children[1].textContent = f.eqs.length;
+      det.appendChild(sm);
+      f.eqs.forEach(function(eq){
+        addRow(det, {
+          name: eq.name,
+          eqName: eq.name,
+          photoKey: equipPhotoKey(eq.name),
+          src: exPhotoUrl(equipPhotoKey(eq.name)),
+          sub: eq.muscles || '',
+          selected: false,
+          onPick: function(){ chooseMachine(r, addInventoryOption(r, eq)); }
+        });
       });
+      list.appendChild(det);
     });
   }
   /* Counted rather than read off the list, which now always holds the hero. */
-  if(!suggested.length && !rest.length){
+  if(!suggested.length && !folds.length){
     var none = document.createElement('div');
     none.className = 'empty';
     none.textContent = equipLog.length ? 'No machine matches that.'

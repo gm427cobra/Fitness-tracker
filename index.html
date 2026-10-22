@@ -533,6 +533,21 @@
   td.hist-type{font-family:var(--f-body);font-size:11px;color:var(--ink-dim);}
   td .hist-sub{display:block;font-family:var(--f-body);font-size:10.5px;color:var(--ink-dim);margin-top:1px;}
   .hist-count{font-size:11px;color:var(--ink-dim);}
+  /* The machine a lift was done on, under its name — and the tap that sets it. */
+  button.hist-mach{display:block;background:none;border:none;padding:2px 0 0;margin:0;cursor:pointer;
+    font-family:var(--f-body);font-size:10.5px;color:var(--ink-dim);text-align:left;text-decoration:underline dotted;}
+  button.hist-mach.guess{color:var(--amber);}
+  button.hist-mach.none{color:var(--blue);}
+  .mach-fill{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--ink-dim);}
+  .mach-fill b{color:var(--ink);}
+  .mach-fill .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+  .mach-fill label{display:flex;gap:10px;align-items:flex-start;padding:8px 0;margin:0;border-top:1px solid var(--line);
+    cursor:pointer;font-size:12px;text-transform:none;letter-spacing:normal;}
+  .mach-fill label:first-of-type{margin-top:6px;}
+  .mach-fill label input{width:18px;height:18px;margin:1px 0 0;padding:0;flex:none;}
+  .mach-fill .g-nm{color:var(--ink);}
+  .mach-fill .g-why{display:block;font-size:10.5px;margin-top:1px;}
+  .mach-fill .g-why.check{color:var(--amber);}
   /* Food carries six columns, which is more than a phone fits — let the wide
      types scroll sideways rather than wrapping every date onto two lines. */
   .hist-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
@@ -990,6 +1005,7 @@ steps | 8400"></textarea>
       </select>
     </div>
     <div class="filter-bar" id="histFilterBar" style="display:none"></div>
+    <div id="liftMachStrip"></div>
     <div class="hist-scroll"><table class="log-tbl" id="histTable"><thead></thead><tbody></tbody></table></div>
     <div id="histFoot" style="margin-top:10px"></div>
   </div>
@@ -1255,7 +1271,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-10-22-1';
+var BUILD = '2026-10-22-2';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -4790,12 +4806,16 @@ function logMachineOf(v){
   var eq = equipmentEntriesFor(v)[0];
   return eq ? eq.name : (v.machine || null);
 }
-/* The plan writes "Prime", the inventory "Prone Leg Curl — Prime": one machine
-   under two names, so compare them through the inventory as well. */
+/* The plan writes "Iso-Lateral Horizontal Bench Press, Hammer Strength", the
+   inventory "Iso-Lateral Horizontal Bench Press": one machine under two names,
+   so compare them through the inventory as well. Never with the brackets
+   stripped, as findEquipmentLoose does — "(white)" and "(black)" are the whole
+   difference between two leg presses. */
+function machineByName(n){ return findEquipment(n) || looseNameHit(normEquipName(n)); }
 function sameMachine(a, b){
   if(!a || !b) return !a && !b;
   if(normEquipName(a) === normEquipName(b)) return true;
-  var ea = findEquipmentLoose(a), eb = findEquipmentLoose(b);
+  var ea = machineByName(a), eb = machineByName(b);
   return !!(ea && eb && ea === eb);
 }
 /* What gets written on an entry, from the option it was logged against. */
@@ -5670,9 +5690,17 @@ function findEquipmentLoose(name){
   var exact = findEquipment(name);
   if(exact) return exact;
   /* Full name first, qualifier-stripped second — see narrowByMachine. */
-  return looseNameHit(normEquipName(name)) ||
-         looseNameHit(normEquipName(stripQualifiers(name))) ||
-         tokenNameHit(name);
+  var hit = looseNameHit(normEquipName(name)) ||
+            looseNameHit(normEquipName(stripQualifiers(name))) ||
+            tokenNameHit(name);
+  /* Stripping the bracket is for an attachment note the inventory does not
+     carry. Where both sides have one and they differ, it is the other machine:
+     "Cybex (black)" is not "Cybex (white)" with a note on it. */
+  if(hit && bracketsOf(name) && bracketsOf(hit.name) && bracketsOf(name) !== bracketsOf(hit.name)) return null;
+  return hit;
+}
+function bracketsOf(s){
+  return (String(s||'').match(/\([^)]*\)/g) || []).map(normEquipName).join(' ');
 }
 /* Containment needs the words in the same order, and the plan and the shop
    floor do not agree on that: the plan says "Lat Pulldown, silver frame
@@ -5776,7 +5804,12 @@ function narrowByMachine(list, machine){
      stripping it first would throw away the answer being looked for. */
   var bare = normEquipName(stripQualifiers(machine));
   if(bare.length < 4 || bare === full) return list;
-  var loose = list.filter(function(eq){ return normEquipName(eq.name).indexOf(bare) !== -1; });
+  /* Not where the inventory's own bracket says a different one, though. */
+  var want = bracketsOf(machine);
+  var loose = list.filter(function(eq){
+    var have = bracketsOf(eq.name);
+    return normEquipName(eq.name).indexOf(bare) !== -1 && !(have && have !== want);
+  });
   return loose.length ? loose : list;
 }
 function buildEquipmentExport(){
@@ -6981,11 +7014,16 @@ function renderMachinePicker(){
         eqName: o.eqName,
         photoKey: machinePhotoKey(o, r.ex),
         src: machinePhotoFor(o, r.ex),
-        meta: (v.sets||'?') + ' × ' + (v.reps||'?') + ' @ ' + (v.weight || 'calibrate'),
+        /* From History the question is only where a past session was done, so
+           the prescription would be noise — except on the session's own row. */
+        meta: r.history && o.kind !== 'current' ? '' :
+              (v.sets||'?') + ' × ' + (v.reps||'?') + ' @ ' + (v.weight || 'calibrate'),
         /* "No photo" and "no such machine" look identical otherwise, and they
            call for completely different things — take a picture, or correct a
            name the plan made up. */
-        sub: o.kind === 'inventory' ? 'From your inventory — calibrate it'
+        sub: r.history ? (o.kind === 'current' ? 'What this session says now'
+                        : o.kind === 'inventory' ? 'From your inventory' : 'In the plan for this exercise') :
+             o.kind === 'inventory' ? 'From your inventory — calibrate it'
            : (o.kind === 'plan' ? 'What the plan prescribes'
               : o.exName ? 'Planned alternate movement — logged and loaded in its own right'
               : 'Planned alternate — its own weights') +
@@ -7290,11 +7328,243 @@ function convertLift(v, from, to){
    names its own movement is an exercise in its own right, and the manual form
    has to be able to find it. Written as a delta against its primary, so it
    inherits anything it does not restate. */
+/* ================= MACHINES FOR OLDER SESSIONS =================
+   Sessions logged before entries were stamped say what was lifted but not on
+   what. Most of them can be worked out: an alternate's machine is in the name
+   it was logged under, and a plain name was the plan's machine — for sessions
+   since the program changeover, at least. Before that, and across the moves
+   the plan records, it is a guess, so those are offered unticked.
+
+   A worked-out machine is marked machineSource:'inferred' and reads as
+   "probably" on History until it is set by hand, and undoing the backfill
+   removes exactly those marks and nothing else. */
+
+/* Moves the plan records by date, and the machine each exercise left. The
+   rear delt fly passed through more than one frame before the cable station,
+   which is why it is never ticked by default. */
+var PREVIOUS_MACHINES = [
+  {movement:'Leg Press',     before:'2026-09-15', machine:'Leg Press — Cybex (white)', sure:true},
+  {movement:'Rear Delt Fly', before:'2026-09-11', machine:'Adjustable Cable Station, Cybex', sure:false,
+   note:'it was on more than one machine before then — check'}
+];
+/* Every name the current program logs under, and the option behind it. The
+   plan's own machine wins a name it shares with an alternate movement. */
+function liftKeyIndex(){
+  var idx = {};
+  var fromIdx = Math.max(0, dayIndexFromDate(PLAN.programChangeover || PLAN.programStart));
+  var seen = {};
+  (PLAN.weekPlan||[]).forEach(function(week, w){
+    (week||[]).forEach(function(k, d){
+      if(!k || seen[k] || w*7 + d < fromIdx) return;
+      seen[k] = 1;
+      var tpl = PLAN.templates[k];
+      if(!tpl) return;
+      (tpl.ex || []).concat(bonusList(tpl)).forEach(function(e){
+        sheetMachineOptions(e).forEach(function(o){
+          var key = variantExerciseName(o, e);
+          if(!idx[key] || (o.kind === 'plan' && idx[key].opt.kind !== 'plan')) idx[key] = {opt:o, e:e};
+        });
+      });
+    });
+  });
+  return idx;
+}
+function optMachine(o){ return o.eqName || (o.variant && o.variant.machine) || null; }
+/* The plan's machine as the inventory names it — but only where the inventory
+   plainly names that machine. The Today card will settle for the one machine
+   whose "Used for" claims the exercise; a guess about the past should not. */
+function planMachineName(o, e){
+  var direct = e.machine ? findEquipmentLoose(e.machine) : null;
+  if(direct) return direct.name;
+  var bare = normEquipName(stripQualifiers(e.machine));
+  if(o.eqName && bare && normEquipName(o.eqName).indexOf(bare) !== -1) return o.eqName;
+  return e.machine || o.eqName || null;
+}
+/* What an unstamped entry was most likely done on, or null where nothing says. */
+function inferLiftMachine(entry, idx){
+  var since = PLAN.programChangeover || PLAN.programStart || '';
+  var current = !since || entry.date >= since;
+  var hit = idx[entry.exercise];
+  if(hit){
+    var o = hit.opt, e = hit.e, move = displayExerciseName(o, e);
+    if(o.kind === 'plan'){
+      var prev = PREVIOUS_MACHINES.filter(function(p){ return p.movement === e.name && entry.date < p.before; })[0];
+      if(prev){
+        /* Named as the picker would name it, so it lands on that option. */
+        var po = sheetMachineOptions(e).filter(function(x){ return sameMachine(optMachine(x), prev.machine); })[0];
+        var peq = findEquipmentLoose(prev.machine);
+        return {movement: move, machine: po ? optMachine(po) : (peq ? peq.name : prev.machine),
+                photo: po ? machinePhotoKey(po, e) : (peq ? equipPhotoKey(peq.name) : null),
+                sure: prev.sure && current,
+                why: 'before the move on ' + fmtDate(prev.before) +
+                     (prev.note ? '; ' + prev.note
+                      : current ? '' : ', and before the program changed on ' + fmtDate(since) + ' — check')};
+      }
+      if(e.historyFrom && entry.date < e.historyFrom) return null;
+    }
+    var m = o.kind === 'plan' ? planMachineName(o, e) : optMachine(o);
+    if(!m) return null;
+    return {movement: move, machine: m, photo: machinePhotoKey(o, e),
+            sure: o.kind !== 'plan' || current,
+            why: o.kind !== 'plan' ? 'logged under that machine'
+               : current ? 'the plan’s machine since ' + fmtDate(since)
+               : 'from before ' + fmtDate(since) + ' — the plan may have used another machine'};
+  }
+  /* "<exercise> — <machine>", from a machine picked out of the whole gym. */
+  var cut = entry.exercise.indexOf(' — ');
+  if(cut > 0){
+    var mv = entry.exercise.slice(0, cut), mn = entry.exercise.slice(cut + 3);
+    var eq = findEquipmentLoose(mn);
+    if(eq || plannedExerciseNames().indexOf(mv) !== -1){
+      return {movement: mv, machine: eq ? eq.name : mn, photo: eq ? equipPhotoKey(eq.name) : null,
+              sure: true, why: 'logged under that machine'};
+    }
+  }
+  return null;
+}
+/* Unstamped entries grouped by what they would be tagged as. */
+function machineBackfillPlan(){
+  var idx = liftKeyIndex(), groups = {}, order = [], unknown = 0;
+  liftLog.forEach(function(entry, i){
+    if(entry.movement) return;
+    var g = inferLiftMachine(entry, idx);
+    if(!g){ unknown++; return; }
+    var key = g.movement + '|' + g.machine + '|' + g.sure + '|' + g.why;
+    if(!groups[key]){ groups[key] = {g:g, items:[], on:g.sure}; order.push(key); }
+    groups[key].items.push(i);
+  });
+  return {groups: order.map(function(k){ return groups[k]; }), unknown: unknown};
+}
+var MACH_FILL = null;     /* the preview, while it is open */
+function renderLiftMachStrip(){
+  var el = document.getElementById('liftMachStrip');
+  if(!el) return;
+  if(histFilter.type !== 'all' && histFilter.type !== 'lift'){ el.innerHTML = ''; return; }
+  var untagged = liftLog.filter(function(e){ return !e.movement; }).length;
+  var guessed = liftLog.filter(function(e){ return e.machineSource === 'inferred'; }).length;
+  var html = '';
+  if(MACH_FILL){
+    var n = 0;
+    html += '<div class="mach-fill"><b>Fill in machines</b> — tick what to tag. Nothing is saved until you press the button.';
+    MACH_FILL.groups.forEach(function(gr, gi){
+      if(gr.on) n += gr.items.length;
+      var dates = gr.items.map(function(i){ return liftLog[i].date; }).sort();
+      html += '<label><input type="checkbox"' + (gr.on ? ' checked' : '') + ' onchange="toggleMachFill(' + gi + ', this.checked)">' +
+              '<span><span class="g-nm">' + histEsc(gr.g.movement) + ' · ' + histEsc(gr.g.machine) + '</span> — ' +
+              gr.items.length + ' session' + (gr.items.length === 1 ? '' : 's') + ', ' + fmtDateShort(dates[0]) +
+              (dates.length > 1 ? '–' + fmtDateShort(dates[dates.length-1]) : '') +
+              '<span class="g-why' + (gr.g.sure ? '' : ' check') + '">' + histEsc(gr.g.why) + '</span></span></label>';
+    });
+    if(!MACH_FILL.groups.length) html += '<div style="margin-top:6px">Nothing here can be worked out from the plan.</div>';
+    if(MACH_FILL.unknown) html += '<div style="margin-top:6px">' + MACH_FILL.unknown + ' session' + (MACH_FILL.unknown === 1 ? '' : 's') +
+      ' can’t be worked out — set those with <i>Set machine</i> on the row.</div>';
+    html += '<div class="acts"><button class="btn" onclick="applyMachFill()"' + (n ? '' : ' disabled') + '>Tag ' + n + ' session' + (n === 1 ? '' : 's') + '</button>' +
+            '<button class="btn ghost" onclick="MACH_FILL=null;renderHistory()">Cancel</button></div></div>';
+  } else if(untagged){
+    html += '<div class="mach-fill">' + untagged + ' lift session' + (untagged === 1 ? ' doesn’t' : 's don’t') +
+            ' say which machine ' + (untagged === 1 ? 'it was' : 'they were') + ' done on.' +
+            '<div class="acts"><button class="btn ghost" onclick="openMachFill()">Work them out</button></div></div>';
+  }
+  if(guessed && !MACH_FILL){
+    html += '<div class="mach-fill">' + guessed + ' machine' + (guessed === 1 ? ' was' : 's were') +
+            ' filled in automatically and show as <span style="color:var(--amber)">probably</span> until you set them.' +
+            '<div class="acts"><button class="btn ghost" onclick="undoMachFill()">Undo those</button></div></div>';
+  }
+  el.innerHTML = html;
+}
+function openMachFill(){ MACH_FILL = machineBackfillPlan(); renderHistory(); }
+function toggleMachFill(gi, on){ if(MACH_FILL && MACH_FILL.groups[gi]){ MACH_FILL.groups[gi].on = on; renderLiftMachStrip(); } }
+async function afterMachineChange(){
+  await saveArr('lift-log', liftLog);
+  renderHistory(); populateLiftChartSelect(); refreshProgress(); renderToday();
+}
+async function applyMachFill(){
+  if(!MACH_FILL) return;
+  /* The log as it was, once, before anything was first filled in. */
+  try{
+    var kept = await loadArr('lift-log-before-machines');
+    if(!kept || !kept.length) await saveArr('lift-log-before-machines', JSON.parse(JSON.stringify(liftLog)));
+  }catch(e){ console.error('backup of the lift log failed', e); toast('Could not keep a copy first — nothing changed', 'warn'); return; }
+  var n = 0;
+  MACH_FILL.groups.forEach(function(gr){
+    if(!gr.on) return;
+    gr.items.forEach(function(i){
+      var entry = liftLog[i];
+      if(!entry || entry.movement) return;
+      entry.movement = gr.g.movement;
+      entry.machine = gr.g.machine;
+      if(gr.g.photo) entry.photo = gr.g.photo;
+      entry.machineSource = 'inferred';
+      n++;
+    });
+  });
+  MACH_FILL = null;
+  await afterMachineChange();
+  toast('Tagged ' + n + ' session' + (n === 1 ? '' : 's'));
+}
+async function undoMachFill(){
+  var n = 0;
+  liftLog.forEach(function(e){
+    if(e.machineSource !== 'inferred') return;
+    delete e.movement; delete e.machine; delete e.photo; delete e.machineSource;
+    n++;
+  });
+  await afterMachineChange();
+  toast('Removed ' + n + ' automatic tag' + (n === 1 ? '' : 's'));
+}
+/* Set one entry's machine by hand, from the same picker the Today card uses.
+   Only the machine changes: the movement and the name it was logged under stay,
+   so nothing moves between exercises behind your back. */
+function tagLiftMachine(i){
+  var entry = liftLog[i];
+  if(!entry) return;
+  var idx = liftKeyIndex();
+  var guess = entry.movement ? null : inferLiftMachine(entry, idx);
+  var movement = entry.movement || (guess && guess.movement) || entry.exercise;
+  var hit = idx[entry.exercise];
+  var e = hit ? hit.e : null;
+  if(!e){
+    var named = plannedEntryFor(movement);
+    e = named ? named : {name: movement, sets: entry.sets, reps: entry.reps};
+  }
+  var ex = e.name === movement ? e : {name: movement, machine: null, sets: e.sets, reps: e.reps};
+  var opts = sheetMachineOptions(e).filter(function(o){
+    return displayExerciseName(o, e) === movement && optMachine(o);
+  });
+  var have = entry.machine || (guess && guess.machine) || null;
+  var sel = -1;
+  opts.forEach(function(o, oi){ if(sel < 0 && have && sameMachine(have, optMachine(o))) sel = oi; });
+  if(sel < 0){
+    /* The session as it stands, so the picker opens on something. */
+    var heq = have ? findEquipmentLoose(have) : null;
+    opts.unshift({label: have || 'No machine set', kind:'current', eqName: heq ? heq.name : null,
+                  variant:{name: movement, machine: have, sets: entry.sets, reps: entry.reps,
+                           weight: entry.weight ? entry.weight + liftUnitOf(entry) : null}});
+    sel = 0;
+  }
+  openMachinePicker({ex: ex, opts: opts, sel: sel, history: true, onChange: async function(){
+    var o = this.opts[this.sel];
+    /* Picking what it already says confirms a guess; there is nothing to set otherwise. */
+    if(o.kind === 'current' && !optMachine(o)) return;
+    entry.movement = movement;
+    entry.machine = optMachine(o);
+    var key = machinePhotoKey(o, ex);
+    if(key) entry.photo = key; else delete entry.photo;
+    delete entry.machineSource;
+    await afterMachineChange();
+    toast(entry.machine ? 'Set to ' + machineDisplayName(o) : 'Machine cleared');
+  }});
+}
 /* A stamped entry reads as the movement, with the machine it was done on
-   under it; an older one as the name it was logged under. */
-function histLiftName(e){
-  if(!e.movement) return histEsc(e.exercise);
-  return histEsc(e.movement) + (e.machine ? '<span class="hist-sub">' + histEsc(e.machine) + '</span>' : '');
+   under it; an older one as the name it was logged under. The machine line is
+   the button that sets it: amber while it is only the backfill's guess. */
+function histLiftName(r){
+  var e = r.e;
+  var b = '<button class="hist-mach' + (!e.movement ? ' none' : (e.machineSource === 'inferred' ? ' guess' : '')) +
+          '" onclick="tagLiftMachine(' + r.i + ')">';
+  if(!e.movement) return '<span class="name">' + histEsc(e.exercise) + '</span>' + b + 'Set machine</button>';
+  return '<span class="name">' + histEsc(e.movement) + '</span>' + b +
+         (e.machineSource === 'inferred' ? 'probably ' : '') + histEsc(e.machine || 'no machine') + '</button>';
 }
 function plannedEntryFor(name){
   for(var k in PLAN.templates){
@@ -7515,14 +7785,11 @@ var HIST_DEFS = {
     head:['Date','Exercise','Kg','Reps',''],
     cells:function(r){
       return ['<td>'+fmtDate(r.e.date)+'</td>',
-              '<td class="name">'+histLiftName(r.e)+'</td>',
+              '<td class="name">'+histLiftName(r)+'</td>',
               '<td>'+r.e.weight+' '+liftUnitOf(r.e)+'</td>',
               '<td>'+histEsc(hasMixedWeights(r.e) ? liftLabel(r.e) : repsLabel(r.e))+'</td>'];
     },
-    what:function(r){
-      return '<span class="name">'+histEsc(r.e.movement || r.e.exercise)+'</span>' +
-             (r.e.movement && r.e.machine ? '<span class="hist-sub">'+histEsc(r.e.machine)+'</span>' : '');
-    },
+    what:function(r){ return histLiftName(r); },
     val:function(r){ return r.e.weight+' '+liftUnitOf(r.e)+'<span class="hist-sub">'+histEsc(hasMixedWeights(r.e) ? liftLabel(r.e) : repsLabel(r.e))+'</span>'; },
     del:function(r){ return 'deleteLift('+r.i+')'; }
   },
@@ -7596,6 +7863,7 @@ function renderHistoryScrollTop(){
 function renderHistory(){
   var table = document.getElementById('histTable');
   if(!table) return;
+  renderLiftMachStrip();
   var sel = document.getElementById('histType');
   if(sel && sel.value !== histFilter.type) sel.value = histFilter.type;
 

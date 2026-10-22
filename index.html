@@ -1271,7 +1271,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-10-22-2';
+var BUILD = '2026-10-22-3';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -6490,6 +6490,22 @@ var SHEET = {date:null, rows:[]};
    claims the movement. Each option carries a full prescription, because a
    different machine is a different exercise — that is why swapping one changes
    the sets, reps and weight alongside it rather than just relabelling the row. */
+/* The inventory machine an alternate names, found by that machine alone. An
+   alternate that is only another machine shares the primary's movement, so
+   looking it up by the movement — its name, or what the inventory says each
+   machine is used for — finds the primary's machine instead: that is how the
+   Multi Hip came to be shown, and logged, as the Gluteator. */
+function altMachineEntry(movement, machine){
+  if(!machine) return null;
+  var eq = findEquipmentLoose(machine);
+  if(eq) return eq;
+  var bare = normEquipName(stripQualifiers(machine));
+  if(bare.length < 4) return null;
+  var hits = equipmentByUse(movement).filter(function(x){
+    return normEquipName(x.name).indexOf(bare) !== -1;
+  });
+  return hits.length === 1 ? hits[0] : null;
+}
 function sheetMachineOptions(e){
   var planEq = equipmentEntriesFor(e)[0];
   var opts = [{label: e.machine || 'As planned', variant: e, kind:'plan',
@@ -6508,7 +6524,8 @@ function sheetMachineOptions(e){
        names it instead, or the picker would offer "Dumbbell or kettlebell"
        twice and the two would be indistinguishable. */
     var altName = a.name || e.name;
-    var altEq = equipmentEntriesFor({name: altName, machine: a.machine})[0];
+    var altEq = a.name ? equipmentEntriesFor({name: altName, machine: a.machine})[0]
+                       : altMachineEntry(altName, a.machine);
     opts.push(ownHistory({label: a.name || a.machine, kind:'alt', exName: a.name || null,
                           eqName: altEq ? altEq.name : null, variant:{
       name: altName, machine: a.machine,
@@ -7511,6 +7528,26 @@ async function undoMachFill(){
   });
   await afterMachineChange();
   toast('Removed ' + n + ' automatic tag' + (n === 1 ? '' : 's'));
+}
+/* Entries logged on a machine alternate were stamped with the machine the
+   option resolved to, and until altMachineEntry that could be the primary's.
+   The name such an entry is logged under says which alternate it was, so the
+   machine can be put right from it. Anything else is left as it is. */
+function repairAltMachineStamps(){
+  if(!liftLog.some(function(e){ return e.movement; })) return false;
+  var idx = liftKeyIndex(), changed = false;
+  liftLog.forEach(function(entry){
+    if(!entry.movement) return;
+    var hit = idx[entry.exercise];
+    if(!hit || hit.opt.kind !== 'alt' || hit.opt.exName) return;
+    var m = optMachine(hit.opt);
+    if(!m || sameMachine(entry.machine, m)) return;
+    entry.machine = m;
+    var key = machinePhotoKey(hit.opt, hit.e);
+    if(key) entry.photo = key; else delete entry.photo;
+    changed = true;
+  });
+  return changed;
 }
 /* Set one entry's machine by hand, from the same picker the Today card uses.
    Only the machine changes: the movement and the name it was logged under stay,
@@ -10010,6 +10047,8 @@ async function startApp(){
   equipLog = await loadArr('equipment-log');
   dayStatusLog = await loadArr('day-status');
   exPhotos = await loadExercisePhotos();
+  try{ if(repairAltMachineStamps()) await saveArr('lift-log', liftLog); }
+  catch(e){ console.error('machine repair failed', e); }
 
   var warn = document.getElementById('storageWarning');
   if(STORAGE_MODE==='firebase'){

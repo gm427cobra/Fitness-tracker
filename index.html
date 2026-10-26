@@ -1281,7 +1281,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-10-26-1';
+var BUILD = '2026-10-26-2';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -5986,6 +5986,32 @@ function downloadEquipment(){
   downloadBlob('my-gym-equipment-'+todayStr()+'.txt', buildEquipmentExport());
   document.getElementById('equipMsg').textContent = 'Saved — attach it to a chat with Claude.';
 }
+/* Machines in use that the inventory was never sent, added to it once. Each
+   is remembered by name once seeded, so deleting one on the Equipment tab
+   keeps it deleted, and one already there by that name is left as it is.
+   "Used for" stays empty on purpose: the plan's alternate finds the machine by
+   its name, and claiming Leg Press would have the plain Leg Press row — the
+   45° sled — take this machine as its own wherever it is the only one that
+   claims it. */
+var SEED_EQUIPMENT = [
+  {name:'Leg Press — Avenger (white, plate-loaded)', muscles:'quads; glutes; hamstrings',
+   exercises:'', unit:'kg',
+   notes:'Seated plate-loaded leg press, white frame, next to the Body Masters. Loads differently from the 45° sled and the Cybex stack — its own number.'}
+];
+async function seedEquipmentForward(){
+  /* Signed in but the account never answered: the list in hand is not the
+     real inventory, so leave it for a load that reaches the server. */
+  if(currentUser && db && !CLOUD_READY) return;
+  var done = await loadArr('equipment-seeded');
+  var added = false, marked = false;
+  SEED_EQUIPMENT.forEach(function(s){
+    if(done.indexOf(s.name) !== -1) return;
+    done.push(s.name); marked = true;
+    if(!findEquipment(s.name)){ equipLog.push(JSON.parse(JSON.stringify(s))); added = true; }
+  });
+  if(added) await saveArr('equipment-log', equipLog);
+  if(marked) await saveArr('equipment-seeded', done);
+}
 async function addEquipment(){
   var name = document.getElementById('equipName').value.trim();
   if(!name){ document.getElementById('equipMsg').textContent = 'Give the machine a name first.'; toast('Give the machine a name first', 'warn'); return; }
@@ -10155,6 +10181,8 @@ async function startApp(){
   foodLog = await loadArr('food-log');
   stepLog = await loadArr('step-log');
   equipLog = await loadArr('equipment-log');
+  try{ await seedEquipmentForward(); }
+  catch(e){ console.error('equipment seed failed', e); }
   dayStatusLog = await loadArr('day-status');
   exPhotos = await loadExercisePhotos();
   try{ if(repairAltMachineStamps()) await saveArr('lift-log', liftLog); }

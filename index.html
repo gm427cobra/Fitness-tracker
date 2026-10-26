@@ -1281,7 +1281,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-10-22-4';
+var BUILD = '2026-10-26-1';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -2058,7 +2058,7 @@ var DEFAULT_PLAN = {
              {machine:'Leg Press — Cybex (black)', sets:5, reps:'10–12', weight:null, rir:'1–2',
               tempo:'3-1-1', rest:'2–3 min',
               note:'The other plate-loaded sled. Loads differently again — its own number.'},
-             {machine:'Leg Press — Avenger (white, plate-loaded)', sets:5, reps:'10–12', weight:null, rir:'1–2',
+             {machine:'Leg Press — Avenger (white, plate-loaded)', carry:true, sets:5, reps:'10–12', weight:null, rir:'1–2',
               tempo:'3-1-1', rest:'2–3 min',
               note:'The white seated press next to the Body Masters. Plate-loaded with its own leverage, so it gets its own number and is not compared with the sleds or the Cybex stack.'}]},
       {name:'Leg Extension', machine:'Prime', sets:3, reps:'10–12', weight:'130kg', rir:'1–2',
@@ -2513,7 +2513,9 @@ var PLAN_IDENTITY_KEYS = {planVersion:1, plannedBreaks:1};
    Nothing the stored plan holds is touched: not its sets, reps, weights or
    notes, and not an alternate it already carries. Machine alternates are left
    out on purpose — which machines a gym has is the stored plan's business, not
-   the app's. */
+   the app's — unless the default plan marks one carry:true, which is how a
+   machine you are already using but the plan never named reaches a plan that
+   was saved before it was added. Matched by machine, so it is added once. */
 function mergeAlternatesForward(plan){
   if(!plan || !plan.templates || !DEFAULT_PLAN.templates) return 0;
   var added = 0;
@@ -2526,8 +2528,10 @@ function mergeAlternatesForward(plan){
       for(var i=0; i<st.ex.length; i++){ if(st.ex[i].name === de.name){ se = st.ex[i]; break; } }
       if(!se) return;
       de.alts.forEach(function(da){
-        if(!da.name) return;                       /* movements only — see above */
-        var have = (se.alts||[]).some(function(sa){ return sa.name === da.name; });
+        if(!da.name && !da.carry) return;          /* movements only — see above */
+        var have = (se.alts||[]).some(function(sa){
+          return da.name ? sa.name === da.name : !sa.name && sa.machine === da.machine;
+        });
         if(have) return;
         (se.alts = se.alts || []).push(JSON.parse(JSON.stringify(da)));
         added++;

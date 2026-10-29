@@ -1281,7 +1281,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-10-29-2';
+var BUILD = '2026-10-29-3';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -7698,6 +7698,60 @@ function repairAltMachineStamps(){
   });
   return changed;
 }
+/* History logged under the plan's machine that was really done on another,
+   moved across once per account. The entries take the alternate's logged name
+   as well as its machine, because that name is the history a target is worked
+   out from — relabelling the machine alone would leave the Nautilus numbers
+   setting the Gluteator's. Only entries up to `upTo` move, so anything logged
+   on the primary afterwards stays put, and each keeps where it came from in
+   movedFrom. The whole log is copied first, as the backfill does. */
+var HISTORY_MOVES = [
+  {id:'hip-thrust-to-nautilus', exercise:'Hip Thrust', machine:'Hip Thrust — Nautilus', upTo:'2026-10-29'}
+];
+async function moveLiftHistory(){
+  if(currentUser && db && !CLOUD_READY) return;   /* not the real log — see seedEquipmentForward */
+  var done = await loadArr('history-moves');
+  var todo = HISTORY_MOVES.filter(function(m){ return done.indexOf(m.id) === -1; });
+  if(!todo.length) return;
+  var n = 0, backedUp = false;
+  for(var t = 0; t < todo.length; t++){
+    var mv = todo[t];
+    /* Whichever session's Hip Thrust offers the machine — an older template
+       of the same name may not. */
+    var e = null, o = null;
+    Object.keys(PLAN.templates || {}).forEach(function(k){
+      ((PLAN.templates[k] || {}).ex || []).forEach(function(x){
+        if(o || x.name !== mv.exercise) return;
+        o = sheetMachineOptions(x).filter(function(op){
+          return op.kind === 'alt' && !op.exName && sameMachine(op.variant.machine, mv.machine);
+        })[0] || null;
+        if(o) e = x;
+      });
+    });
+    if(!o) continue;                     /* not in this plan yet — try again next load */
+    var hits = liftLog.filter(function(en){
+      return en.exercise === mv.exercise && en.date <= mv.upTo;
+    });
+    if(hits.length && !backedUp){
+      await saveArr('lift-log-before-' + mv.id, JSON.parse(JSON.stringify(liftLog)));
+      backedUp = true;
+    }
+    hits.forEach(function(en){
+      en.movedFrom = {exercise: en.exercise, machine: en.machine || null, machineSource: en.machineSource || null};
+      en.exercise = o.variant.name;
+      en.movement = displayExerciseName(o, e);
+      en.machine = optMachine(o);
+      var key = machinePhotoKey(o, e);
+      if(key) en.photo = key; else delete en.photo;
+      delete en.machineSource;
+      n++;
+    });
+    done.push(mv.id);
+  }
+  if(n) await saveArr('lift-log', liftLog);
+  if(done.length > HISTORY_MOVES.length - todo.length) await saveArr('history-moves', done);
+  if(n) toast('Moved ' + n + ' session' + (n === 1 ? '' : 's') + ' to the Nautilus');
+}
 /* Set one entry's machine by hand, from the same picker the Today card uses.
    Only the machine changes: the movement and the name it was logged under stay,
    so nothing moves between exercises behind your back. */
@@ -10200,6 +10254,8 @@ async function startApp(){
   exPhotos = await loadExercisePhotos();
   try{ if(repairAltMachineStamps()) await saveArr('lift-log', liftLog); }
   catch(e){ console.error('machine repair failed', e); }
+  try{ await moveLiftHistory(); }
+  catch(e){ console.error('history move failed', e); }
 
   var warn = document.getElementById('storageWarning');
   if(STORAGE_MODE==='firebase'){

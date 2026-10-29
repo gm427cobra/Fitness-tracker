@@ -1281,7 +1281,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-10-26-2';
+var BUILD = '2026-10-29-1';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -2138,7 +2138,9 @@ var DEFAULT_PLAN = {
        rir:'1–2', tempo:'2-1-1', rest:'2 min',
        note:'Purpose-built station, switching primary here. RECALIBRATE — your 105kg was set on a different setup, so start around 70% of it and work up. Squeeze glutes hard at the top.',
        alts:[{machine:'Multi Hip, Booty Builder', sets:5, reps:'8–10', weight:null, perSide:true, rir:'1–2', tempo:'2-1-1', rest:'2 min',
-              note:'Unilateral station.'}]},
+              note:'Unilateral station.'},
+             {machine:'Hip Thrust — Nautilus', carry:true, sets:5, reps:'8–10', weight:null, rir:'1–2', tempo:'2-1-1', rest:'2 min',
+              note:'Loads differently from the Gluteator — its own number, calibrated on first use.'}]},
       {name:'Kneeling Leg Curl', machine:'Hammer Strength MTS', sets:4, reps:'10–12', weight:'60kg',
        cap:'75kg', perSide:true, rir:'1–2', tempo:'2-1-2', rest:'90s',
        note:'Only kneeling curl in the gym — if busy, add a Prone Leg Curl set from Monday instead.'},
@@ -5996,7 +5998,9 @@ function downloadEquipment(){
 var SEED_EQUIPMENT = [
   {name:'Leg Press — Avenger (white, plate-loaded)', muscles:'quads; glutes; hamstrings',
    exercises:'', unit:'kg',
-   notes:'Seated plate-loaded leg press, white frame, next to the Body Masters. Loads differently from the 45° sled and the Cybex stack — its own number.'}
+   notes:'Seated plate-loaded leg press, white frame, next to the Body Masters. Loads differently from the 45° sled and the Cybex stack — its own number.'},
+  {name:'Hip Thrust — Nautilus', muscles:'glutes; hamstrings', exercises:'', unit:'kg',
+   notes:'Nautilus hip thrust machine. Loads differently from the Gluteator — its own number.'}
 ];
 async function seedEquipmentForward(){
   /* Signed in but the account never answered: the list in hand is not the

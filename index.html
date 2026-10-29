@@ -1281,7 +1281,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-10-29-1';
+var BUILD = '2026-10-29-2';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -2521,22 +2521,31 @@ var PLAN_IDENTITY_KEYS = {planVersion:1, plannedBreaks:1};
 function mergeAlternatesForward(plan){
   if(!plan || !plan.templates || !DEFAULT_PLAN.templates) return 0;
   var added = 0;
+  function addTo(se, da){
+    var have = (se.alts||[]).some(function(sa){
+      return da.name ? sa.name === da.name : !sa.name && sa.machine === da.machine;
+    });
+    if(have) return;
+    (se.alts = se.alts || []).push(JSON.parse(JSON.stringify(da)));
+    added++;
+  }
   Object.keys(DEFAULT_PLAN.templates).forEach(function(k){
     var dt = DEFAULT_PLAN.templates[k], st = plan.templates[k];
-    if(!dt || !st || !dt.ex || !st.ex || dt === st) return;
+    if(!dt || !dt.ex || dt === st) return;
     dt.ex.forEach(function(de){
-      if(!de.alts || !de.alts.length) return;
-      var se = null;
-      for(var i=0; i<st.ex.length; i++){ if(st.ex[i].name === de.name){ se = st.ex[i]; break; } }
-      if(!se) return;
-      de.alts.forEach(function(da){
-        if(!da.name && !da.carry) return;          /* movements only — see above */
-        var have = (se.alts||[]).some(function(sa){
-          return da.name ? sa.name === da.name : !sa.name && sa.machine === da.machine;
-        });
-        if(have) return;
-        (se.alts = se.alts || []).push(JSON.parse(JSON.stringify(da)));
-        added++;
+      (de.alts||[]).forEach(function(da){
+        if(da.name){                                /* movements: same template only */
+          if(!st || !st.ex) return;
+          st.ex.forEach(function(se){ if(se.name === de.name) addTo(se, da); });
+        } else if(da.carry){
+          /* A machine is a machine whichever session it turns up in — and a plan
+             saved under an older program keeps its own template keys, so the
+             Hip Thrust there may not live in "lowerB" at all. */
+          Object.keys(plan.templates).forEach(function(sk){
+            var t = plan.templates[sk];
+            if(t && t !== dt && t.ex) t.ex.forEach(function(se){ if(se.name === de.name) addTo(se, da); });
+          });
+        }
       });
     });
   });

@@ -1281,7 +1281,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-11-09-1';
+var BUILD = '2026-11-10-1';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -6079,7 +6079,9 @@ var SEED_EQUIPMENT = [
   {name:'Hip Thrust — Nautilus', muscles:'glutes; hamstrings', exercises:'', unit:'kg',
    notes:'Nautilus hip thrust machine. Loads differently from the Gluteator — its own number.'},
   {name:'Chest-Supported Row — Savage (plate-loaded)', muscles:'lats; upper back; rear delts; biceps', exercises:'', unit:'kg',
-   notes:'Savage plate-loaded supported row, black frame. Chest pad and seat height adjust by pin; two independent arms run on twin guide rods with yellow bottom springs, so each side can work alone. Loads differently from the Cybex Eagle NX stack — its own number.'}
+   notes:'Savage plate-loaded supported row, black frame. Chest pad and seat height adjust by pin; two independent arms run on twin guide rods with yellow bottom springs, so each side can work alone. Loads differently from the Cybex Eagle NX stack — its own number.'},
+  {name:'Seated Dip — Hammer Strength (plate-loaded)', muscles:'triceps; lower chest; front delts', exercises:'', unit:'kg',
+   notes:'Hammer Strength plate-loaded seated dip, grey frame. Sit with your back to the pad and press the handles down to the sides; plates load on horns at the back. Mostly triceps, with lower chest and front delt. The bottom of a dip stretches the front of the shoulder, so start light and stop short of any pinch. Its own number — not comparable to a cable pushdown.'}
 ];
 async function seedEquipmentForward(){
   /* Signed in but the account never answered: the list in hand is not the

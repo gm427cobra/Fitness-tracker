@@ -1281,7 +1281,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-11-10-2';
+var BUILD = '2026-11-12-1';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -3596,7 +3596,10 @@ function setMachinePick(date, exName, label){
    wider inventory is not among the built options, so it is added back. */
 function initialMachineSel(opts, e, date){
   var picked = getMachinePick(date, e.name);
-  if(picked){
+  if(picked && typeof picked === 'object'){
+    var at = crossOptionIndex(opts, picked.as, picked.label);
+    if(at >= 0) return at;
+  } else if(picked){
     for(var i=0;i<opts.length;i++){ if(opts[i].label === picked) return i; }
     var eq = findEquipment(picked);
     if(eq) return addInventoryOption({ex:e, opts:opts}, eq);
@@ -3608,8 +3611,10 @@ function initialMachineSel(opts, e, date){
 }
 /* A swap on one view is carried to the other straight away. The sheet row is
    updated in place rather than rebuilt, so what is typed in other rows stays. */
-function syncMachineChange(date, e, label, from){
-  setMachinePick(date, e.name, label);
+function syncMachineChange(date, e, opt, from){
+  /* An exercise planned on that machine is stored with its name: its label
+     alone ("Adjustable Cable Station, Cybex") is shared by half the program. */
+  setMachinePick(date, e.name, opt.asEx ? {label: opt.label, as: opt.asEx.name} : opt.label);
   if(from !== 'today' && date === todayStr()) renderToday();
   if(from !== 'sheet' && SHEET.date === date){
     SHEET.rows.forEach(function(r, i){
@@ -4094,7 +4099,7 @@ function buildLiftRow(e, interactive){
     if(!ctx || ctx.ex !== e){
       ctx = TODAY_CTX[e.name] = {ex:e, opts:sheetMachineOptions(e), sel:0, onChange:function(){
         /* The pick is stored first: the render below reads it back. */
-        syncMachineChange(todayStr(), e, ctx.opts[ctx.sel].label, 'today');
+        syncMachineChange(todayStr(), e, ctx.opts[ctx.sel], 'today');
         renderToday();
       }};
     }
@@ -6763,14 +6768,17 @@ function sheetMachineOptions(e){
    on its own line right under it. Only an alternate that is a different
    movement renames the row, because there it really is a different exercise. */
 function displayExerciseName(opt, e){
-  return (opt && opt.exName) || (e && e.name) || '';
+  return (opt && (opt.exName || (opt.asEx && opt.asEx.name))) || (e && e.name) || '';
 }
 function variantExerciseName(opt, e){
   /* A movement of its own is logged under its own name rather than as
      "<primary> — <label>": it is not a variant of the primary, and reading its
      history as one would have a walk set the working weight of a static hold. */
   if(opt && opt.exName) return opt.exName;
-  return opt.kind === 'plan' ? e.name : e.name + ' — ' + opt.label;
+  /* An option borrowed from another exercise is logged exactly as that
+     exercise's own row would log it, so it shares that history. */
+  var base = (opt && opt.asEx) || e;
+  return opt.kind === 'plan' ? base.name : base.name + ' — ' + opt.label;
 }
 function sheetTemplateFor(dateStr){
   var idx = dayIndexFromDate(dateStr);
@@ -6864,7 +6872,7 @@ function buildSheetRow(e, i, date){
                    onChange: function(){
                      var r = SHEET.rows[i];
                      fillSheetRow(i, SHEET.date);
-                     syncMachineChange(SHEET.date, e, r.opts[r.sel].label, 'sheet');
+                     syncMachineChange(SHEET.date, e, r.opts[r.sel], 'sheet');
                    }});
 
   var head = document.createElement('div');
@@ -6995,7 +7003,8 @@ function fillSheetRow(i, date){
     /* Same point either way — this is its own ladder — but say which it is, or a
        walked carry is explained as a machine that loads differently. */
     bits.push('<span style="color:var(--amber)">Logged as “' + histEsc(exName) + '”</span> — its own ' +
-              (r.opts[r.sel].exName ? 'movement' : 'machine') + ', so its own history.');
+              (r.opts[r.sel].asEx ? 'the exercise planned on this machine'
+               : r.opts[r.sel].exName ? 'its own movement' : 'its own machine') + ', so its own history.');
   }
   if(v.perSide) bits.push('Log the weight per side.');
   var last = t.last;
@@ -7061,11 +7070,13 @@ function machineExtraWording(opt){
    not in the inventory, where the primary's name would be the wrong exercise. */
 function machinePhotoKey(opt, ex){
   if(!opt) return null;
+  ex = opt.asEx || ex;
   if(opt.exName) return opt.exName;
   if(opt.eqName) return equipPhotoKey(opt.eqName);
   return (opt.kind === 'plan' && ex && ex.name) ? ex.name : null;
 }
 function machinePhotoFor(opt, ex){
+  ex = (opt && opt.asEx) || ex;
   /* Its own movement first: a suitcase carry and a farmer's hold are the same
      two dumbbells and not the same picture, so a photo taken against the carry
      has to beat the one on the rack it shares. */
@@ -7255,6 +7266,12 @@ function renderMachinePicker(){
      muscle's name finds its whole fold. */
   var listed = {};
   r.opts.forEach(function(o){ if(o.eqName) listed[o.eqName] = 1; });
+  /* A machine the program already uses for something else is that exercise,
+     not this one on the wrong machine: the rear delt fly on the leg press is
+     a combination nobody does, and logging it would start an empty history
+     next to the real one. So it is offered as the exercise planned there.
+     Not from History, where the question is only where a session was done. */
+  var planned = r.history ? {} : plannedOptionsByMachine(r);
   var rest = equipLog.filter(function(eq){ return !listed[eq.name]; })
                      .sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
   var same = exerciseMuscleGroups(r);
@@ -7263,7 +7280,8 @@ function renderMachinePicker(){
     var eqs = rest.filter(function(eq){
       var gs = muscleGroupsOf(eq);
       var inG = g === MUSCLE_NONE ? !gs.length : gs.indexOf(g) !== -1;
-      return inG && (matches(g) || matches(eq.name + ' ' + (eq.muscles || '')));
+      return inG && (matches(g) || matches(eq.name + ' ' + (eq.muscles || '') + ' ' +
+                     (planned[eq.name] || []).map(function(o){ return displayExerciseName(o); }).join(' ')));
     });
     if(!eqs.length) return;
     eqs.forEach(function(eq){ if(!seenEq[eq.name]){ seenEq[eq.name] = 1; restShown++; } });
@@ -7285,6 +7303,23 @@ function renderMachinePicker(){
       sm.children[1].textContent = f.eqs.length;
       det.appendChild(sm);
       f.eqs.forEach(function(eq){
+        var there = planned[eq.name] || [];
+        if(there.length){
+          there.forEach(function(o){
+            var v = o.variant;
+            addRow(det, {
+              name: displayExerciseName(o),
+              eqName: eq.name,
+              photoKey: equipPhotoKey(eq.name),
+              src: exPhotoUrl(equipPhotoKey(eq.name)),
+              meta: (v.sets||'?') + ' × ' + (v.reps||'?') + ' @ ' + (v.weight || 'calibrate') + ' · ' + eq.name,
+              sub: 'Planned on this machine — switches to that exercise and its history',
+              selected: false,
+              onPick: function(){ chooseMachine(r, addCrossOption(r, o)); }
+            });
+          });
+          return;
+        }
         addRow(det, {
           name: eq.name,
           eqName: eq.name,
@@ -7306,6 +7341,63 @@ function renderMachinePicker(){
                                        : 'No machines in your inventory yet — add them on the Equipment tab.';
     list.appendChild(none);
   }
+}
+/* Every exercise in the program, each once: the sessions still to come first,
+   so a name the old split also used is read as it is prescribed now. */
+function programExercises(){
+  var out = [], seen = {};
+  function add(e){ if(e && e.name && !seen[e.name]){ seen[e.name] = 1; out.push(e); } }
+  var keys = liftingTemplateKeysAhead();
+  Object.keys(PLAN.templates || {}).forEach(function(k){ if(keys.indexOf(k) === -1) keys.push(k); });
+  keys.forEach(function(k){
+    var t = PLAN.templates[k];
+    if(!t) return;
+    (t.ex || []).forEach(add);
+    bonusList(t).forEach(add);
+  });
+  return out;
+}
+/* Machine -> the other exercises the program does on it, as the options their
+   own rows build, so a pick logs and loads exactly as that row would. Leaves
+   out anything this row is already (its own movement or its named alternates). */
+function plannedOptionsByMachine(r){
+  var mine = {};
+  r.opts.forEach(function(o){ mine[displayExerciseName(o, r.ex)] = 1; });
+  var map = {}, seen = {};
+  programExercises().forEach(function(e){
+    sheetMachineOptions(e).forEach(function(o){
+      if(!o.eqName) return;
+      o.asEx = e;
+      var move = displayExerciseName(o, e);
+      var k = o.eqName + '\u0001' + move;
+      if(mine[move] || seen[k]) return;
+      seen[k] = 1;
+      (map[o.eqName] = map[o.eqName] || []).push(o);
+    });
+  });
+  return map;
+}
+function addCrossOption(r, o){
+  for(var i=0;i<r.opts.length;i++){
+    var x = r.opts[i];
+    if(x.asEx && x.asEx.name === o.asEx.name && x.label === o.label) return i;
+  }
+  r.opts.push(o);
+  return r.opts.length - 1;
+}
+/* A stored pick of another exercise's option, found again — on this row's
+   options, else rebuilt from that exercise. -1 when it is gone from the plan. */
+function crossOptionIndex(opts, exName, label){
+  for(var i=0;i<opts.length;i++){
+    if(opts[i].asEx && opts[i].asEx.name === exName && opts[i].label === label) return i;
+  }
+  var src = programExercises().filter(function(x){ return x.name === exName; })[0];
+  if(!src) return -1;
+  var o = sheetMachineOptions(src).filter(function(x){ return x.label === label; })[0];
+  if(!o) return -1;
+  o.asEx = src;
+  opts.push(o);
+  return opts.length - 1;
 }
 /* A machine the plan never mentioned becomes a real option on this row, with no
    weight: nothing has been calibrated on it, and carrying a number across from

@@ -1281,7 +1281,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-11-13-3';
+var BUILD = '2026-11-13-4';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -5824,7 +5824,7 @@ var EXERCISE_GROUP_HINTS = [
   [/leg ext|leg press|squat|hack|lunge/, 'Quads'],
   [/hip thrust|glute|bridge|kickback|split squat|leg press/, 'Glutes'],
   [/calf/, 'Calves'],
-  [/chest|bench|\bfly|pec|incline press|decline|dip/, 'Chest'],
+  [/chest|bench|\bfly|pec|incline press|decline/, 'Chest'],
   [/pulldown|\brow\b|pull-?up|chin-?up|\blat\b/, 'Back'],
   [/rear delt|lateral raise|face pull|shoulder|external rotation|overhead press|military/, 'Shoulders'],
   [/(^|[^g] )curl|^curl|preacher/, 'Biceps', /leg curl/],
@@ -6109,8 +6109,8 @@ var SEED_EQUIPMENT = [
    notes:'Nautilus hip thrust machine. Loads differently from the Gluteator — its own number.'},
   {name:'Chest-Supported Row — Savage (plate-loaded)', muscles:'lats; upper back; rear delts; biceps', exercises:'', unit:'kg',
    notes:'Savage plate-loaded supported row, black frame. Chest pad and seat height adjust by pin; two independent arms run on twin guide rods with yellow bottom springs, so each side can work alone. Loads differently from the Cybex Eagle NX stack — its own number.'},
-  {name:'Seated Dip — Hammer Strength (plate-loaded)', muscles:'triceps; lower chest; front delts', exercises:'', unit:'kg',
-   notes:'Hammer Strength plate-loaded seated dip, grey frame. Sit with your back to the pad and press the handles down to the sides; plates load on horns at the back. Mostly triceps, with lower chest and front delt. The bottom of a dip stretches the front of the shoulder, so start light and stop short of any pinch. Its own number — not comparable to a cable pushdown.'}
+  {name:'Seated Dip — Hammer Strength (plate-loaded)', muscles:'triceps', exercises:'', unit:'kg',
+   notes:'Hammer Strength plate-loaded seated dip, grey frame. Sit with your back to the pad and press the handles down to the sides; plates load on horns at the back. A triceps machine: elbows tucked keeps it on the triceps, with a little lower chest and front delt along for the ride. The bottom of a dip stretches the front of the shoulder, so start light and stop short of any pinch. Its own number — not comparable to a cable pushdown.'}
 ];
 async function seedEquipmentForward(){
   /* Signed in but the account never answered: the list in hand is not the
@@ -6125,6 +6125,28 @@ async function seedEquipmentForward(){
   });
   if(added) await saveArr('equipment-log', equipLog);
   if(marked) await saveArr('equipment-seeded', done);
+  await retagEquipmentForward();
+}
+/* Muscle tags revised after a machine was seeded. The tags decide which folds
+   of the machine picker a machine sits in, so the seated dip, first tagged
+   triceps, lower chest and front delts, showed up under Chest and Shoulders as
+   well as Triceps. Applied once per machine, and only while the entry still
+   carries the tags it was seeded with: muscles you typed yourself are yours. */
+var EQUIP_RETAGS = [
+  {name:'Seated Dip — Hammer Strength (plate-loaded)', from:'triceps; lower chest; front delts', to:'triceps'}
+];
+async function retagEquipmentForward(){
+  var done = await loadArr('equipment-retagged');
+  var changed = false, marked = false;
+  EQUIP_RETAGS.forEach(function(r){
+    var id = r.name + ' → ' + r.to;
+    if(done.indexOf(id) !== -1) return;
+    done.push(id); marked = true;
+    var eq = findEquipment(r.name);
+    if(eq && String(eq.muscles||'').trim().toLowerCase() === r.from){ eq.muscles = r.to; changed = true; }
+  });
+  if(changed) await saveArr('equipment-log', equipLog);
+  if(marked) await saveArr('equipment-retagged', done);
 }
 async function addEquipment(){
   var name = document.getElementById('equipName').value.trim();

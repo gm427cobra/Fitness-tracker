@@ -1281,7 +1281,7 @@ steps | 8400"></textarea>
    head are widely ignored for the document itself, so instead the running page
    asks the server what the current build is and reloads past the cache when it
    has fallen behind. Bump BUILD on every deploy. */
-var BUILD = '2026-11-23-1';
+var BUILD = '2026-11-26-1';
 
 function applyUpdate(){
   var base = location.origin + location.pathname;
@@ -2660,6 +2660,34 @@ function mergeBonusForward(plan){
   });
   return added;
 }
+/* A bonus you picked is a copy of an exercise taken the day you picked it, and
+   the plan moves on underneath it: Friday's lateral raise went from the cable
+   station to dumbbells, the Rear Delt Fly's alternates changed, the RIR moved.
+   A stale copy still names the old machine, so it looks for history as that
+   exercise on that machine and finds none — the history stops following. So
+   each picked bonus is brought back into line with the exercise as the plan
+   writes it now, matched by name. One no longer in the plan is left alone. */
+function refreshPickedBonuses(plan){
+  if(!plan || !plan.templates) return 0;
+  var lib = null, changed = 0;
+  Object.keys(plan.templates).forEach(function(k){
+    var t = plan.templates[k];
+    if(!t || !t.bonusMine || !Array.isArray(t.bonus) || !t.bonus.length) return;
+    if(!lib){
+      lib = {};
+      bonusLibrary(plan, false).forEach(function(it){ lib[it.ex.name] = it.ex; });
+    }
+    t.bonus = t.bonus.map(function(e){
+      var live = e && lib[e.name];
+      if(!live) return e;
+      var fresh = JSON.stringify(live);
+      if(fresh === JSON.stringify(e)) return e;
+      changed++;
+      return JSON.parse(fresh);
+    });
+  });
+  return changed;
+}
 /* The projection is the other thing that has to travel to a stored plan on its
    own. mergeWithDefaults() only ever fills in top-level keys that are missing
    altogether, and every stored plan already carries a weightProjection — so a
@@ -2780,6 +2808,7 @@ function mergeWithDefaults(stored){
   for(var k2 in stored){ if(merged[k2]===undefined) merged[k2]=stored[k2]; }
   if(mergeAlternatesForward(merged)) missing = true;
   if(mergeBonusForward(merged)) missing = true;
+  if(refreshPickedBonuses(merged)) missing = true;
   if(mergeProjectionForward(merged)) missing = true;
   if(mergeBreaksForward(merged)) missing = true;
   return {plan:merged, patched:missing};
@@ -3925,12 +3954,13 @@ function renderBonusBlock(tpl, containerEl, allowUpload, tkey){
    numbers carry both ways. Today's own exercises are left out; doing one twice
    is adding sets, not a bonus. */
 var BONUS_PICK = {tkey:null};
-function liftingTemplateKeysAhead(){
+function liftingTemplateKeysAhead(plan){
+  plan = plan || PLAN;
   var keys = [], seen = {};
   var wk = Math.max(0, Math.floor(dayIndexFromDate(todayStr()) / 7));
-  (PLAN.weekPlan || []).slice(wk).forEach(function(row){
+  (plan.weekPlan || []).slice(wk).forEach(function(row){
     (row || []).forEach(function(k){
-      var t = PLAN.templates[k];
+      var t = plan.templates[k];
       if(!seen[k] && t && t.ex && t.ex.length){ seen[k] = 1; keys.push(k); }
     });
   });
@@ -3939,15 +3969,18 @@ function liftingTemplateKeysAhead(){
 function bonusHalf(tkey){
   return stretchRoutineKey(PLAN.templates[tkey], 'prep', tkey) || '';
 }
-function bonusLibrary(){
+/* own false leaves out the bonuses the plan already holds, for refreshing them:
+   a stored bonus must not be found as itself. */
+function bonusLibrary(plan, own){
+  plan = plan || PLAN;
   var out = [], seen = {};
   function add(e, k){
     if(!e || !e.name || seen[e.name]) return;
     seen[e.name] = 1;
     out.push({ex:e, from:k});
   }
-  liftingTemplateKeysAhead().forEach(function(k){
-    var t = PLAN.templates[k];
+  liftingTemplateKeysAhead(plan).forEach(function(k){
+    var t = plan.templates[k];
     t.ex.forEach(function(e){
       add(e, k);
       (e.alts||[]).forEach(function(a){
@@ -3960,7 +3993,7 @@ function bonusLibrary(){
              rest: a.rest || e.rest, note: a.note}, k);
       });
     });
-    bonusList(t).forEach(function(e){ add(e, k); });
+    if(own !== false) bonusList(t).forEach(function(e){ add(e, k); });
   });
   var dt = DEFAULT_PLAN.templates || {};
   Object.keys(dt).forEach(function(k){ bonusList(dt[k]).forEach(function(e){ add(e, k); }); });
